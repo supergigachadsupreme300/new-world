@@ -1735,17 +1735,17 @@ public sealed class NewWorldTestGround : MonoBehaviour
             // forever while the live spells drew a cone and a ground circle. That is 1f7's exact
             // failure (a visual that exists only inside a live cast has no acceptance readout), and
             // these mount the SAME builders the runtime uses rather than a proxy that could drift:
-            // SpellBeam.BuildFunnelVisual for the swept wedge's funnel body (1is), and SpellSummon's
+            // SpellBeamModelBuilder.BuildFunnelVisual for the swept wedge's funnel body (1is), and SpellSummon's
             // own circle below.
             else if (SpellBeam.ConeFullAngleDegrees(spell) > 0f)
             {
-                // 1is: mounts SpellBeam.BuildFunnelVisual — the Great Tornado silhouette in
+                // 1is: mounts SpellBeamModelBuilder.BuildFunnelVisual — the Great Tornado silhouette in
                 // yellow/orange — which is what the live beam now draws. This bench MUST mount the
                 // real builder rather than a proxy: 1ij's lesson is that a visual living only inside
                 // a live cast has no acceptance readout, and a proxy cone here would have gone on
                 // reporting the OLD ray fan as correct forever after the funnel replaced it.
                 var funnelLook = SpellLook.Resolve(spell);
-                SpellBeam.BuildFunnelVisual(modelRoot.transform,
+                SpellBeamModelBuilder.BuildFunnelVisual(modelRoot.transform,
                     spell.Range,                                  // deliveryRange = beam length
                     spell.Radius * SpellBeam.ConeMouthFraction,  // mouth = a fraction of the tip
                     spell.Radius,                                 // tip = deliveryRadius

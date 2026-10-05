@@ -15,7 +15,8 @@ staged at the bottom, smallest-blast-radius first, and each one is separately co
 
 | Folder | `.cs` | What is actually in it |
 |---|---:|---|
-| `Models/` | 7 | `BossModelBuilder`, `EnemyModelBuilder`, `GoblinModelBuilder`, `HorseModelBuilder`, `ItemBuilder`, `PlayerPartMesher`, `WeaponModelBuilder` |
+| `Models/` | 8 | `BossModelBuilder`, `EnemyModelBuilder`, `GoblinModelBuilder`, `HorseModelBuilder`, `ItemBuilder`, `PlayerPartMesher`, `WeaponModelBuilder`, `WeaponProjectileModelBuilder` (1jd) |
+| `Models/Magic/` | 11 | the named magic MODELS — 3 from 1ja/1jb, **8 more from 1jd** (beam, zone, storm, summon, skill FX, casting circle, AoE preview, CC ring). `Magic/README.md` is the index. |
 | `Models/MapBuilder/` | 10 | 10 partials of one class - **moved in 1jc** to `Legacy/MapBuilder/` (old-game content, read-only: AGENTS.md rule 18) — **and it is not "models"** (see §2.1) |
 | `Animation/` | 3 | `PlayerAnimator`, `WeaponAnimator`, `WeaponStowAnimator` |
 | `Player/` | 32 | 6 `PlayerController` partials + `Races/` (9 files) + rest |
@@ -29,7 +30,7 @@ WeaponRigBuilder     14           PlayerAnimator         3 files
 WeaponRigHost         9           WeaponModelBuilder     3 files
 BossModelBuilder      3           PlayerPartMesher       2 files
 EnemyModelBuilder     3           HorseModelBuilder      2 files
-GoblinModelBuilder    3
+GoblinModelBuilder    3           WeaponProjectileModelBuilder  2 files
 ```
 
 **The controller → model → animation bridge is one 92-line file**: `Player/PlayerController.Animation.cs`.
@@ -136,10 +137,18 @@ Assets/Scripts/
     World/                       MapBuilder/ (buildings, vehicles, nature, clouds) - 40-file dep
     Weapons/
       WeaponModelBuilder.cs       the 14 non-magic weapons + dispatch
-      Magic/                      the named magic MODELS - landed in stages 1/1b, move here in stage 2
+      Magic/                      the named magic MODELS - landed in stages 1/1b/1jd, move here in stage 2
         MagicWeaponModelBuilder.cs     the 4 magic weapon bodies (stage 1, 1ja)
         MagicProjectileModelBuilder.cs the 10 projectile bodies + the bench displays (stage 1b, 1jb)
         MagicImpactModelBuilder.cs     the 8 impact-flash families (stage 1b, 1jb)
+        SpellBeamModelBuilder.cs       line body, funnel, shared tip orb          (1jd)
+        SpellZoneModelBuilder.cs       pull funnel + ground zone                 (1jd)
+        SpellStormModelBuilder.cs      lightning bars + BoltFader                (1jd)
+        SummonModelBuilder.cs          totem body + familiar circle               (1jd)
+        SkillFxModelBuilder.cs         slash/ring flash + their two faders        (1jd)
+        CastingCircleModelBuilder.cs   all ten casting-circle pieces              (1jd)
+        AoeAimPreviewModelBuilder.cs   footprint disc, edge ring, beacon          (1jd)
+        CcZoneFxModelBuilder.cs        the CC ground ring                        (1jd)
 ```
 
 ### The one-line test for a proposed move

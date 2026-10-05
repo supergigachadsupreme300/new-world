@@ -285,95 +285,18 @@ public class SpellSummon : MonoBehaviour
         return best;
     }
 
-    /// <summary>Totem: base disc + tapered pillar + pulsing head crystal + orbiting shards.</summary>
+    /// <summary>Builds the construct's body: the totem (base disc + tapered pillar + pulsing head
+    /// crystal + orbiting shards), or the familiar's ground circle when the summon is caster-anchored.
+    /// <para>1jd: the geometry now lives in <see cref="SummonModelBuilder"/> (under
+    /// <c>Models/Magic/</c>), so "summon model" is findable by name and by folder. The shapes, the
+    /// names and the pulse are unchanged; the builder returns the head and the scale it pulses
+    /// around as ONE record, so the two cannot drift apart at this boundary.</para></summary>
     private void BuildVisual()
     {
-        if (_follow) { BuildCircleVisual(); return; }
-        BuildTotemVisual();
-    }
-
-    /// <summary>1ir: the following-familiar read — a flat ground circle the size of the real
-    /// targeting radius, plus a low orb to fire from. Deliberately NOT SkillFx.RingFlash, which
-    /// self-destructs and would give a one-frame flash instead of a persistent circle, and NOT the
-    /// totem below: a pillar-and-shards totem that walks behind you reads as a carried statue, not
-    /// as an area you are standing in. Radius is the live targeting value, so the drawn circle is
-    /// exactly the area FireAtNearest/NearestEnemy actually scan.</summary>
-    private void BuildCircleVisual()
-    {
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        if (shader == null) return;
-
-        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        disc.name = "FollowCircle";
-        DestroyCollider(disc.transform);
-        disc.transform.SetParent(transform, false);
-        disc.transform.localPosition = new Vector3(0f, 0.05f, 0f);
-        disc.transform.localScale = new Vector3(Radius * 2f, 0.05f, Radius * 2f);
-        SetMaterial(disc.transform, shader, _color);
-
-        _head = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
-        _head.name = "FollowCore";
-        DestroyCollider(_head);
-        _head.SetParent(transform, false);
-        _head.localPosition = new Vector3(0f, 0.9f, 0f);
-        _head.localScale = Vector3.one * 0.6f;
-        SetMaterial(_head, shader, _color);
-        _headBaseScale = _head.localScale;
-    }
-
-    private void BuildTotemVisual()
-    {
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        if (shader == null) return;
-
-        var baseDisc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        baseDisc.name = "SummonBase";
-        DestroyCollider(baseDisc.transform);
-        baseDisc.transform.SetParent(transform, false);
-        baseDisc.transform.localPosition = new Vector3(0f, 0.08f, 0f);
-        baseDisc.transform.localScale = new Vector3(0.9f, 0.07f, 0.9f);
-        SetMaterial(baseDisc.transform, shader, _color);
-
-        var pillar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        pillar.name = "SummonPillar";
-        DestroyCollider(pillar.transform);
-        pillar.transform.SetParent(transform, false);
-        pillar.transform.localPosition = new Vector3(0f, 1f, 0f);
-        pillar.transform.localScale = new Vector3(0.55f, 0.95f, 0.55f);
-        SetMaterial(pillar.transform, shader, _color);
-
-        _head = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
-        _head.name = "SummonHead";
-        DestroyCollider(_head);
-        _head.SetParent(transform, false);
-        _head.localPosition = new Vector3(0f, 2.1f, 0f);
-        _head.localScale = Vector3.one * 0.5f;
-        SetMaterial(_head, shader, _color);
-        _headBaseScale = _head.localScale;
-
-        for (int i = 0; i < 3; i++)
-        {
-            var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shard.name = "SummonOrbit_" + i;
-            DestroyCollider(shard.transform);
-            shard.transform.SetParent(transform, false);
-            float ang = i * 120f;
-            Vector2 c = new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad));
-            shard.transform.localPosition = new Vector3(c.x * 0.75f, 1.2f, c.y * 0.75f);
-            shard.transform.localScale = Vector3.one * 0.18f;
-            SetMaterial(shard.transform, shader, _color);
-        }
-    }
-
-    private static void DestroyCollider(Transform t)
-    {
-        Collider col = t.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-    }
-
-    private static void SetMaterial(Transform t, Shader shader, Color color)
-    {
-        var r = t.GetComponent<MeshRenderer>();
-        if (r != null) r.material = new Material(shader) { color = color };
+        SummonModelBuilder.Body body = _follow
+            ? SummonModelBuilder.BuildFamiliarCircle(transform, Radius, _color)
+            : SummonModelBuilder.BuildTotem(transform, _color);
+        _head = body.Head;
+        _headBaseScale = body.HeadBaseScale;
     }
 }

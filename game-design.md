@@ -2826,8 +2826,8 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   `Models/MapBuilder/` until **1jc**) is 10
   partials of one class referenced by **40 files** — the most depended-on symbol in the codebase — and it
   builds `BuildCloud`, `BuildTornado`, `BuildCafe`, `BuildPoliceCar` and `BuildPlayerHouse` beside
-  `BuildPlayerModel`. Only 7 files in `Models/` are genuinely per-thing model builders, and they have
-  2–7 referrers each.
+  `BuildPlayerModel`. **8** of the flat files in `Models/` are genuinely per-thing model builders and they
+  have 1–6 referrers each; the spell-side answer is `Models/Magic/`, **11** files (1jd).
 - **Weapon *visuals* live under `Combat/`.** `Combat/Weapons/` is 28 files of combat logic, three of
   which decide where a sword sits in a hand: `WeaponRigBuilder`, `WeaponRigHost`, and the magic weapon
   behaviours.
@@ -2861,6 +2861,33 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     (8), which are **shared hit-reaction FX for every weapon class**, not spell identities. Lifting
     the rock alone would leave that class still unnamed and still mixed, so it is recorded as the next
     candidate instead of half-done here.
+- **The spell *effects* still had no file — fixed by 1jd, which also retired that "next candidate".**
+  1jb's own note above pointed at `SkillFx` and the casting circle as the remaining unnamed geometry;
+  both were real, and they were nine bodies rather than two. One named builder each, all in
+  `Models/Magic/` except the projectile one:
+
+  | Builder | Moved out of | What stayed behind |
+  |---|---|---|
+  | `SpellBeamModelBuilder` | `SpellBeam` | `PulseVisual`'s funnel flare + debris orbit |
+  | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime |
+  | `SpellStormModelBuilder` | `SpellStorm` | strike scheduling |
+  | `SummonModelBuilder` | `SpellSummon` | the pulse |
+  | `SkillFxModelBuilder` | `SkillFx` | nothing — slash/ring are one-shot |
+  | `CastingCircleModelBuilder` | `CastingCircle` | per-frame pulse + rotation |
+  | `AoeAimPreviewModelBuilder` | `AoeAimPreview` | the pulsing |
+  | `CcZoneFxModelBuilder` | `CCZone` | nothing — one-shot |
+  | `WeaponProjectileModelBuilder` | `RangedWeaponBehavior` | aim |
+
+  The dividing line is **shape vs. lifetime**: everything that only builds transforms moved; everything
+  that decides *when a piece moves next frame* stayed, because that is behaviour. `SkillFx`'s
+  `SlashFlash`/`RingFlash` keep their public signatures — 22 and 8 call sites, mostly non-spell — so the
+  move was one level in, not a rename. Four of the nine needed a return record (`LineBody`, `TipOrb`,
+  `Circle`, `Piece`) rather than a builder that remembers its last ring, which would be a second owner
+  of a transform; `SpellBeam`'s tip orb is shared by the cone **and** the line, so it stayed outside the
+  branch rather than being folded into the line builder. Verified with `tools/Compare-MovedModel.ps1`
+  (**24** moved blocks, **24** identical literal streams, **8** declared literals hoisted to a named
+  field or moved to the call site), whose `-Mutate` control was confirmed able to go red — rule 17's
+  comparator, because with no compiler here the comparator *is* the compiler.
 
 The two in-tree READMEs above and `ARCHITECTURE.md` all describe **symbol ownership** — which class owns
 which behaviour — and no generator can derive that, so they stay hand-written. **Structure**, though, is
@@ -2929,9 +2956,10 @@ were deleted outright rather than archived: `grass_blade.png`, `leaves_texture.p
 
 `Assets/Scripts/Models/` held `MapBuilder` as 10 flat `MapBuilder.*.cs` partials - 5,153 lines and
 **10 of the folder's 17 `.cs` files (59%)**. 1iw grouped them into
-`Assets/Scripts/Models/MapBuilder/`, leaving `Models/` holding the seven single-purpose model
+`Assets/Scripts/Models/MapBuilder/`, leaving `Models/` holding the single-purpose model
 builders it always meant to hold (`Boss`/`Enemy`/`Goblin`/`Horse`/`Item`/`PlayerPartMesher`/
-`WeaponModelBuilder`). **1jc** then moved that folder - unchanged, GUIDs intact - to
+`WeaponModelBuilder`, plus **`WeaponProjectileModelBuilder`** from 1jd). **1jc** then moved that folder -
+unchanged, GUIDs intact - to
 `Assets/Scripts/Legacy/MapBuilder/`, because `MapBuilder` is old-game content (see §9.4c).
 
 The grouping is cosmetic - C# does not care about folders, and the class name is unchanged, so no

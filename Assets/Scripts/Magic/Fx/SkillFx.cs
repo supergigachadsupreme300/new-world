@@ -33,25 +33,9 @@ public static class SkillFx
     /// </summary>
     public static void SlashFlash(Vector3 origin, Vector3 forward, float radius, float lifetime, Color color)
     {
-        GameObject slice = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        slice.name = "SkillSlash";
-        slice.transform.position = origin + forward * (radius * 0.5f);
-        slice.transform.rotation = Quaternion.LookRotation(forward);
-        slice.transform.localScale = new Vector3(radius * 1.3f, radius, 0.1f);
-
-        Collider col = slice.GetComponent<Collider>();
-        if (col != null)
-            Object.Destroy(col);
-
-        Shader shader = Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
-        Renderer renderer = slice.GetComponent<MeshRenderer>();
-        if (renderer != null && shader != null)
-        {
-            var mat = new Material(shader) { color = color };
-            renderer.material = mat;
-        }
-
-        slice.AddComponent<SlashFader>().Init(lifetime);
+        // 1jd: the sheet's geometry and its SlashFader moved to SkillFxModelBuilder (Models/Magic).
+        // This signature is public API with a dozen call sites, so it stays; what it does is forward.
+        SkillFxModelBuilder.BuildSlashFlash(origin, forward, radius, lifetime, color);
     }
 
     /// <summary>
@@ -73,21 +57,10 @@ public static class SkillFx
         float scaleMul)
     {
         radius *= Mathf.Max(0.2f, scaleMul);
-        GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        ring.name = "FxRing";
-        ring.transform.position = worldPos + upDir.normalized * 0.02f;
-        ring.transform.rotation = Quaternion.FromToRotation(Vector3.up, upDir.normalized);
-
-        Collider col = ring.GetComponent<Collider>();
-        if (col != null)
-            Object.Destroy(col);
-
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        Renderer renderer = ring.GetComponent<MeshRenderer>();
-        if (renderer != null && shader != null)
-            renderer.material = new Material(shader) { color = color };
-
-        ring.AddComponent<RingFader>().Init(radius, lifetime);
+        // 1jd: the ring's geometry and its RingFader moved to SkillFxModelBuilder (Models/Magic). The
+        // scaleMul clamp stays HERE, on the public API, because the fader expands to whatever radius
+        // it is handed — moving the clamp into the builder would be a second spelling of it.
+        SkillFxModelBuilder.BuildRingFlash(worldPos, upDir, color, radius, lifetime);
     }
 
     // (1ig: `ImpactSphere` and its private `ImpactSphereFader` were deleted here. Their only call
@@ -98,70 +71,6 @@ public static class SkillFx
     //  per impact, which the per-tick rate makes unaffordable. Grepped for the "FxImpactSphere"
     //  GameObject name across .cs/.asset/.prefab/.unity first: no asset referenced it, so nothing
     //  depended on the name for despawning. THINKING.md 1ib H38.)
-
-    /// <summary>Expands the ring to full radius while fading to transparent, then removes it.</summary>
-    private sealed class RingFader : MonoBehaviour
-    {
-        private float _radius;
-        private float _age;
-        private float _lifetime = 0.35f;
-        private Material _mat;
-
-        public void Init(float radius, float lifetime)
-        {
-            _radius = radius;
-            _lifetime = Mathf.Max(lifetime, 0.05f);
-        }
-
-        private void Start()
-        {
-            var renderer = GetComponent<MeshRenderer>();
-            _mat = renderer != null ? renderer.material : null;
-        }
-
-        private void Update()
-        {
-            _age += Time.deltaTime;
-            float t = Mathf.Clamp01(_age / _lifetime);
-            float s = Mathf.Lerp(0.25f, 1f, Mathf.SmoothStep(0f, 0.45f, t));
-            transform.localScale = new Vector3(_radius * 2f * s, 0.05f, _radius * 2f * s);
-            if (_mat != null)
-            {
-                Color c = _mat.color;
-                c.a = 1f - t;
-                _mat.color = c;
-            }
-            if (t >= 1f)
-                Destroy(gameObject);
-        }
-    }
-
-    /// <summary>Shrinks the flash slice to zero scale, then removes it.</summary>
-    private sealed class SlashFader : MonoBehaviour
-    {
-        private Vector3 _startScale;
-        private float _age;
-        private float _lifetime = 0.15f;
-
-        public void Init(float lifetime)
-        {
-            _lifetime = Mathf.Max(lifetime, 0.05f);
-        }
-
-        private void Start()
-        {
-            _startScale = transform.localScale;
-        }
-
-        private void Update()
-        {
-            _age += Time.deltaTime;
-            float t = Mathf.Clamp01(_age / _lifetime);
-            transform.localScale = _startScale * (1f - t);
-            if (t >= 1f)
-                Destroy(gameObject);
-        }
-    }
 
     /// <summary>
     /// Summon a falling rock that drops from high above <paramref name="groundTarget"/> (the

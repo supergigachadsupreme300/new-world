@@ -1,4 +1,104 @@
-﻿## 1jc. Quarantining the old game's code - the move is trivial, the four things around it are not
+﻿## 1jd. Nine model extractions - the move was mechanical, the instrument was the whole task
+
+**OPEN until shipped.** Once the first comparator run came back clean the remaining risk was no longer
+the C# (which the static checks and the literal comparison both cover) but the **claim that the
+comparison meant anything**. Most of this entry is about that, because the failures were all failures of
+the *instrument*, and one of them could have produced a green result about the wrong block of code.
+
+**Request:** the 1iz/1jb complaint — the magic models were invisible because they had no file — one
+layer down. `CastingCircle` had a file but no *builder*, so "where is the code that builds the casting
+circle?" still meant reading the component.
+
+**Scope question first: how many are there?** 1jb's note said the remaining candidates were `SkillFx`
+and the casting circle — two. Measured against the actual files it was **nine** bodies across nine
+source components. **CONFIRMED, and the earlier note was an undercount**: a note saying "the next
+candidate" tends to name the file a reader happened to be looking at, not the class.
+
+---
+
+### Hypothesis 1: "a verbatim body comparison is mechanical, I can write it in one pass." REJECTED.
+
+It took four. The moves themselves were fine; the *addressing* was wrong three times.
+
+- **Attempt 1** compared members by name, with `@fragment` brace-balancing for sub-blocks. It reported
+  **4 false "not found"** — `BoltFader`, `SlashFader`, `RingFader`, `TumbleSpin`. All four are nested
+  `private sealed class X : MonoBehaviour`, and my matcher required a `(` in the signature line. A
+  nested class declaration has a parameter list only if it derives from a generic. **Lesson:** requiring
+  punctuation to identify a declaration is a fragile test; the access modifier plus the name is enough.
+- **Attempt 2** fixed that and produced **10 literal differences and 1 unresolved**. All 11 were entry
+  *granularity*, not move errors: for a sub-block inside `BuildVisual` I was extracting a fragment from
+  the old file and a whole method from the new one, so two different-sized things were being compared.
+  Added inclusive `@start|||end` line ranges so both sides can be cut to the same block.
+- **Attempt 3** left **1 diff + 1 unresolved**, and both were worth having (below).
+- **Attempt 4** is the green run: **24/24 identical, 0 unresolved**, plus `-Mutate` going red on 2.
+
+### Hypothesis 2: "a member name is an unambiguous address." REJECTED — twice, differently.
+
+- `RingFlash` has **two** overloads, and the first is expression-bodied
+  (`=> RingFlash(..., 1f);`). Member-addressing found the forwarder, which has no braces, and the
+  extractor returned that one line. The 6-argument overload with all the geometry was never opened.
+- Then the one that matters. My `BuildLineBody` start marker was
+  `Vector3 mid = transform.position + Direction`, and that line occurs **twice** in the old
+  `SpellBeam.cs`: once in the per-frame `Animate()` and once in `BuildVisual`. The extractor took the
+  first, ran 86 lines past it, and reported the pulse maths (`Mathf.Repeat(seed * 137.508f, ...)`) as a
+  difference in the moved body.
+
+**This is the finding worth keeping.** It failed *loudly*, and only by luck: the two wrong blocks had
+different literals. If they had matched, the comparator would have printed `==` for a block it never
+compared, and I would have reported "24/24 identical" with a false claim inside it. Rule 7 says a check
+nobody has seen fail is not a check. This is the adjacent failure: **a check that has been seen to fail,
+and cannot yet be seen to pass for the wrong reason, is only half a check.** The fix is not "be careful
+with markers" — it is that an address must be *verifiable*: I now require both ends of every range to
+exist in **both** files, and I pick markers that are unique within their file (the fix for the beam was
+to start at `_body = GameObject.CreatePrimitive(...)`, which appears once, instead of at a line that
+appears twice).
+
+### Hypothesis 3: "comparing literals is enough." REJECTED, in two directions.
+
+- **Too weak on structure.** The moves rename identifiers (`Width` -> `width`, `Radius` -> `radius`,
+  `transform.position` -> `origin`), which is invisible to a literal stream. Without declared `Map`s
+  every rename reads as a difference; with them, a rename is free — which is also a small hole, since a
+  `Map` can paper over a value that was genuinely changed. Accepted because the alternative (token-level
+  C# parsing in PowerShell) is a much larger instrument than the task needs, and the static checks cover
+  the rest.
+- **Blind to a hoist.** The last real diff was `SpellStorm`: the new builder's `localScale = BoltScale`
+  carries no literals, while the old inline `new Vector3(0.1f, 3.2f, 0.1f)` carried three. My first
+  instinct was "I dropped the line — restore it". Reading the file first showed the line *was* there
+  and the numbers had been hoisted to a named field. **So the honest fix was neither restore nor delete
+  but declare it**: a `Carry` list naming the literals that moved to the field, once per occurrence
+  (three numbers x two bolts). A "difference" that is really a rename of a literal has to be stated, or
+  the next reader cannot tell it from a dropped value.
+
+### Hypothesis 4: "8 declared carries means I was loose with 8 numbers." REJECTED.
+
+They are 4 distinct decisions: 4 in `CCZone` (the caller keeps the colour — it is the component's
+decision, not the model's, per rule 13's "what would catch the bug if that value were wrong") and 4 in
+`SpellStorm` (one hoist to `BoltScale` in `AssembleBolt`, the same hoist applied to two bolts). Each is
+listed per occurrence so the count is auditable: a `Carry` that removes a literal you did not expect to
+move would show up as a *smaller* diff, not a bigger one.
+
+### Hypothesis 5: "24/24 identical means behaviour-preserving." PARTIALLY — stated honestly as what it is.
+
+It means the **numbers and strings** in each moved block are identical and in the same order, with 8
+declared exceptions. It does **not** prove the *shape* is right: no arithmetic is re-checked, no
+statement order is checked, and the split between "moved" and "stayed" is my judgement, not the
+comparator's. So the static checks (braces, arity, void-return, CS0165 candidates) and a reread are
+still load-bearing, and **the play-test list in `PROGRESS.md` is the real acceptance**, not the
+comparator. With no compiler here (rule 3), "verified" means *three instruments agree and a human has
+not yet looked at it in the editor*.
+
+### Open
+
+- The user has not yet run it. If the casting circle, the beam tip orb or the CC ring looks different in
+  the editor, that is a real regression from this move, not a new look — the comparator says the numbers
+  are the same, so the cause would be a *statement* the comparator cannot see.
+- `SkillFx.FxFallingRock` still builds its primitive inline. Deliberate (it is not one of the nine), but
+  it means "no `CreatePrimitive` left in the call sites" is not a true statement about `SkillFx.cs` and
+  the grep reads **1** there.
+
+---
+
+## 1jc. Quarantining the old game's code - the move is trivial, the four things around it are not
 
 **Request:** "we're doing a new game so the stuff from the old game is unrelated - put up the rule in
 agents to not touch them and put all that into a folder to keep them away."

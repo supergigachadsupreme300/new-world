@@ -1,4 +1,101 @@
-﻿## 1jc. `Assets/Scripts/Legacy/` - the old game's 32 files quarantined read-only, and the tool the move silently killed
+﻿## 1jd. Nine spell/skill bodies had no model file — one named builder each, and the comparator that proves it
+
+**Status: SHIPPED.** A pure move: no behaviour change, no signature change on any public API. **9** new
+builders (8 in `Models/Magic/`, 1 in `Models/`) + **9** `.meta` (**377** `.cs` / **377** `.cs.meta`
+parity under `Assets/Scripts` = 368 + these 9; **550** `.meta` GUIDs with **0** duplicate groups), and a
+new rule-17 instrument `tools/Compare-MovedModel.ps1`.
+**Verified by grep + reread + `tools\StaticChecks.ps1` -> 0 candidates + the move comparator -> 24
+blocks / 24 identical / 0 unresolved; no Unity build** (rule 3). **skills: none applied** — no installed
+skill governs a C# file move inside one repo; the DCC-side and `-batchmode` Unity skills were
+deliberately not loaded (rule 15's "match the skill to the artifact").
+
+The request was 1iz's complaint one layer down: *"where is the code that builds the casting circle?"*
+meant reading `CastingCircle.cs`. 1jb had named the projectile and impact models and left a note that
+`SkillFx` and the casting circle were "the next candidate" — **nine**, not two. What moved, and what
+deliberately did not:
+
+| Builder | Out of | Left behind on purpose |
+|---|---|---|
+| `SpellBeamModelBuilder` | `SpellBeam` | `PulseVisual`'s funnel flare + debris orbit |
+| `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime |
+| `SpellStormModelBuilder` | `SpellStorm` | strike scheduling |
+| `SummonModelBuilder` | `SpellSummon` | the pulse |
+| `SkillFxModelBuilder` | `SkillFx` | nothing — slash/ring are one-shot |
+| `CastingCircleModelBuilder` | `CastingCircle` | per-frame pulse + rotation |
+| `AoeAimPreviewModelBuilder` | `AoeAimPreview` | the pulsing |
+| `CcZoneFxModelBuilder` | `CCZone` | nothing — one-shot |
+| `WeaponProjectileModelBuilder` | `RangedWeaponBehavior` | aim |
+
+**The dividing line is shape vs. lifetime.** Transforms that only need building moved; anything that
+decides *where a piece is next frame* stayed, because that is behaviour, not a shape. So
+`SkillFx.SlashFlash`/`RingFlash` keep their exact public signatures (22 and 8 call sites, most of them
+non-spell classes) and gained a delegate — a move that renames the public entry point would have been a
+second, unrelated edit riding along.
+
+### Four return records, because a builder must not remember its own output
+
+`LineBody`, `TipOrb`, `Circle` and `Piece` exist so the *component* keeps ownership of the handles. The
+alternative — a builder remembering "the last ring I built" — is a second owner of a transform, and
+1jb already had to unpick exactly that shape when `MagicImpactModelBuilder` handed back three *parallel
+lists`. One record per piece makes index-alignment unrepresentable. `SummonModelBuilder.Body` is the
+same idea for the totem/familiar pair. `SpellBeam`'s tip orb is shared by the cone **and** the line, so
+it stayed outside the branch: folding it into the line builder would have left the cone's tip built but
+never pulsed.
+
+### Two literals that moved OUT, declared rather than quietly tolerated
+
+`CCZone`'s pale-blue `Color` stays in the component — the colour is the caller's decision, not the
+model's (rule 13's "ask what would catch the bug if that value were wrong": here the answer is the
+component, so the model must not own it). And `SpellStorm`'s inline `new Vector3(0.1f, 3.2f, 0.1f)`
+became the named `BoltScale`, which also fixed a latent duplication: the fader was re-deriving its start
+scale from a second copy of the same three numbers. **8** literals in total are declared in the
+comparator as `Carry`, so the diff reads as a decision instead of as noise.
+
+### The comparator needed four attempts, and the failures are the point
+
+`tools/Compare-MovedModel.ps1` compares each moved block's **literal stream** (numbers + strings, in
+order) between `HEAD` and the working tree, with a `-Mutate` control. Rule 17 is why it exists at all:
+with no compiler, the comparator *is* the compiler. Getting it to a trustworthy green took four passes,
+and **three of them were failures of the comparator, not of the move**:
+
+- **Sub-blocks cannot be addressed by member name.** Inside `BuildVisual`, `Build` and friends are not
+  members. First attempt: `@fragment` brace-balancing, which reported 4 false "not found" for nested
+  `MonoBehaviour`s (`private sealed class BoltFader` has no parameter list, so requiring `(` missed it).
+- **A member name is not an unambiguous address.** `RingFlash` has **two** overloads and the first is
+  expression-bodied (`=> RingFlash(..., 1f);`), so member-addressing landed on a one-line forwarder with
+  no braces. Fixed with inclusive `@start|||end` line ranges.
+- **The dangerous failure is a wrong address that passes.** My first `BuildLineBody` marker,
+  `Vector3 mid = transform.position + Direction`, occurs **twice** in the old file — once in the
+  per-frame `Animate()`, once in `BuildVisual`. It matched the animation, ran 86 lines, and reported the
+  pulse maths as a difference. It failed loudly *by luck*: had the two blocks' literals matched, the
+  comparator would have printed `==` for a block it never checked. Rule 7's "a check nobody has seen
+  fail" — sharpened to "a check that has only ever been *seen* fail, and cannot yet be seen to *pass for
+  the wrong reason*".
+- **A literal stream cannot see structure**, so it needs declared `Map`s (renamed identifiers) and
+  `Carry`s (hoisted or caller-side literals), or a legitimate rename reads as a difference and a
+  legitimate hoist reads as a deletion.
+
+The `-Mutate` control flips `0.18f -> 0.19f` in memory and was confirmed to go red on **2** moves with
+exit 2. **A green comparator nobody has seen go red is not a check** (rule 7) — and neither is a green
+one whose markers have never been checked for uniqueness.
+
+### Also in this commit
+
+`NewWorldTestGround`'s beam-funnel bench call was repointed at the builder (the bench mounts the real
+shape, per the 1f7 `BuildRockBody` precedent, so a visual change has a readout). `SkillFx`'s
+`FxFallingRock` primitive stays inline — it is not one of the moved bodies, and the broad "no
+`CreatePrimitive` left" grep is expected to read **1** there. `Magic/README.md`, `ARCHITECTURE.md`,
+`game-design.md` §9.4 (Source Layout) and `TREE.md` are in the same pass; the README's "still unnamed on purpose"
+paragraph about `SkillFx` was **rewritten rather than deleted**, because its stated reason ("`SkillFx`
+also owns `SlashFlash`/`RingFlash`") is exactly what this commit changed, and a doc that keeps a reason
+which has stopped being true is worse than no doc.
+
+**Play-test items (optional — a behaviour-preserving move should be invisible):** cast a cone beam and a
+line beam and check the tip orb still pulses on both; open the casting circle and the AoE preview; throw
+an arrow and a hammer; summon a totem and a familiar; stand in a CC zone and confirm the ring is still
+pale blue. Anything that looks different is a real regression, not a "new look".
+
+## 1jc. `Assets/Scripts/Legacy/` - the old game's 32 files quarantined read-only, and the tool the move silently killed
 
 **Status: SHIPPED.** The move itself (`git mv`, `.meta` travelling along, GUIDs unchanged) was `aae400b`;
 the rule was `f6b5559` but landed at the top of `AGENTS.md`, above the `# Project Rules` heading, and

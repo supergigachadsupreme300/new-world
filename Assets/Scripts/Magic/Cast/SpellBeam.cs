@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -429,6 +429,10 @@ public class SpellBeam : MonoBehaviour
         _endOrb.localScale = _orbBaseScale * (1f + 0.25f * Mathf.Sin(Time.time * 9f));
     }
 
+    /// <summary>1jd: the drawn body moved to <see cref="SpellBeamModelBuilder"/> (under
+    /// <c>Models/Magic/</c>); this method still decides WHICH body, and still owns everything the
+    /// beam does with it afterwards (the radial pulse, the fade, the funnel's base radii). Nothing
+    /// about the shape changed — the builder hands back the same pieces under the same names.</summary>
     private void BuildVisual(Color color)
     {
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
@@ -440,7 +444,7 @@ public class SpellBeam : MonoBehaviour
             // 1is: the funnel's hot end is SpellLook.HotCore, not Edge â€” Edge desaturates Fire's
             // orange toward peach, so it can never supply the yellow this reads as.
             Color hot = SpellLook.HotCore(color);
-            _funnelChunks = BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
+            _funnelChunks = SpellBeamModelBuilder.BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
             _funnelBaseRadius = new float[_funnelChunks.Length];
             for (int i = 0; i < _funnelChunks.Length; i++)
             {
@@ -453,29 +457,21 @@ public class SpellBeam : MonoBehaviour
         }
         else
         {
-            Vector3 mid = transform.position + Direction * (Length * 0.5f);
-            Quaternion rot = Quaternion.FromToRotation(Vector3.up, Direction);
-
-            _body = GameObject.CreatePrimitive(PrimitiveType.Cylinder).transform;
-            _body.name = "BeamBody";
-            DestroyCollider(_body);
-            _body.SetParent(transform, false);
-            _body.position = mid;
-            _body.rotation = rot;
-            _body.localScale = new Vector3(Width * 2f, Length * 0.5f, Width * 2f);
-            SetMaterial(_body, shader, color);
-            _bodyBaseScale = _body.localScale;
+            SpellBeamModelBuilder.LineBody line = SpellBeamModelBuilder.BuildLineBody(
+                transform, transform.position, Direction, Length, Width, color);
+            _body = line.Body;
+            _bodyBaseScale = line.BodyBaseScale;
             _baseColor = color;
         }
 
-        _endOrb = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
-        _endOrb.name = "BeamEnd";
-        DestroyCollider(_endOrb);
-        _endOrb.SetParent(transform, false);
-        _endOrb.position = EndPoint();
-        _endOrb.localScale = Vector3.one * Mathf.Max(Width * 1.6f, 0.3f);
-        SetMaterial(_endOrb, shader, color);
-        _orbBaseScale = _endOrb.localScale;
+        // 1ir: the tip orb is shared by BOTH beams, so it is mounted here outside the branch rather
+        // than inside the line builder. PulseVisual opens with `if (_endOrb == null) return;` and runs
+        // for the cone too, so an orb that only the line got would leave the cone's tip inert.
+        SpellBeamModelBuilder.TipOrb tip = SpellBeamModelBuilder.BuildTipOrb(
+            transform, EndPoint(), Width, color);
+        _endOrb = tip.Orb;
+        _orbBaseScale = tip.BaseScale;
+
         CollectFadeMaterials();
     }
 
@@ -497,113 +493,4 @@ public class SpellBeam : MonoBehaviour
     }
 
     /// <summary>
-    /// <summary>1is: build the cone's drawn body as the Great Tornado's silhouette lying along the beam
-    /// axis: <see cref="FunnelChunks"/> chunky discs stacked muzzle-to-tip, each randomly yawed so the
-    /// stack reads as a twisting funnel, opening from <paramref name="mouthRadius"/> at the muzzle to
-    /// <paramref name="tipRadius"/> at the far end, plus <see cref="FunnelDebris"/> orbiting chunks
-    /// and a leading ring. Returns the chunk transforms in build order so the live pulse can scale
-    /// them radially without re-deriving the taper.
-    ///
-    /// <para><b>This is the BODY ONLY. The hitbox is untouched</b> â€” <see cref="TickCone"/> still
-    /// walks ConeRays * ConeSegments analytic capsules, so nothing here can change what the spell
-    /// hits. The colliders on every piece below are destroyed, and no piece is ever queried.
-    /// That independence is the whole reason the visual was swappable.</para>
-    ///
-    /// <para><b>Deliberately NOT <c>MapBuilder.BuildTornado</c>.</b> That model adds
-    /// <see cref="TornadoBehavior"/>, which applies real physics pull to rigidbodies (props,
-    /// livestock â€” and the caster). A channeled beam you hold for its whole Focus cost would drag
-    /// the player around with it. This reproduces the SILHOUETTE â€” stacked, yawed, widening â€” and
-    /// nothing else.</para>
-    ///
-    /// <para><b>Two-tone, and the colours are the spell's.</b> <paramref name="core"/> is the body and
-    /// <paramref name="hot"/> the leading/muzzle end, so a flame is born hot and cools as it travels.
-    /// Both are passed in by the caller from SpellLook; nothing here invents a colour, per rule 13.</para>
-    ///
-    /// <para>Placed in the parent's LOCAL frame (+Z forward), which is what lets the QA bench mount
-    /// this on a pedestal and the live beam on its own transform under one coordinate convention.
-    /// Public and static on purpose: the bench mounts THIS rather than a proxy that could drift from
-    /// what ships (the 1f7 <c>BuildRockBody</c> / 1ij acceptance-readout precedent).</para></summary>
-    public static Transform[] BuildFunnelVisual(Transform parent, float length, float mouthRadius,
-        float tipRadius, Color core, Color hot)
-    {
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        if (shader == null) return new Transform[0];
-
-        int total = FunnelChunks + FunnelDebris;
-        var chunks = new Transform[total];
-        float chunkLen = length / FunnelChunks;
-        // Deterministic yaw from the index, NOT Random: the funnel must rebuild identically on the
-        // live beam and on the bench, or the QA readout would be a picture of a different spell.
-        for (int i = 0; i < FunnelChunks; i++)
-        {
-            float t = (i + 1) / (float)FunnelChunks;
-            float rad = Mathf.Lerp(mouthRadius, tipRadius, t);
-            float mid = (i + 0.5f) * chunkLen;
-
-            Transform seg = GameObject.CreatePrimitive(PrimitiveType.Cylinder).transform;
-            seg.name = "FunnelChunk_" + i;
-            seg.SetParent(parent, false);
-            seg.localPosition = new Vector3(0f, 0f, mid);
-            // A cylinder's axis is +Y; the funnel's axis is +Z. Lay it over first, then yaw about the
-            // beam axis so the disc spins in its own plane without tilting off the beam line.
-            seg.localRotation = Quaternion.Euler(0f, YawFor(i), 90f);
-            // 0.55 keeps the discs overlapping into one continuous funnel rather than reading as a
-            // row of separate plates; without it the gaps are visible at the mouth.
-            seg.localScale = new Vector3(rad * 2f, chunkLen * 0.55f, rad * 2f);
-            DestroyCollider(seg);
-            // Hot at the muzzle, cooling downstream: t=0 is yellow, t=1 is the spell's own colour.
-            SetMaterial(seg, shader, Color.Lerp(hot, core, Mathf.Clamp01(t * 0.85f)));
-            chunks[i] = seg;
-        }
-
-        for (int d = 0; d < FunnelDebris; d++)
-        {
-            float t = (d + 1) / (float)(FunnelDebris + 1);
-            float rad = Mathf.Lerp(mouthRadius, tipRadius, t) * 1.25f;
-            float ang = YawFor(100 + d) + d * 120f;
-            float s = Mathf.Max(rad * 0.34f, 0.08f);
-
-            Transform chunk = GameObject.CreatePrimitive(PrimitiveType.Cube).transform;
-            chunk.name = "FunnelDebris_" + d;
-            chunk.SetParent(parent, false);
-            chunk.localPosition = new Vector3(
-                Mathf.Cos(ang * Mathf.Deg2Rad) * rad, Mathf.Sin(ang * Mathf.Deg2Rad) * rad, t * length);
-            chunk.localRotation = Quaternion.Euler(ang * 0.7f, ang, ang * 0.4f);
-            chunk.localScale = new Vector3(s, s, s);
-            DestroyCollider(chunk);
-            SetMaterial(chunk, shader, core);
-            chunks[FunnelChunks + d] = chunk;
-        }
-
-        // Leading ring so the far end reads as an opening rather than a flat cut.
-        Transform ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder).transform;
-        ring.name = "FunnelMouth";
-        ring.SetParent(parent, false);
-        ring.localPosition = new Vector3(0f, 0f, length);
-        ring.localRotation = Quaternion.Euler(0f, 0f, 90f);
-        ring.localScale = new Vector3(tipRadius * 2.1f, 0.02f, tipRadius * 2.1f);
-        DestroyCollider(ring);
-        SetMaterial(ring, shader, core);
-
-        return chunks;
-    }
-
-    /// <summary>1is: deterministic per-index yaw, so the funnel's twist is identical every rebuild
-    /// (live beam and bench alike). A <see cref="Random"/> draw here would make the QA model a
-    /// picture of a slightly different spell than the one that ships.</summary>
-    private static float YawFor(int seed) => Mathf.Repeat(seed * 137.508f, 360f);
-
-    private static void DestroyCollider(Transform t)
-    {
-        Collider col = t.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-    }
-
-    private static Material SetMaterial(Transform t, Shader shader, Color color)
-    {
-        var mat = new Material(shader) { color = color };
-        var r = t.GetComponent<MeshRenderer>();
-        if (r != null) r.material = mat;
-        return mat;
-    }
 }

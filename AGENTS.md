@@ -138,6 +138,25 @@
      passed, and only Unity's parser objected (CS0106, which does not even name the class). Check 7
      now flags any member at brace depth 0, and was verified by **reintroducing that exact bug and
      watching it fire** Ã¢â‚¬â€ a green check nobody has seen fail is not a check.
+- **A check must also be unable to PASS for the wrong reason, and an address inside a check is where
+    that fails.** The bullet above is about silence; this is about a *false* green, which is worse
+    because it carries a claim. 1jd's move comparator (`tools/Compare-MovedModel.ps1`, rule 17) reported
+    **24/24 identical** on its green run, and one of its addresses was wrong the whole time: a start
+    marker (`Vector3 mid = transform.position + Direction`) occurred **twice** in the pre-move file - once
+    in the per-frame `Animate()`, once in `BuildVisual` - so the extractor compared the animation and
+    reported its pulse maths as a difference. It was caught only because the two wrong blocks had
+    different literals; had they matched, the run would have printed `==` for a block it never opened.
+    Three habits, all mechanical:
+  - **An address is part of the check, so make it verifiable rather than careful.** Require both ends of
+    a range to exist in **both** files, and prefer a marker that occurs **once** in its file over one that
+    merely reads distinctively. "I was careful" is not a property a re-reader can check.
+  - **Two declarations of one name are two addresses.** `RingFlash` has an expression-bodied forwarder
+    overload above the real one, and member-addressing took the forwarder - a one-line body with no
+    braces. Overloads, partials and nested classes all make a bare name ambiguous; say which one.
+  - **Prove the comparator can fail AND that its extraction is the block you meant** - one control is not
+    enough. `-Mutate` proves the comparison is sensitive; only re-reading the *extracted* text against the
+    file proves the extraction is aimed correctly. The first is cheap to add and the second is the one
+    that catches a silent redefinition.
 - **A scan that reports ABSENCES must first be shown able to report PRESENCES, or its misses mean
       nothing.** The same class of error running the other way, and it is easy to mistake for a
       finding: verifying 1iu's two READMEs, `Select-String -Path 'Assets\Scripts\*.cs',

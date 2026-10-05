@@ -194,26 +194,11 @@ public class SpellStorm : MonoBehaviour
 
         if (_type == DamageType.Lightning)
         {
-            // Crackling bolt column: two crossed tall thin bars, faded out by BoltFader.
-            // (The old code forgot to destroy these — each strike leaked two permanent cubes.)
-            Material sharedMat = SkillFx.SharedSpriteMaterial(c);
-            if (sharedMat != null)
-            {
-                GameObject bolt = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                bolt.name = "StormBoltA";
-                DestroyCollider(bolt.transform);
-                bolt.transform.position = at;
-                bolt.transform.localScale = new Vector3(0.1f, 3.2f, 0.1f);
-                AssembleBolt(bolt, sharedMat);
-
-                GameObject boltB = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                boltB.name = "StormBoltB";
-                DestroyCollider(boltB.transform);
-                boltB.transform.position = at;
-                boltB.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
-                boltB.transform.localScale = new Vector3(0.1f, 3.2f, 0.1f);
-                AssembleBolt(boltB, sharedMat);
-            }
+            // 1jd: the crossed bolt pair moved to SpellStormModelBuilder (Models/Magic), together with
+            // the BoltFader that owns its lifetime — the fader has to travel with the shape it fades or
+            // the bolts would stand in the world forever. The per-strike flash and ring below are NOT
+            // part of that model: they are the shared impact families and they stay here.
+            SpellStormModelBuilder.BuildLightningBolt(at, SkillFx.SharedSpriteMaterial(c));
         }
 
         // 1ih: the per-strike flash is now the shared per-spell impact family instead of a
@@ -224,42 +209,4 @@ public class SpellStorm : MonoBehaviour
         SpellImpactFx.Spawn(at, Vector3.up, _look, 1.6f);
         SkillFx.RingFlash(ground, Vector3.up, c, Random.Range(0.8f, 1.4f), 0.35f, _look.Scale);
     }
-
-    private static void AssembleBolt(GameObject bolt, Material sharedMat)
-    {
-        var r = bolt.GetComponent<MeshRenderer>();
-        if (r != null && sharedMat != null)
-            r.sharedMaterial = sharedMat;
-        bolt.AddComponent<BoltFader>().Init(new Vector3(0.1f, 3.2f, 0.1f), 0.25f);
-    }
-
-    private static void DestroyCollider(Transform t)
-    {
-        Collider col = t.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-    }
-
-    /// <summary>Shrinks the lightning bars to nothing, then removes them (no lingering leak).</summary>
-    private sealed class BoltFader : MonoBehaviour
-    {
-        private Vector3 _startScale;
-        private float _lifetime = 0.25f;
-        private float _age;
-
-        public void Init(Vector3 startScale, float lifetime)
-        {
-            _startScale = startScale;
-            _lifetime = lifetime;
-        }
-
-        private void Update()
-        {
-            _age += Time.deltaTime;
-            float t = Mathf.Clamp01(_age / _lifetime);
-            transform.localScale = _startScale * (1f - t);
-            if (t >= 1f)
-                Destroy(gameObject);
-        }
-    }
-
 }

@@ -169,157 +169,45 @@ public sealed class CastingCircle : MonoBehaviour
         Apply();
     }
 
+    /// <summary>1jd: the ten pieces moved to <see cref="CastingCircleModelBuilder"/> (under
+    /// <c>Models/Magic/</c>). This method only unpacks one record per piece into the fields
+    /// <see cref="Apply"/> drives, so every handle keeps its exact declared type and the per-frame
+    /// colour/spin/vertex code is untouched. The segment and tick counts are passed IN rather than
+    /// duplicated in the builder: <c>Apply</c> loops over these same numbers.</summary>
     private void Build()
     {
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        CastingCircleModelBuilder.Circle circle = CastingCircleModelBuilder.Build(
+            transform, OuterSegments, InnerSegments, HexSegments, ArcSegments, WaveSegments, RuneTicks);
 
-        // --- shared core: the translucent disc and the two original rings (Circle / Halo) ---
-        var discGo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        discGo.name = "Disc";
-        var dcol = discGo.GetComponent<Collider>();
-        if (dcol != null) Destroy(dcol);
-        _disc = discGo.transform;
-        _disc.SetParent(transform, false);
-        _disc.localPosition = Vector3.zero;
-        _discRenderer = discGo.GetComponent<MeshRenderer>();
-        if (shader != null && _discRenderer != null)
-        {
-            _discMat = new Material(shader);
-            _discRenderer.material = _discMat;
-        }
-        else if (_discRenderer != null)
-        {
-            _discRenderer.enabled = false;
-        }
+        _disc = circle.Disc.Root.transform;
+        _discRenderer = circle.Disc.Renderer;
+        _discMat = circle.Disc.Material;
 
-        // Crisp outer halo ring (owns its GameObject — a single GameObject permits only one
-        // Renderer component, so a second LineRenderer here returns null in Unity 6).
-        var outerGo = new GameObject("OuterRing");
-        outerGo.transform.SetParent(transform, false);
-        _outerRing = outerGo.AddComponent<LineRenderer>();
-        ConfigureRing(_outerRing, OuterSegments, 0.06f, loop: true);
-        if (shader != null)
-        {
-            _outerMat = new Material(shader);
-            _outerRing.material = _outerMat;
-        }
+        _outerRing = circle.OuterRing.Line;
+        _outerMat = circle.OuterRing.Material;
 
-        // Inner rune ring that spins while charging (own child GameObject too).
-        var innerGo = new GameObject("InnerRing");
-        innerGo.transform.SetParent(transform, false);
-        _innerRing = innerGo.AddComponent<LineRenderer>();
-        ConfigureRing(_innerRing, InnerSegments, 0.03f, loop: true);
-        if (shader != null)
-        {
-            _innerMat = new Material(shader);
-            _innerRing.material = _innerMat;
-        }
+        _innerRing = circle.InnerRing.Line;
+        _innerMat = circle.InnerRing.Material;
 
-        // --- 1if: Rune — the spinning ring plus radial tick marks.
-        _runeGroup = NewGroup("Rune");
-        _runeTicks = _runeGroup.transform;
-        if (shader != null)
-        {
-            _runeMat = new Material(shader);
-            for (int i = 0; i < RuneTicks; i++)
-            {
-                // One cube per tick rather than one LineRenderer: a LineRenderer draws a CONTINUOUS
-                // line, so N separate marks would need N renderers. Eight tiny cubes cost less than
-                // eight extra Renderer components and are toggled by their parent's SetActive.
-                var tickGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                var tc = tickGo.GetComponent<Collider>();
-                if (tc != null) Destroy(tc);
-                tickGo.name = "Tick" + i;
-                tickGo.transform.SetParent(_runeTicks, false);
-                tickGo.GetComponent<MeshRenderer>().material = _runeMat;
-                var tr = tickGo.transform;
-                tr.localPosition = Vector3.zero;   // positioned each frame in Apply()
-                tr.localScale = new Vector3(0.02f, 0.02f, 0.12f);
-            }
-        }
+        _runeGroup = circle.Rune.Root;
+        _runeTicks = circle.Rune.Root.transform;
+        _runeMat = circle.Rune.Material;
 
-        // --- 1if: HexRing — a six-sided outline.
-        var hexGo = new GameObject("HexRing");
-        hexGo.transform.SetParent(transform, false);
-        _hexRing = hexGo.AddComponent<LineRenderer>();
-        ConfigureRing(_hexRing, HexSegments, 0.05f, loop: true);
-        if (shader != null)
-        {
-            _hexMat = new Material(shader);
-            _hexRing.material = _hexMat;
-        }
+        _hexRing = circle.HexRing.Line;
+        _hexMat = circle.HexRing.Material;
 
-        // --- 1if: Cross — two spokes through the centre.
-        var crossGoA = new GameObject("CrossA");
-        crossGoA.transform.SetParent(transform, false);
-        _crossA = crossGoA.AddComponent<LineRenderer>();
-        ConfigureSpoke(_crossA, 0.04f);
-        var crossGoB = new GameObject("CrossB");
-        crossGoB.transform.SetParent(transform, false);
-        _crossB = crossGoB.AddComponent<LineRenderer>();
-        ConfigureSpoke(_crossB, 0.04f);
-        if (shader != null)
-        {
-            _crossMatA = new Material(shader);
-            _crossMatB = new Material(shader);
-            _crossA.material = _crossMatA;
-            _crossB.material = _crossMatB;
-        }
+        _crossA = circle.CrossA.Line;
+        _crossMatA = circle.CrossA.Material;
+        _crossB = circle.CrossB.Line;
+        _crossMatB = circle.CrossB.Material;
 
-        // --- 1if: Arc — a partial sweep that rotates with the charge.
-        var arcGo = new GameObject("Arc");
-        arcGo.transform.SetParent(transform, false);
-        _arc = arcGo.AddComponent<LineRenderer>();
-        ConfigureRing(_arc, ArcSegments, 0.05f, loop: false);
-        if (shader != null)
-        {
-            _arcMat = new Material(shader);
-            _arc.material = _arcMat;
-        }
+        _arc = circle.Arc.Line;
+        _arcMat = circle.Arc.Material;
 
-        // --- 1if: Wave — two extra rings that chase outward.
-        _waveB = NewRing("WaveB", WaveSegments, 0.03f, shader, out _waveMatB);
-        _waveC = NewRing("WaveC", WaveSegments, 0.025f, shader, out _waveMatC);
-    }
-
-    private void ConfigureRing(LineRenderer lr, int segments, float width, bool loop)
-    {
-        lr.useWorldSpace = false;
-        lr.loop = loop;
-        lr.positionCount = segments;
-        lr.startWidth = width;
-        lr.endWidth = width;
-        lr.numCapVertices = 2;
-    }
-
-    /// <summary>A straight centre-out spoke: two points, not a loop, drawn each frame in Apply().</summary>
-    private void ConfigureSpoke(LineRenderer lr, float width)
-    {
-        lr.useWorldSpace = false;
-        lr.loop = false;
-        lr.positionCount = 2;
-        lr.startWidth = width;
-        lr.endWidth = width;
-        lr.numCapVertices = 2;
-    }
-
-    private LineRenderer NewRing(string name, int segments, float width, Shader shader,
-        out Material mat)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(transform, false);
-        var lr = go.AddComponent<LineRenderer>();
-        ConfigureRing(lr, segments, width, loop: true);
-        mat = shader != null ? new Material(shader) : null;
-        if (mat != null) lr.material = mat;
-        return lr;
-    }
-
-    private GameObject NewGroup(string name)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(transform, false);
-        return go;
+        _waveB = circle.WaveB.Line;
+        _waveMatB = circle.WaveB.Material;
+        _waveC = circle.WaveC.Line;
+        _waveMatC = circle.WaveC.Material;
     }
 
     private void Apply()

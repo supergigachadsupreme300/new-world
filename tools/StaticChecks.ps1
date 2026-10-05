@@ -73,6 +73,12 @@ $crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
 # with no compiler behind it that can silently drop or duplicate a method, so check 1
 # (balance) is the cheapest thing that can catch a botched relocation. Neither file has a
 # switch or WorldBuilder helpers, so only check 1 structurally applies.
+# 1jd added NINE more model builders, every one of them a MOVE out of a live behaviour or
+# effect file (SpellSummon/SpellBeam/SpellZone/SpellStorm/SkillFx/CastingCircle/
+# RangedWeaponBehavior/AoeAimPreview/CCZone). Same reasoning as 1jb, at three times the
+# count, and 1jd also moved four nested MonoBehaviours (BoltFader, RingFader, SlashFader,
+# TumbleSpin) and rewrote ~8 `Destroy(x)` calls as `Object.Destroy(x)` - the static-class
+# edit a diff cannot show, since the line is textually identical in both files.
 $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            $chunkbuild, $farshell, $deform, $crateraudit,
            'Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs',
@@ -80,7 +86,16 @@ $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            'Assets\Scripts\Opt\ChunkDistanceCull.cs',
            'Assets\Scripts\UI\NewWorld\NewWorldSystems.cs',
            'Assets\Scripts\Models\Magic\MagicProjectileModelBuilder.cs',
-           'Assets\Scripts\Models\Magic\MagicImpactModelBuilder.cs')
+           'Assets\Scripts\Models\Magic\MagicImpactModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\SummonModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\SpellBeamModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\SpellZoneModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\SpellStormModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\SkillFxModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\CastingCircleModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\CcZoneFxModelBuilder.cs',
+           'Assets\Scripts\Models\Magic\AoeAimPreviewModelBuilder.cs',
+           'Assets\Scripts\Models\WeaponProjectileModelBuilder.cs')
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'

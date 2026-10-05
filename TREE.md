@@ -9,14 +9,14 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `aae400b` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-05 11:32 |
-| Tracked files | 1180 = 543 non-`.meta` + 637 `.meta` |
-| C# files | 370 |
+| Generated at commit | `b036824` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-05 12:34 |
+| Tracked files | 1199 = 553 non-`.meta` + 646 `.meta` |
+| C# files | 379 |
 
 Reading the tree:
 
-- `.meta` files are omitted everywhere. There are 637 of them and none carries
+- `.meta` files are omitted everywhere. There are 646 of them and none carries
   information a reader needs; every `.cs` has a paired `.cs.meta` and every folder under
   `Assets/` has a folder meta. `tools\StaticChecks.ps1` guards that invariant.
 - `name/   [N files]` means the directory was collapsed for length. Nothing inside it is
@@ -257,9 +257,17 @@ regenerated to verify.
 │   │   │   └── WifeDonationField.cs
 │   │   ├── Models/
 │   │   │   ├── Magic/
+│   │   │   │   ├── AoeAimPreviewModelBuilder.cs
+│   │   │   │   ├── CastingCircleModelBuilder.cs
+│   │   │   │   ├── CcZoneFxModelBuilder.cs
 │   │   │   │   ├── MagicImpactModelBuilder.cs
 │   │   │   │   ├── MagicProjectileModelBuilder.cs
-│   │   │   │   └── MagicWeaponModelBuilder.cs
+│   │   │   │   ├── MagicWeaponModelBuilder.cs
+│   │   │   │   ├── SkillFxModelBuilder.cs
+│   │   │   │   ├── SpellBeamModelBuilder.cs
+│   │   │   │   ├── SpellStormModelBuilder.cs
+│   │   │   │   ├── SpellZoneModelBuilder.cs
+│   │   │   │   └── SummonModelBuilder.cs
 │   │   │   ├── Player/
 │   │   │   │   └── PlayerModelBuilder.cs
 │   │   │   ├── BossModelBuilder.cs
@@ -268,7 +276,8 @@ regenerated to verify.
 │   │   │   ├── HorseModelBuilder.cs
 │   │   │   ├── ItemBuilder.cs
 │   │   │   ├── PlayerPartMesher.cs
-│   │   │   └── WeaponModelBuilder.cs
+│   │   │   ├── WeaponModelBuilder.cs
+│   │   │   └── WeaponProjectileModelBuilder.cs
 │   │   ├── Navigation/
 │   │   │   └── NavGrid.cs
 │   │   ├── NPCs/
@@ -514,6 +523,7 @@ regenerated to verify.
 │   └── packages-lock.json
 ├── ProjectSettings/   [27 files]
 ├── tools/
+│   ├── Compare-MovedModel.ps1
 │   ├── StaticChecks.ps1
 │   └── Write-Tree.ps1
 ├── .gitignore

@@ -41,19 +41,10 @@ public class CCZone : MonoBehaviour
 
     private void BuildVisual()
     {
-        var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        ring.name = "CCZoneFx";
-        ring.transform.SetParent(transform, false);
-        ring.transform.localPosition = new Vector3(0f, 0.03f, 0f);
-
-        Collider col = ring.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-
-        ring.transform.localScale = new Vector3(_radius * 2f, 0.02f, _radius * 2f);
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        Renderer renderer = ring.GetComponent<MeshRenderer>();
-        if (renderer != null && shader != null)
-            renderer.material = new Material(shader) { color = new Color(0.38f, 0.75f, 0.96f, 0.4f) };
+        // 1jd: the ring moved to CcZoneFxModelBuilder (Models/Magic). The pale blue stays HERE — it
+        // marks a crowd-control zone rather than a school, so it is deliberately not a SpellLook
+        // colour (rule 13) and the builder takes it as an argument rather than choosing one.
+        CcZoneFxModelBuilder.BuildCcZoneRing(transform, _radius, new Color(0.38f, 0.75f, 0.96f, 0.4f));
     }
 
     private void Update()

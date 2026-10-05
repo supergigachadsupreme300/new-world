@@ -113,63 +113,22 @@ public sealed class AoeAimPreview : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+    /// <summary>1jd: the three pieces moved to <see cref="AoeAimPreviewModelBuilder"/> (under
+    /// <c>Models/Magic/</c>). This method only unpacks the builder's per-piece record into the fields
+    /// <see cref="Apply"/> drives; every handle keeps its exact type, so the per-frame pulse code is
+    /// unchanged. <c>Renderer</c> is the base type on the record, so the ring's cast to
+    /// <see cref="LineRenderer"/> happens once here rather than every frame.</summary>
     private void Build()
     {
-        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-
-        // Translucent footprint disc (flat cylinder, no collider).
-        var discGo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        discGo.name = "Footprint";
-        var dcol = discGo.GetComponent<Collider>();
-        if (dcol != null) Destroy(dcol);
-        _disc = discGo.transform;
-        _disc.SetParent(transform, false);
-        _disc.localPosition = new Vector3(0f, GroundRaise, 0f);
-        _disc.localScale = new Vector3(1f, 0.01f, 1f);
-        _discRenderer = discGo.GetComponent<MeshRenderer>();
-        if (shader != null && _discRenderer != null)
-        {
-            _discMat = new Material(shader);
-            _discRenderer.material = _discMat;
-        }
-        else if (_discRenderer != null)
-        {
-            _discRenderer.enabled = false;
-        }
-
-        // Crisp outline ring (LineRenderer circle in local space).
-        _ring = gameObject.AddComponent<LineRenderer>();
-        _ring.useWorldSpace = false;
-        _ring.loop = true;
-        _ring.positionCount = RingSegments;
-        _ring.startWidth = 0.08f;
-        _ring.endWidth = 0.08f;
-        _ring.numCapVertices = 2;
-        if (shader != null)
-        {
-            _ringMat = new Material(shader);
-            _ring.material = _ringMat;
-        }
-
-        // Pulsing centre beacon so the exact target point stays readable.
-        var beaconGo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        beaconGo.name = "Beacon";
-        var bcol = beaconGo.GetComponent<Collider>();
-        if (bcol != null) Destroy(bcol);
-        _beacon = beaconGo.transform;
-        _beacon.SetParent(transform, false);
-        _beacon.localPosition = new Vector3(0f, 0.55f, 0f);
-        _beacon.localScale = new Vector3(0.16f, 0.55f, 0.16f);
-        var brenderer = beaconGo.GetComponent<MeshRenderer>();
-        if (shader != null && brenderer != null)
-        {
-            _beaconMat = new Material(shader);
-            brenderer.material = _beaconMat;
-        }
-        else if (brenderer != null)
-        {
-            brenderer.enabled = false;
-        }
+        AoeAimPreviewModelBuilder.Preview preview =
+            AoeAimPreviewModelBuilder.Build(transform, RingSegments, GroundRaise);
+        _disc = preview.Disc.Transform;
+        _discRenderer = preview.Disc.Renderer;
+        _discMat = preview.Disc.Material;
+        _ring = preview.Ring.Renderer as LineRenderer;
+        _ringMat = preview.Ring.Material;
+        _beacon = preview.Beacon.Transform;
+        _beaconMat = preview.Beacon.Material;
     }
 
     private void Apply()

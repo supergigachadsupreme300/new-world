@@ -117,8 +117,9 @@ public class SpellZone : MonoBehaviour
             SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Radius);
     }
 
-    /// <summary>Funnel: tapering stack of spinning flat rings + orbiting debris (tornado / vortex).
-    /// Disc: a single wide flat ring on the ground for persistent AoE zones.</summary>
+    /// <summary>1jd: the two bodies moved to <see cref="SpellZoneModelBuilder"/> (under
+    /// <c>Models/Magic/</c>) — the pull funnel and the persistent ground disc. This method still owns
+    /// the colour choice and the branch between them; the shapes and names are unchanged.</summary>
     private void BuildVisual()
     {
         // 1ie: the persistent zone body takes the per-spell Core colour, not the school colour, so a
@@ -136,62 +137,10 @@ public class SpellZone : MonoBehaviour
 
         if (PullSpeed > 0f)
         {
-            const float height = 4.8f;
-            const int rings = 7;
-            for (int i = 0; i < rings; i++)
-            {
-                float t = i / (float)(rings - 1);
-                float radius = Mathf.Lerp(Radius * 0.85f, 0.12f, t);
-
-                var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                ring.name = "SpellRing_" + i;
-                Collider ringCol = ring.GetComponent<Collider>();
-                if (ringCol != null) Destroy(ringCol);
-                ring.transform.SetParent(transform, false);
-                ring.transform.localPosition = new Vector3(0f, t * height, 0f);
-                ring.transform.localScale = new Vector3(radius, 0.015f, radius);
-                var ringR = ring.GetComponent<MeshRenderer>();
-                if (ringR != null && sharedMat != null) ringR.sharedMaterial = sharedMat;
-            }
-
-            for (int i = 0; i < 6; i++)
-            {
-                float t = i / 5f;
-                var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                block.name = "SpellDebris_" + i;
-                Collider blockCol = block.GetComponent<Collider>();
-                if (blockCol != null) Destroy(blockCol);
-                block.transform.SetParent(transform, false);
-                float ang = i * 60f + 30f;
-                float orbit = Mathf.Lerp(Radius * 0.7f, 0.25f, t);
-                block.transform.localPosition = new Vector3(
-                    Mathf.Cos(ang * Mathf.Deg2Rad) * orbit,
-                    t * height * 0.8f,
-                    Mathf.Sin(ang * Mathf.Deg2Rad) * orbit);
-                block.transform.localScale = Vector3.one * Mathf.Lerp(0.22f, 0.08f, t);
-                var blockR = block.GetComponent<MeshRenderer>();
-                if (blockR != null && sharedMat != null) blockR.sharedMaterial = sharedMat;
-            }
+            SpellZoneModelBuilder.BuildFunnel(transform, Radius, sharedMat);
             return;
         }
 
-        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        disc.name = "SpellDisc";
-        Collider discCol = disc.GetComponent<Collider>();
-        if (discCol != null) Destroy(discCol);
-        disc.transform.SetParent(transform, false);
-        disc.transform.localScale = new Vector3(Radius * 2f, 0.02f, Radius * 2f);
-        var discR = disc.GetComponent<MeshRenderer>();
-        if (discR != null && sharedMat != null) discR.sharedMaterial = sharedMat;
-
-        var halo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        halo.name = "SpellHalo";
-        Collider haloCol = halo.GetComponent<Collider>();
-        if (haloCol != null) Destroy(haloCol);
-        halo.transform.SetParent(transform, false);
-        halo.transform.localPosition = new Vector3(0f, 0.9f, 0f);
-        halo.transform.localScale = new Vector3(Radius * 1.6f, 0.03f, Radius * 1.6f);
-        var haloR = halo.GetComponent<MeshRenderer>();
-        if (haloR != null && sharedMat != null) haloR.sharedMaterial = sharedMat;
+        SpellZoneModelBuilder.BuildGroundZone(transform, Radius, sharedMat);
     }
 }
