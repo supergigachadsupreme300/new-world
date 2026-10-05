@@ -1,11 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
-/// Swaps / scales the player's body for the active race (game-design §3.5, planning Task 4.3).
+/// Swaps / scales the player's body for the active race (game-design Â§3.5, planning Task 4.3).
 /// Applies the uniform scale + offset and, when a dedicated body prefab exists, drops it in and
 /// tints it with the race's <see cref="RaceData.RigTint"/>. The procedural block player model is
 /// colored and proportioned by the race's own palette/ratio at build time
-/// (<see cref="MapBuilder.BuildPlayerModel"/>), so this rig deliberately does NOT flat-tint it —
+/// (<see cref="PlayerModelBuilder.BuildPlayerModel"/>), so this rig deliberately does NOT flat-tint it â€”
 /// it only applies the hitbox-affecting uniform scale. The parameter is applied via
 /// <see cref="ApplyRace"/> at spawn, race change, and rig re-init.
 /// </summary>

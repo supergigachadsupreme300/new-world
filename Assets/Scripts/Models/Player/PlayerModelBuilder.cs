@@ -3,7 +3,7 @@ using UnityEngine;
 
 public static class PlayerModelBuilder
 {
-    // ==================== MapBuilderPlayerModel.cs ====================
+    // ==================== PlayerModelBuilder.cs ====================
     // ═══════════════════════════════════════════════════════════════
     //  PLAYER MODEL  (smooth ellipsoid character, 1dw)
     // ═══════════════════════════════════════════════════════════════
