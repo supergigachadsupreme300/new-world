@@ -28,8 +28,10 @@ public sealed class CameraModeSwitch : MonoBehaviour
 
     [Header("Third-person")]
     [Min(0.5f)] public float ThirdPersonDistance = 6.5f;
-    [Tooltip("Height of the third-person camera above the player's FEET, not above the pivot: UpdateThirdPerson adds up * (ThirdPersonY - pivot.localPosition.y) to the pivot's world position, so the two terms cancel and the camera lands at feet + this. With the pivot at 1.5 m, 2.6 reads as '2.6 m up the player's body', which is why raising this does NOT raise the look-at point - the camera still looks at the pivot.")]
+    [Tooltip("Height of the third-person camera above the player's FEET, not above the pivot: UpdateThirdPerson adds up * (ThirdPersonY - pivot.localPosition.y) to the pivot's world position, so the two terms cancel and the camera lands at feet + this. With the pivot at 1.5 m, 2.6 reads as '2.6 m up the player's body', which is why raising this does NOT raise the look-at point - the camera still looks at the pivot (plus ThirdPersonSideOffset's lateral term, which is horizontal and so cannot change the height).")]
     public float ThirdPersonY = 2.6f;
+    [Tooltip("Lateral offset of the third-person camera in metres. Positive = to the player's RIGHT, negative = to the LEFT, 0 = the pre-1jl centred look. Added as pivot.right * this to BOTH the camera position and the look-at point, so the view direction is unchanged and the character sits off-centre (over the shoulder). Offsetting only the position would not move the character on screen: the camera would just rotate to keep re-centring it. First person is unaffected - it orbits the pivot with no offset.")]
+    public float ThirdPersonSideOffset = 0.6f;
     [Tooltip("Position smoothing seconds for the third-person camera.")]
     public float SmoothTime = 0.15f;
 
@@ -144,8 +146,14 @@ public sealed class CameraModeSwitch : MonoBehaviour
     private void UpdateThirdPerson()
     {
         Vector3 pivotPos = _pivot.position;
+        // 1jl: shoulder offset, a LATERAL translation of the camera position AND the look-at point
+        // by the same amount, so the view direction stays exactly the pre-1jl one (fwd * distance
+        // - up * height) and the character simply sits off-centre instead of being re-centred.
+        // The collision cast still starts at pivotPos, so the lateral term is inside the direction
+        // it sweeps and a wall beside the player now pulls the camera in - a play-test item.
+        Vector3 lookTarget = pivotPos + _pivot.right * ThirdPersonSideOffset;
         // Place the camera behind the character's facing so we see the back, not the front.
-        Vector3 desired = pivotPos
+        Vector3 desired = lookTarget
             + Vector3.up * (ThirdPersonY - _pivot.localPosition.y)
             - _pivot.forward * ThirdPersonDistance;
 
@@ -171,7 +179,7 @@ public sealed class CameraModeSwitch : MonoBehaviour
 
         _camera.transform.position = Vector3.SmoothDamp(
             _camera.transform.position, desired, ref _velocity, SmoothTime);
-        _camera.transform.rotation = Quaternion.LookRotation(pivotPos - _camera.transform.position);
+        _camera.transform.rotation = Quaternion.LookRotation(lookTarget - _camera.transform.position);
     }
 
     /// <summary>

@@ -1,3 +1,34 @@
+## 1jl. Third-person camera sits over the player's right shoulder
+
+**Status: SHIPPED, framing unverified.** One field + one local in `CameraModeSwitch`. **Verified by grep +
+reread; no Unity build** (rule 3). The framing amount is a play-test value, not a measurement.
+**skills: none applied** - see 1jl's THINKING note.
+
+The user asked to "move 3rd person camera abit to the right". `CameraModeSwitch` gained
+`ThirdPersonSideOffset = 0.6f` (negative = left, `0` = the pre-1jl centred look), applied as
+`pivot.right * offset` to **both** the camera position **and** the look-at point.
+
+**The part worth knowing:** offsetting the position alone would have moved *nothing* on screen.
+`UpdateThirdPerson` ends in `LookRotation(pivotPos - camera.position)`, so a position-only offset is
+rotated straight back out to keep the pivot centred - a view-angle tweak wearing a framing change's
+clothes. Moving the look-at too makes the view direction algebraically unchanged (the lateral term cancels
+out of both sides of `lookTarget - desired`) and slides the character left of centre, which is the actual
+request. First person is untouched: its branch snaps to the pivot and never enters `UpdateThirdPerson`,
+so the field has exactly two readers and both are third-person.
+
+`ThirdPersonSideOffset` is a plain initializer with **0** hits in the one live scene, and the component is
+`AddComponent`ed at runtime - so `0.6f` is the shipped value, same reasoning as 1jf's `StartInFirstPerson`.
+
+### 1jl-status
+- [ ] **Is 0.6 m the right "a bit"?** It is roughly a shoulder width on this body. It is one serialized
+      field on purpose - dial it in the inspector, no code edit.
+- [ ] **Does a wall beside the player now pull the camera in?** `toCam` starts at the pivot and the
+      lateral term is now inside the direction it sweeps, so yes by construction. Check a corridor.
+- [ ] **Player model placement** - the character now sits left of centre; check it does not clip the
+      left screen edge at narrow aspect ratios.
+- [ ] First person still snaps to the pivot (static claim, `Update`'s branch never calls
+      `UpdateThirdPerson`; worth one glance anyway).
+
 ## 1jk. Audit: no CS0117 siblings of the 1jj split - and three ways a reference sweep lies
 
 **Status: AUDIT COMPLETE, 0 real findings. Docs corrected.** Read-only sweep; the only file changed is

@@ -708,6 +708,20 @@
         - Corollary: a **framing** request and a **view** request are different tasks. "Change the camera
           angle to 3rd view" carried both, so 1jf asked rather than picking, and shipped the framing
           untouched â€” a guessed framing is a play-test cycle no static check can verify (rule 3).
+        - **A framing offset must move the LOOK-AT too, or it moves nothing on screen.** 1jl added a
+          lateral shoulder offset to `CameraModeSwitch` and the camera appeared *identical*, because
+          `UpdateThirdPerson` ends in `LookRotation(pivotPos - camera.position)`: offset the position alone
+          and the camera simply rotates to keep the pivot re-centred, trading a view angle for zero
+          framing. The fix is to add the offset to a single `lookTarget` and use it for **both** the
+          desired position and the rotation, which also makes the view direction provably unchanged
+          (`lookTarget - desired` is the same vector with the lateral term cancelling out of both) rather
+          than merely plausible. Two habits: state which of the pair the request was about - "move the
+          camera right" is a framing claim about *where the character sits*, and a re-centring camera
+          answers a different question; and **an offset that also bends a collision cast is a new
+          interaction, not a no-op.** The `SphereCast` here starts at the pivot, so a lateral term enters
+          the direction it sweeps and a wall beside the player now pulls the camera in. That is a
+          play-test item, and the honest move was to record it in the play-test list rather than leave it
+          as an unremarked side effect of "a cosmetic offset".
       - **A derived gate is a mitigation, never a licence: ask whether the second surface is worth
         its own identity.** 1f5's `NeedsLodDetail` gate was genuinely derived, not chosen â€” a
         **discrete Laplacian is exactly zero for any planar surface at any stride**, so it measured

@@ -2848,7 +2848,7 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   `_buildings[_buildings.Count - 1]` stamped the club's health/door/part state onto the
   **previous** building.
 
-### 9.4 Source Layout (1iu, 1iy, 1iz, 1ja, 1jb, 1jd, 1je, 1jf)
+### 9.4 Source Layout (1iu, 1iy, 1iz, 1ja, 1jb, 1jd, 1je, 1jf, 1jl)
 
 **The controller / modelling / animation split is planned in `ARCHITECTURE.md`** — read that for the
 target layout and the staged migration. This section keeps only the load-bearing invariants.
@@ -2970,8 +2970,18 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   system needed changing and none should have been reading it.
   Framing kept as authored: 6.5 m behind, camera at `ThirdPersonY = 2.6` m above the player's **feet**
   (not above the pivot — `UpdateThirdPerson` adds `up * (ThirdPersonY - pivot.localPosition.y)` to the
-  pivot's *world* position, so the two cancel), looking at the 1.5 m pivot. Player-model layer 6 is culled
-  in first person only; arms stay visible in both.
+  pivot's *world* position, so the two cancel), looking at the 1.5 m pivot **plus the 1jl lateral offset**.
+  Player-model layer 6 is culled in first person only; arms stay visible in both.
+- **The third-person camera sits over the player's right shoulder (1jl).** `CameraModeSwitch` gained
+  `ThirdPersonSideOffset = 0.6f` (negative = left, `0` = the pre-1jl centred look). It is added as
+  `pivot.right * offset` to **both** the camera position **and** the look-at point, so the view direction
+  is byte-for-byte the pre-1jl one and the only thing that changes is where the character sits on screen —
+  left of centre. Offsetting the position alone would have moved nothing visible: the camera would simply
+  rotate to keep re-centring the pivot. First person is untouched (it snaps to the pivot and never enters
+  `UpdateThirdPerson`), and the field is a plain initializer with no scene override for the same reason
+  `StartInFirstPerson` is (grep: 0 hits in the one live scene), so 0.6 m is the shipped value.
+  The collision `SphereCast` still starts at the pivot, so the lateral term is now inside the direction it
+  sweeps — a wall beside the player pulls the camera in, which it did not before.
 
   The dividing line is **shape vs. lifetime**: everything that only builds transforms moved; everything
   that decides *when a piece moves next frame* stayed, because that is behaviour. `SkillFx`'s

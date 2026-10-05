@@ -1,4 +1,66 @@
-## 1jk. "Are there more like 1jj's CS0117?" - a sweep that reported 9 findings and 0 defects
+## 1jl. "Move the 3rd person camera to the right" - an offset that would have moved nothing
+
+**OPEN until the user plays it.** The amount (0.6 m) is a taste value, not a measurement, and one new
+interaction is unverified (the collision cast). **No Unity build** (rule 3).
+**skills: none applied** - a camera-framing edit in existing gameplay code; the Unity skills govern
+editor/CLI workflows this project does not run (rule 15's "informative vs authoritative").
+
+### Who owns the camera: the 1iw shape, one file over
+Two candidates, same concept. `Player\Controller/ThirdPersonCamera.cs` is the dead one - **zero** code
+references, and the only mention anywhere is a comment in `ScreenShake.cs`. `CameraModeSwitch` is live:
+`PlayerController.Camera`'s `SetupPlayerCamera` `AddComponent`s it and calls `Setup`. Confirmed, so
+`CameraModeSwitch` is the only file this task may touch. Nothing outside it reads `ThirdPersonDistance`
+or `ThirdPersonY`, so no mirror has to move with it.
+
+### Is the value serialized? (1jf's check, because "I flipped the default" is not "the game does this")
+No. `CameraModeSwitch` has **0** hits in `Assets/Scenes/SampleScene.unity`, the only scene in
+`EditorBuildSettings`, and it is `AddComponent`ed at runtime - so a field initializer *is* the shipped
+value and no scene override can silently win. **Confirmed**, which is what makes `0.6f` a real number
+rather than a hope.
+
+### The load-bearing finding: the obvious implementation is a no-op
+The obvious edit is one line - add `_pivot.right * offset` to `desired`. **Rejected by reading, not by
+play-testing**, and this is the whole reason the task is worth a task id:
+
+    _camera.transform.rotation = Quaternion.LookRotation(pivotPos - _camera.transform.position);
+
+`UpdateThirdPerson` *aims at the pivot*. Offset the position and the camera simply rotates to keep the
+pivot re-centred: the view angle changes a little, the character does not move on screen at all. The user
+would have seen "identical" and reasonably reported that the change did nothing - with a one-line diff and
+a field that reads correctly in the inspector, nothing in review would contradict them. This is `1f5`'s "a derived
+gate is a mitigation, never a licence" in the geometry sense - the offset is reachable, it is just aimed
+at something the camera then cancels.
+
+The fix is to translate **both** the position and the look-at point by the same lateral term, from one
+`lookTarget` local used for both. That also makes the view direction *provably* unchanged rather than
+merely plausible:
+
+    lookTarget - desired = (pivot + right*o + up*h - fwd*d) - (pivot + right*o + up*h - fwd*d)
+
+The `right*o` term cancels out of both, so the pre-1jl direction is preserved algebraically. That is the
+difference between a change I can reason about and one I have to ask the user to look at.
+
+### What I could NOT settle, and said so instead of shipping a guess
+- **The collision cast is a new interaction.** `Vector3 toCam = (desired - pivotPos).normalized` still
+  starts at the pivot, so the lateral term now enters the direction the `SphereCast` sweeps. A wall
+  *beside* the player pulls the camera in where it did not before. `1jf` already flagged this cast as
+  starting inside the player's own `CharacterController` with `CollisionMask = ~0`; I did not re-open
+  that, since the start point is unchanged - only the direction is. **Play-test item.**
+- **0.6 m is taste.** "a bit to the right" has no number in it. 0.6 is roughly the width of a shoulder on
+  this body (the 1e2 reach bake gives a 0.347 half-width at the shoulder). It is one serialized field
+  precisely so it can be dialled without a code edit.
+- **First person I could verify statically, and did.** `Update`'s first-person branch snaps
+  `_camera.transform.position = _pivot.position` and never calls `UpdateThirdPerson`, so the new field
+  has exactly two readers and both are in the third-person path. grep, not assumption.
+
+### A stale comment the code change created, caught by rereading (rule 8)
+`ThirdPersonY`'s tooltip ended "the camera still looks at the pivot" - true when written by 1jf, **false
+the moment this landed**, because it now looks at the pivot *plus the lateral term*. Nothing warns about
+this; it is prose around a change, which is exactly what no tool in this repo reads. Fixed in the same
+pass, along with `game-design.md`'s "Framing kept as authored ... looking at the 1.5 m pivot" sentence,
+which had the same claim in longer form.
+
+
 
 **OPEN until the user's next compile.** Read-only audit plus a doc correction. **No pending play-test.**
 
