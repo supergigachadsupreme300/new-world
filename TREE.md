@@ -9,16 +9,20 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `cfb5f9e` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-05 16:59 |
-| Tracked files | 1201 = 554 non-`.meta` + 647 `.meta` |
+| Generated at commit | `522c881` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-05 17:27 |
+| Tracked files | 1205 = 554 non-`.meta` + 651 `.meta` |
 | C# files | 380 |
 
 Reading the tree:
 
-- `.meta` files are omitted everywhere. There are 647 of them and none carries
-  information a reader needs; every `.cs` has a paired `.cs.meta` and every folder under
-  `Assets/` has a folder meta. `tools\StaticChecks.ps1` guards that invariant.
+- `.meta` files are omitted everywhere. There are 651 of them and none carries
+  information a reader needs. Every `.cs` has a paired `.cs.meta` and every folder under
+  `Assets/` has a folder meta - both currently hold - but **no check enforces them**:
+  `tools\StaticChecks.ps1` does not mention `.meta` at all. Verify by hand:
+  folder count vs folders missing a sibling `.meta`, and `*.cs` vs `*.cs.meta`.
+  It held only by luck until 1ji: the four `Legacy` quarantine folders had no folder meta
+  and were committed by accident rather than by anything noticing they were absent.
 - `name/   [N files]` means the directory was collapsed for length. Nothing inside it is
   missing, only summarised. Raise `-ExpandBelow` to see more.
 - `Assets/Scripts` is always expanded in full - it is the part people navigate.
