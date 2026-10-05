@@ -172,6 +172,31 @@
     so treat any imbalance you did not cause as a *finding to locate*, not a defect to fix** - and do not
     "balance" the file to make the tool green, which would edit pre-existing content to satisfy an
     instrument that was never measuring it. Locate it (`git show HEAD:` first), record it, move on.
+- **The mirror of a qualified-reference sweep has THREE false-positive classes, and only one of them is
+      a real defect.** 1jk swept every `Owner.Member` reference in the tree against the members its owner
+      declares, to check whether 1jj's CS0117 had any siblings - and got 9 "unresolved" hits, of which
+      **0 were real**. Each class is a different way for the scan to be right about the text and wrong
+      about the code, so all three have to be eliminated before a single candidate is filed:
+  - **A reference inside a COMMENT is not a reference.** `WorldBuilder.SpawnRockDebris` appeared 3 times -
+      twice in `//` prose and once in `<see cref=...>` - and read as three outside calls to a `private`
+      method, i.e. CS0122. Stripping `//` and `/* */` and XML doc blocks is not optional in any of these
+      sweeps, or a *comment naming a member* becomes an error report (rule 8's stale-comment rule, running
+      the other way).
+  - **An INHERITED member has no declaration in the owner's own files.** `WorldBuilder.Instance` is used 55
+      times and is declared nowhere in the twelve partials, because `WorldBuilder : MonoSingleton<WorldBuilder>`
+      gets it from the live `MonoSingleton<T>`. A per-file extractor cannot see a base class; ask "does the
+      type have a base?" before calling a missing declaration a defect.
+  - **A nested TYPE declared with its brace on the next line defeats a one-line declaration regex.**
+      `public class FieldState` followed by a newline matches nothing that expects a trailing open paren,
+      brace or equals sign, so five save-record types read as missing. Match declarations with a
+      multiline-tolerant pattern or verify the extractor on a member you have *seen declared*.
+  **And the instrument itself has to be able to report a presence AND a negative control before its zeros
+  are quotable.** 1jk's first run printed "0 referenced, 0 unresolved" because `New-Object
+  System.Collections.Generic.ArrayList` does not exist (the type is non-generic), so the ref table was
+  never filled - a false zero produced by a broken instrument, indistinguishable in the output from a clean
+  sweep. The fixed run printed 36 distinct / 204 refs, and a control file with none returned 0. Two habits
+  fall out: **when a sweep reports a suspiciously round zero, re-run it with a value you know must be
+  non-zero**, and check `New-Object` type names actually resolve before believing the table they populate.
 - **A scan that reports ABSENCES must first be shown able to report PRESENCES, or its misses mean
       nothing.** The same class of error running the other way, and it is easy to mistake for a
       finding: verifying 1iu's two READMEs, `Select-String -Path 'Assets\Scripts\*.cs',
@@ -990,9 +1015,15 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
         modifier before editing, not after.
 
 18. **The old game's code is READ-ONLY and quarantined in `Assets\Scripts\Legacy\`, because this is a
-    different game that happens to share a repository.** 1jc quarantined 32 files - the ten
-    `CutsceneManager.*` endings, the twelve `WorldBuilder.*` partials, the ten `MapBuilder.*` partials -
+    different game that happens to share a repository.** 1jc quarantined 32 files - the eleven
+    `CutsceneManager*` files (the base plus **8** `Ending*` partials, `Driving`, `Helpers`), the twelve
+    `WorldBuilder.*` partials, the **nine** `MapBuilder.*` partials -
     under `Assets/Scripts/Legacy/{Cutscenes,WorldBuilder,MapBuilder}/`, with a `README.md` in the folder.
+    (Counted per folder by 1jk, because the wrong version of this sentence was *stable*: it said "the ten
+    `CutsceneManager.*` endings" and "the ten `MapBuilder.*` partials", and **the two errors cancelled -
+    10+12+10 and 11+12+9 are both 32**, so anyone who checked the total saw it agree. It was also wrong at
+    its own origin commit `aae400b`, so this was never rot, it was a bad count. Only 8 of the 11 cutscene
+    files are endings.)
     Rule 4 already said the legacy world is not the test surface; this says it is not the *subject* either.
     Four habits, each from a way the quarantine is easy to defeat by accident:
     - **Read-only means read-only, in both directions.** No edit, rename, move, delete, or drive-by comment

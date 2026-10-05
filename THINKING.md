@@ -1,3 +1,73 @@
+## 1jk. "Are there more like 1jj's CS0117?" - a sweep that reported 9 findings and 0 defects
+
+**OPEN until the user's next compile.** Read-only audit plus a doc correction. **No pending play-test.**
+
+### Why this task exists at all, and why it is not busywork
+`1jj` was a *symptom*: the console named `MapBuilder.BuildSeatedPlayerModel`, and the cause was a commit
+(`75fd44d`) whose sweep searched for one name. Rule 17's bullet I wrote for it says the sweep's unit is
+"the moved class's whole public surface" and its denominator is "every caller" - which is a claim about
+coverage, and claims about coverage need a number. So the follow-up is not "grep for the same string
+again" (1jj already proved that string is clean) but **ask whether the same class of mistake exists
+anywhere else in the same owner**. A greedy replace would have been the wrong instrument twice over: it
+rewrites the 200 valid `MapBuilder.*` calls along with the broken ones, and it cannot see a name nobody
+mentioned.
+
+### Hypothesis and verdict, stated up front
+H: other members were moved out of `MapBuilder`/`WorldBuilder` in the same extraction, leaving stale
+qualifications. **Rejected** - 0 real defects across 378 files. Confirmed sub-counts: 36 distinct
+`MapBuilder.<member>` referenced / 204 refs, 13 distinct `WorldBuilder.<member>` / 85 refs, and
+`PlayerModelBuilder`'s 3 public members / 17 refs, **all resolvable**. The 1jj family is closed at exactly
+4 sites. What the sweep *did* find is more useful than a clean bill: **three ways a qualified-reference
+sweep produces a false positive**, and I hit all three plus a fourth instrument bug.
+
+### The failure that shaped this task: a false zero that looked exactly like a clean sweep
+The first run printed **"distinct referenced: 0, UNRESOLVED: 0"** - which reads as "no problems found".
+It was not. `New-Object System.Collections.Generic.ArrayList` throws (`System.Collections.Generic` has
+`List<T>`, not `ArrayList`), so the `$refs` table was never populated and the unresolved check ran against
+an empty table. **The instrument did not fail loudly; it failed by being silent in the exact direction the
+reader wanted.** Rule 7's "a green check nobody has seen fail is not a check" is usually about a check that
+fires on everything; this is the nastier inverse - a check that fires on nothing *and looks authoritative*.
+Two habits: print a known-non-zero alongside any total (I re-ran and asked for a file with no
+`MapBuilder.` references, which correctly returned 0), and treat a round zero as a bug report about the
+script until proven otherwise.
+
+### Then three false positives, one per *kind* of thing a reference can be
+The sweep was right about the text each time and wrong about the code, which is why only reading the source
+settled it:
+- **`WorldBuilder.SpawnRockDebris` (3 hits) - a reference in a COMMENT.** Two `//` prose mentions and one
+  `<see cref="...">`. It reads as three external calls to a `private void` method, i.e. CS0122, in the very
+  rock-debris path 1jh just worked in - which is exactly the kind of coincidence that makes you file it
+  confidently. Strip comments and XML doc blocks before sweeping.
+- **`WorldBuilder.Instance` (55 hits) - an INHERITED member.** Declared nowhere in the twelve partials,
+  because `WorldBuilder : MonoSingleton<WorldBuilder>` gets it from the live `MonoSingleton<T>`. A
+  per-file declaration extractor is structurally blind to a base class. The tell is the magnitude: 55
+  uses of a name with 0 declarations is not a broken project, it is a missing base class in my model.
+- **`FieldState`, `BuildingState`, `FieldSaveData`, `BuildingSaveData`, `MansionBlueprintSaveData` - nested
+  TYPES.** Declared as `public class FieldState` with the brace on the next line, so a regex expecting a
+  trailing `(`/`{`/`=` matches nothing. All five are real, in `WorldBuilder.cs` and
+  `WorldBuilder.Persistence.cs`.
+Each of these would have been filed as a CS0117 and each would have been wrong, and a check that flags a
+false positive on the first file you add it to is a check whose silence has stopped meaning anything.
+
+### The wrong version of a rule 18 sentence that was right about the total
+Measuring the quarantine per folder gave `Cutscenes` **11**, `WorldBuilder` **12**, `MapBuilder` **9**.
+Rule 18 claimed "the ten `CutsceneManager.*` endings, the twelve `WorldBuilder.*` partials, the ten
+`MapBuilder.*` partials". Two of the three are wrong, **in opposite directions** - and that is precisely
+why it survived: `10+12+10` and `11+12+9` are both 32, so every reader who checked the number that was
+easy to check saw it agree, and the two wrong numbers never met. `aae400b` confirms it was wrong at birth,
+so this is a bad count, not rot. Only 8 of the 11 cutscene files are `Ending*`.
+The transferable shape: **a total that agrees can hide two component errors, and a count is more trustworthy
+when each part is measured where it is read.** Fixed in place with the cancellation spelled out, because
+"correcting" one of the two later would silently reintroduce a disagreement.
+
+### A habit worth keeping from the verification itself
+Two of my commands guessed file paths (`Assets\Scripts\Magic\MagicProjectileModelBuilder.cs`,
+`Assets\Scripts\World\Chunks\WorldStreamer.Deform.cs`) that do not exist - the files are under
+`Models\Magic\` and `World\Streaming\`. Those errors surfaced as **"Cannot find path"**, which is the benign
+failure mode: loud, and attributed to the command rather than to the code. The dangerous version is the
+same wrong guess *reported as a hit*, which would be a finding about a file that is not there. When a
+sweep prints `file:line`, the file name came from the scanner's own enumeration - do not hand-type one to go
+look at it.
 ## 1jj. "mapbuilder compile bug, seatedplayer"
 
 **OPEN until the play-test.** Shipped in the 1jj commit. The fix is 4 one-word prefixes; everything worth

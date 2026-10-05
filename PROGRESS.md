@@ -1,3 +1,60 @@
+## 1jk. Audit: no CS0117 siblings of the 1jj split - and three ways a reference sweep lies
+
+**Status: AUDIT COMPLETE, 0 real findings. Docs corrected.** Read-only sweep; the only file changed is
+`AGENTS.md`. **Verified by grep + reread; no Unity build** (rule 3).
+**skills: none applied** - a static analysis + doc audit inside this repo.
+
+`1jj` fixed 4 CS0117 sites that `75fd44d` left behind. Rule 17's new bullet says the sweep's denominator is
+*every caller*, so the question this task answers is: **were there more?**
+
+### The sweep, and its verdict
+Every qualified `Owner.Member` reference in all **378** `.cs` files under `Assets\Scripts`, checked against
+the names declared by that owner:
+
+| Owner | Declared | Distinct referenced | Total refs | Unresolved |
+|---|---|---|---|---|
+| `MapBuilder` | 58 | 36 | 204 | 1 - a doc comment |
+| `WorldBuilder` | 223 | 13 | 85 | 7 - 5 extractor, 1 inherited, 1 a comment |
+| `PlayerModelBuilder` | 3 | 4 | 17 | 1 - a comment |
+
+**0 real defects.** The `MapBuilder` hit that is not the one 1jj fixed (`NewWorldTestGround.cs:750`,
+`MapBuilder.Build`) is the wildcard `MapBuilder.Build*Npc` inside an XML doc comment. So the 1jj family is
+closed: there were exactly 4 broken sites, and they are all fixed.
+
+### Four instrument defects, each of which first produced a wrong answer
+This is the real content of the task. Every one of these made the output look like a clean sweep or a real
+finding when it was neither, and only reading the actual file caught them.
+- **The ref table never got filled.** First run printed "0 referenced, 0 unresolved" - because
+  `New-Object System.Collections.Generic.ArrayList` does not exist (it is non-generic), so every `$refs[$n]`
+  assignment threw and the table stayed empty. **A false zero from a broken instrument is indistinguishable
+  in the output from a clean sweep.** Fixed run: 36 distinct / 204 refs, which is a number worth reading.
+- **Comments are not references.** `WorldBuilder.SpawnRockDebris` read as 3 outside calls to a `private`
+  method (CS0122) and is in fact 2 `//` comments and 1 `<see cref>`. It is referenced for what it *looks*
+  like, not called.
+- **Inherited members have no local declaration.** `WorldBuilder.Instance`, used **55** times, is declared
+  in none of the twelve partials: `WorldBuilder : MonoSingleton<WorldBuilder>` inherits it from the live
+  `MonoSingleton<T>`. A per-file extractor cannot see a base class.
+- **A nested type with its brace on the next line defeats a one-line regex.** `public class FieldState`
+  followed by a newline matches nothing expecting a trailing `(`/`{`/`=`, so 5 save-record types
+  (`FieldState`, `BuildingState`, `FieldSaveData`, `BuildingSaveData`, `MansionBlueprintSaveData`) all read
+  as missing. They are declared in `WorldBuilder.cs` and `WorldBuilder.Persistence.cs`.
+
+Also worth recording: two of my own *verification* commands guessed file paths that do not exist
+(`Assets\Scripts\Magic\MagicProjectileModelBuilder.cs` and `Assets\Scripts\World\Chunks\WorldStreamer.Deform.cs`;
+the real paths are `Models\Magic\` and `World\Streaming\`). Those two errors produced **"Cannot find path"**
+rather than a false claim, which is the benign failure mode - but the same guess reported as a hit would have
+been a finding about a file that is not there.
+
+### Rule 18's file counts were wrong, and the wrongness cancelled out
+Measuring per folder: `Cutscenes/` **11** files (only **8** are `Ending*`; the rest are the base plus
+`Driving` and `Helpers`), `WorldBuilder/` **12** partials, `MapBuilder/` **9** partials. Rule 18 said "the ten
+`CutsceneManager.*` endings, the twelve `WorldBuilder.*` partials, the ten `MapBuilder.*` partials".
+So one number is right, and the two that are wrong err in opposite directions - **10+12+10 and 11+12+9 are
+both 32**, which is why the sentence survived 30-odd tasks: a reader who checked the total saw it agree.
+It was also wrong at its own origin commit `aae400b`, so this was never rot, it was a bad count.
+Corrected in place, with the cancellation named so nobody "fixes" one of the two back.
+
+**No pending play-test** - this task changes no behaviour and no gameplay code.
 ## 1jj. `MapBuilder.BuildSeatedPlayerModel` - the call sites 75fd44d never finished, incl. 3 in Legacy
 
 **Status: READY FOR PLAY-TEST.** Four CS0117 sites from the same class split 1ji finished. One live line
