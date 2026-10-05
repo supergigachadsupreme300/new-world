@@ -1447,7 +1447,32 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   (`lookTilt = LookPitch · TorsoLookBlend`; `LookPitch` positive = down, and +X rotation on the Torso
   pivot = forward lean, so the patient reads correctly). The cartoon-run pose also pitches the torso
   forward with speed (+12° at sprint); the bobbing head baseline keeps its own slight counter-tilt.
-- **Scalp-cap hair (1e3)**: hair was 4–6 floating slabs placed against an ideal sphere — the crown
+  - **Gait rate follows movement speed (1jn)**: the walk/run cycle is driven by the character's **measured
+    planar speed**, not a fixed ladder. The old rule was `cadence = 1.8 + norm * 2.0` Hz, whose large constant
+    floor made even a slow walk cycle at ~2.8 Hz and put a sprint at **3.8 Hz = 7.6 steps a second** - far
+    past the point where the cycle can be read. It is now `cadence = speed / StrideLength` (`StrideLength`
+    4.3 m per **full** cycle, i.e. two steps), which is the physically honest relationship: one cycle advances
+    the body by exactly one stride, so the feet plant instead of skating, and the rate rises and falls with
+    real speed for free. Walk 5 m/s lands at **1.16 Hz (2.3 steps/s)**, sprint 10 m/s at **2.33 Hz
+    (4.65 steps/s)** - a 2.4x / 1.7x slowdown from the same character speed. The reason a *longer* stride is
+    the lever, rather than a slower character, is that the base speeds are already a jog and a sprint
+    (`MoveSpeed 5f` x `SprintMultiplier 2f`), so any honest cadence at 10 m/s is fast; 4.3 m buys fewer,
+    bigger steps. Two honest caveats: `MaxCadence` (3.2 Hz) is a hard ceiling, and **above it the feet do
+    slide**, because the animation can no longer express the real speed - it first binds at 13.8 m/s, clear of
+    sprint and of a +25% stacked-MoveSpeed build, and it is the knob to raise before raising `StrideLength`
+    if the legs skate. And `norm` (which drives the **pose** blend - arm/knee swing, the forward lean) still
+    normalises against the raw `MoveSpeed`/`SprintMultiplier` fields, so it does not see the perk or water
+    multipliers the measured speed does; a stacked build therefore poses slightly short of a full run while
+    its legs keep the correct rate.
+  - **Gait speed is smoothed and teleport-guarded (1jn)**: because the cadence is a **division** by
+    `StrideLength`, the measured planar speed is low-passed (12/s) and any reading above 30 m/s - a respawn
+    or teleport, orders of magnitude past locomotion - is discarded rather than smoothed. Without this a
+    single spiky frame is amplified into the `_phase` integrator and leaves a *permanent* phase error behind.
+    `OnEnable` also seeds `_lastRootPos` from the current position: it was never initialised, so the first
+    `LateUpdate` measured the player against a `default(Vector3)` and reported its distance from the world
+    origin as speed. That was nearly invisible under the old clamped `norm` (one frame of run pose) and is
+    a multi-Hz phase burst under a divisor.
+  - **Scalp-cap hair (1e3)**: hair was 4–6 floating slabs placed against an ideal sphere — the crown
   slab hovered 4 cm above the scalp and the side/back panels drifted off the skull. All `Hair`/
   `HairSide`/`HairBack`/`HairBand`/`Ponytail` parts are retuned to HUG the actual head hull (thin
   oblate cap lens resting on the crown so it neither floats nor gaps, side slabs buried ~1 cm into

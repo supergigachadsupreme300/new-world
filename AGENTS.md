@@ -298,6 +298,44 @@
      - **Check 8 now mechanises this**: it reads the QA lane keys out of their declarations and
        fails on any second binding in `Assets\Scripts` across all three spellings. Verified by
        reverting the lane to F1 and watching it name `Interactions.cs:521`.
+   - **A procedural cycle's RATE is a DIVISION by a stride, which makes its input and its seed
+     load-bearing in a way a clamped blend was not.** 1jn's walk/run change is the general case: the
+     gait rate went from `cadence = 1.8f + norm * 2.0f` to `cadence = speedH / StrideLength`, and the
+     two requests in one report ("too fast to see" + "scale with movement speed") turned out to be the
+     *same* lever rather than two features, because the complaint was the constant **floor** and the fix
+     is a relationship. Three habits, each from something that would have shipped broken:
+     - **A cycle rate that tracks movement speed is `speed / stride`, and that is the no-foot-slide
+       invariant.** One cycle advances the body by exactly one stride, so the planted foot travels with
+       the body. Any other formula - `1.8 + norm * k` included - has to be tuned until it happens to hold
+       at one speed and drifts at the rest, and the drift is invisible in a still frame. The installed
+       `scenario-unity-animation` skill has the measured version of the same rule ("script speed that
+       disagrees with the clip slides the feet, p50 0.19 vs 1.14 m/s"); it targets Animator Controllers,
+       which this project does not use, so it supplied the constraint and not the verification.
+     - **A rate that is a division is a far more sensitive consumer of its input than a `Clamp01` was,
+       so re-audit the input's own hygiene.** 1jn's speed was a raw per-frame transform delta, and the
+       old clamp made a garbage frame cost one frame of pose; under the divisor the same frame lands in
+       the **`_phase` integrator**, where an error is *permanent* rather than transient. That is the
+       general shape: **a clamp absorbs bad input, an integrator remembers it.** Low-pass the input, and
+       discard values no locomotion could produce (a teleport, a respawn) rather than smoothing them in.
+     - **A tracker with no seed has a fictional first sample, and grep cannot see it** - the symbol is
+       declared and assigned, so an existence sweep passes. 1jn's `_lastRootPos` was read-then-written
+       and never initialised, so frame 1 measured the player against `default(Vector3)` and reported its
+       distance from the world **origin** as speed. Seed a tracker in `OnEnable`, and remember that the
+       seed only matters once something downstream is sensitive enough to care.
+     - **A clamp that exists to protect legibility breaks the invariant it protects - say so where the
+       knob is.** `MaxCadence` stops a fast build from becoming a blur, and above it the feet *do* slide,
+       because the animation can no longer express the real speed. Compute where the clamp first binds
+       (1jn: `4.3 x 3.2 = 13.8 m/s` vs 10 m/s sprint, 12.5 m/s for a +25% perk build) and record the
+       consequence in the field's own tooltip, not only in the design doc - the tooltip is what the next
+       person reads while dragging the slider.
+     - Corollary for "too fast" reports: **ask whether the art parameter or the character speed is the
+       lever before touching either.** 1jn's base speeds were already `MoveSpeed 5f` x
+       `SprintMultiplier 2f` = a 5 m/s walk and a 10 m/s sprint, so at 10 m/s *no* honest cadence is
+       slow. Slowing the character is a gameplay change and not the one that was asked for; lengthening
+       the stride buys fewer, bigger steps and leaves the feel alone. Two halves of one report being one
+       lever is worth establishing before asking the user to choose.
+   - **A secant is a claim about a line, so the derivative's sign and units are part of the mechanism.**
+     (this is a placeholder, see above)
    - Also: a check that flags a false positive on the first file you add it to is a check whose
       silence has stopped meaning anything. 1hy's `StaticChecks.ps1` check 4 reported every `out`
       parameter as an unassigned local; a reader trained by 4 false candidates waves through the

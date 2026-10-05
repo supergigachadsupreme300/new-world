@@ -46,6 +46,23 @@ public sealed class PlayerAnimator : MonoBehaviour
     private float _time;
 
     /// <summary>
+    /// Low-pass rate (1/s) for the measured planar speed. Cadence is a division by
+    /// <see cref="StrideLength"/>, so an unsmoothed one-frame spike would otherwise be amplified
+    /// straight into the <c>_phase</c> integrator and leave a permanent phase error behind.
+    /// </summary>
+    private const float SpeedSmoothing = 12f;
+
+    /// <summary>
+    /// Any measured planar speed above this is a teleport/respawn, not locomotion, and is
+    /// discarded rather than smoothed. Comfortably above sprint (10 m/s) and a stacked
+    /// MoveSpeed build, comfortably below a teleport.
+    /// </summary>
+    private const float TeleportSpeed = 30f;
+
+    /// <summary>Smoothed planar speed (m/s) of the character root. See <see cref="SpeedSmoothing"/>.</summary>
+    private float _speedH;
+
+    /// <summary>
     /// When true, the arm pivots (shoulders AND elbows) are left entirely to a
     /// <see cref="WeaponAnimator"/>, which drives them through its attack pose track / ready sway
     /// while SuppressArms is set. Managed by <see cref="AcquireArms"/> / <see cref="ReleaseArms"/>
@@ -63,6 +80,17 @@ public sealed class PlayerAnimator : MonoBehaviour
     [Tooltip("How much the upper body pitches with the camera look (0 = none, 1 = full camera pitch). "
         + "Looking down bends the torso forward, looking up leans it back.")]
     public float TorsoLookBlend = 0.5f;
+
+    [Tooltip("Metres the body travels per FULL gait cycle (two steps: left forward, right forward). "
+        + "The cadence is speed / stride, so one cycle advancing the body by exactly this much is what "
+        + "keeps the feet planted instead of sliding. Bigger stride = fewer, longer steps. "
+        + "The default 4.3 puts a 5 m/s walk at ~1.15 Hz and a 10 m/s sprint at ~2.33 Hz.")]
+    public float StrideLength = 4.3f;
+
+    [Tooltip("Hard ceiling on the gait cycle rate (Hz), so a very fast build cannot turn the run "
+        + "into a blur. Above the ceiling the feet DO slide, because the animation can no longer "
+        + "express the real speed - raise this before raising StrideLength if the legs skate.")]
+    public float MaxCadence = 3.2f;
 
     /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
     public void AcquireArms()
@@ -107,6 +135,14 @@ public sealed class PlayerAnimator : MonoBehaviour
         _body = _torso != null ? _torso.Find("Body") : FindChild("Body");
         _head = _torso != null ? _torso.Find("Head") : FindChild("Head");
         if (_body != null) _bodyBasePos = _body.localPosition;
+
+        // Seed the speed tracker from the CURRENT position. Without this the first LateUpdate
+        // measures the player against a default(Vector3) - i.e. its distance from the world
+        // origin - and reports a huge speed. The old clamped `norm` only showed it as one frame
+        // of run pose, but cadence is a DIVISION (see StrideLength) and would fire a multi-Hz
+        // burst into the _phase integrator, so the seed is what keeps frame 1 honest.
+        _lastRootPos = transform.position;
+        _speedH = 0f;
     }
 
     private void LateUpdate()
@@ -151,7 +187,11 @@ public sealed class PlayerAnimator : MonoBehaviour
         if (Time.deltaTime > 0f)
             delta /= Time.deltaTime;
 
-        float speedH = new Vector2(delta.x, delta.z).magnitude;
+        // Planar speed, teleports rejected and low-passed. Everything below reads this smoothed
+        // value, so the walk/idle threshold stops flickering on a noisy frame too.
+        float rawH = Mathf.Min(new Vector2(delta.x, delta.z).magnitude, TeleportSpeed);
+        _speedH = Mathf.Lerp(_speedH, rawH, 1f - Mathf.Exp(-Time.deltaTime * SpeedSmoothing));
+        float speedH = _speedH;
 
         if (speedH < 0.35f)
         {
@@ -162,7 +202,11 @@ public sealed class PlayerAnimator : MonoBehaviour
             return;
         }
 
-        // norm 0 (walk) .. 1 (sprint): scale cadence and swing amplitude with speed.
+        // norm 0 (walk) .. 1 (sprint): drives the POSE blend below - how far the arms and knees
+        // swing and how much the run leans. The gait RATE is not derived from this; it is derived
+        // from the measured speed further down. Note runSpeed reads the raw MoveSpeed /
+        // SprintMultiplier fields, so it does not see the perk or water multipliers that the
+        // measured speed does - a stacked build therefore poses slightly short of a full run.
         float runSpeed = _pc.MoveSpeed * _pc.SprintMultiplier * 0.9f;
         float norm = Mathf.Clamp01((speedH - 0.4f) / Mathf.Max(0.1f, runSpeed));
 
@@ -171,7 +215,13 @@ public sealed class PlayerAnimator : MonoBehaviour
         // lean and a bouncy bobble.
         float runBlend = Mathf.SmoothStep(0.45f, 0.8f, norm);
 
-        float cadence = 1.8f + norm * 2.0f; // Hz
+        // Cadence follows the character's ACTUAL measured speed, not a fixed ladder. One cycle is
+        // two steps, so the honest relationship is cadence = speed / stride: the body then covers
+        // exactly one StrideLength per cycle and the feet plant instead of skating. The old
+        // `1.8 + norm * 2.0` had a large constant floor and reached 3.8 Hz at sprint - 7.6 steps a
+        // second, far past readable. A longer stride is what slows it: it buys fewer, bigger steps
+        // rather than a slower character.
+        float cadence = Mathf.Clamp(speedH / Mathf.Max(StrideLength, 0.1f), 0f, MaxCadence);
         _phase += cadence * Mathf.PI * 2f * Time.deltaTime;
 
         // â”€â”€ Walk pose (natural gait) â”€â”€

@@ -1,3 +1,58 @@
+## 1jn. Player walk/run cycle is slower and its rate follows measured movement speed
+
+**Status: SHIPPED, cadence unverified.** One file: `Assets/Scripts/Animation/PlayerAnimator.cs` (+ `game-design.md`,
+`AGENTS.md`, `PROGRESS.md`, `THINKING.md`). **Verified by grep + reread; no Unity build** (rule 3).
+**skills: `scenario-unity-animation` applied (informative).** It targets Animator Controllers and the
+import pipeline, which this project does not use - `PlayerAnimator` is fully procedural - so it verified
+nothing here, but its measured rule *"script speed that disagrees with the clip slides the feet (p50 0.19
+vs 1.14 m/s)"* is the governing constraint and it is what the fix is built on. See 1jn's THINKING note.
+
+The report was "the animation is too fast, the player can't really see it, and make it scale with movement
+speed". Those turn out to be **one lever, not two**, which is the useful part of this task.
+
+`PlayerAnimator` already measured the character's real planar speed (`speedH`, from the root transform delta)
+and already fed it into `norm`, but the gait *rate* was thrown away and re-expressed as
+`cadence = 1.8f + norm * 2.0f` Hz. A large constant floor meant a slow walk still cycled at ~2.8 Hz, and a
+sprint hit 3.8 Hz - **7.6 steps a second**, since one cycle is two steps. Meanwhile the base speeds are
+`MoveSpeed = 5f` and `SprintMultiplier = 2f`, so the walk is a 5 m/s jog and the sprint a 10 m/s sprint.
+At 10 m/s *any* honest cadence is fast, which is why the two halves of the request were in tension: you
+cannot slow the cycle at a fixed stride and also make it track speed.
+
+The fix is the relationship rather than the numbers. One cycle covers two steps, so
+**`cadence = speed / StrideLength`**, with `StrideLength` = 4.3 m per full cycle. That makes the body advance
+exactly one stride per cycle, so the feet plant by construction rather than by tuning, and the rate now
+scales with real speed for free - including knockback, water and perk multipliers the old ladder never saw.
+The longer stride is *also* the slowdown: fewer, bigger steps instead of a slower character.
+
+| case | speed | before | after |
+|---|---|---|---|
+| walk | 5 m/s | 2.82 Hz = 5.64 steps/s | **1.16 Hz = 2.33 steps/s** (2.4x slower) |
+| sprint | 10 m/s | 3.8 Hz = 7.6 steps/s | **2.33 Hz = 4.65 steps/s** (1.7x slower) |
+
+Two things that were load-bearing rather than tidy-ups, both because a **division** is a much more sensitive
+consumer of its input than the clamped `norm` it replaced:
+- **The speed is now smoothed and teleport-guarded.** One spiky frame (knockback, respawn) used to cost one
+  frame of pose; it now lands in a divisor feeding the `_phase` integrator, so it would leave a *permanent*
+  phase error. Teleports (>30 m/s) are discarded outright and the rest is low-passed at 12/s.
+- **`OnEnable` now seeds `_lastRootPos`.** It was never initialised, so the first `LateUpdate` measured the
+  player against `default(Vector3)` and reported its distance from the world origin as speed - invisible
+  under the old clamp, a multi-Hz burst under the new one.
+
+### 1jn-status
+- [ ] **Walk and check the cycle is readable** - the check for the "too fast" half. It should now be a
+      visibly unhurried walk, not a march.
+- [ ] **Sprint and check it is faster but still readable** - it should land at roughly half the old rate.
+- [ ] **Watch the FEET, not the rhythm** - the invariant this buys is no foot slide, so if the legs skate
+      the stride/speed relationship is off. `StrideLength` is the knob for "too fast still"; `MaxCadence` is
+      the knob for "skating at speed", and the tooltip says to raise the ceiling *before* the stride.
+- [ ] **Check the transition out of idle** - the walk/idle threshold now reads a smoothed speed, so it should
+      be less flickery; confirm it still settles promptly when you stop.
+- [ ] **Check a knockback / respawn** - this is what the smoothing and the teleport guard exist for, and it
+      is the one case that would show as a visible twitch in the legs if the guard is wrong.
+- [ ] Note: `norm` still normalises pose blending against the raw `MoveSpeed`/`SprintMultiplier` fields and so
+      does not see perk/water multipliers. Left alone (it drives pose, not rate) and recorded in
+      `game-design.md`; a stacked build poses slightly short of a full run while its legs keep the right rate.
+
 ## 1jm. Projectile spells fly straight along the look direction (no camera-point convergence)
 
 **Status: SHIPPED, aim unverified.** One new shared helper + two call sites. **Verified by grep + reread;

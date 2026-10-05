@@ -1,3 +1,80 @@
+## 1jn. "the animation too fast player cant really see it" - the rate and the speed-scaling are one lever
+
+**Shipped.** `Assets/Scripts/Animation/PlayerAnimator.cs` only. OPEN until the user play-tests.
+
+### The premise check, before touching a number
+The request has two halves that looked like separate features: *slow it down* and *scale it with movement
+speed*. Hypothesis H1: they are in tension, because the base speeds are already a jog and a sprint. Evidence
+for: `PlayerController.MoveSpeed = 5f`, `SprintMultiplier = 2f` -> 5 m/s walk, 10 m/s sprint. At 10 m/s no
+honest cadence is slow, so a cycle that tracks speed cannot also be leisurely. If H1 holds, this needs a
+decision, not a tuning pass, and I should ask.
+
+H1 **rejected** - they are the same lever, provided the stride is allowed to be the free parameter. The
+existing line `cadence = 1.8f + norm * 2.0f` has a *constant floor* of 1.8 Hz that is paid at every speed
+above the 0.35 m/s idle threshold; that floor is the actual complaint ("too fast, can't see it") and it is
+independent of how fast the character is moving. One cycle is two steps, so the honest relationship is
+`cadence = speed / strideLength`. Making the rate proportional to speed *and* choosing a long stride
+simultaneously (a) tracks real speed and (b) lowers the rate. No user decision needed; the two halves of the
+request were one edit.
+
+### Why "speed / stride" and not a nicer constant (confirmed)
+The `scenario-unity-animation` skill's measured rule is *"script speed that disagrees with the clip slides the
+feet (p50 0.19 vs 1.14 m/s)"*. That is not a cosmetic preference - it is the criterion. `cadence = speed /
+stride` satisfies it **by construction**: one cycle advances the body by exactly `strideLength`, so the
+planted foot travels with the body. Any other formula has to be hand-tuned until it happens to hold at one
+speed and drifts at the others. The skill targets Animator Controllers and the import pipeline and this
+project uses neither, so it verified nothing here - it supplied the constraint, not the verification.
+
+Stride = 4.3 m per full cycle (2.15 m per step) is a comically long stride for a human, and deliberately so:
+at 10 m/s it is the only way to land near 2.3 Hz. It is exposed as `StrideLength` because it is the tuning
+knob the user will actually reach for ("still too fast"), and the art amplitudes are authored separately, so
+a long stride costs nothing visually.
+
+### The divisor is a more sensitive consumer than what it replaced - two consequences, both found by rereading
+The old `norm` was `Clamp01(...)`, so a garbage input was harmless. `speedH / StrideLength` is a **division**,
+so garbage input is amplified, and it feeds the `_phase` **integrator**, so an error is permanent rather than
+one frame. Two real defects fell out of that, neither of which the request mentioned:
+
+- **The speed was raw.** A single knockback frame now injects a large phase error that never unwinds.
+  Added a 12/s low-pass. Considered smoothing `norm` too - rejected, it is already clamped and out of scope.
+- **`_lastRootPos` was never initialised.** `grep` found exactly two hits, both in `LateUpdate` (read, then
+  write), so the first frame measured `playerPos - default(Vector3)` = the player's distance from the world
+  origin. Under the old clamp that was one frame of run pose, i.e. invisible; under a divisor it is a
+  multi-Hz burst into the integrator. Fixed by seeding it in `OnEnable`. This is rule 8's
+  *read the code that writes the value* landing as a **seed**: a tracker with no initial value is a tracker
+  whose first sample is fiction.
+
+### `MaxCadence` - a clamp that breaks the invariant it protects, said out loud
+`MaxCadence = 3.2f` stops a fast build from turning the run into a blur. Above the ceiling the feet **do**
+slide, because the animation can no longer express the real speed. I checked where it binds rather than
+assuming: `4.3 * 3.2 = 13.8 m/s`, against 10 m/s sprint and 12.5 m/s for a +25% stacked-MoveSpeed build - so
+it is clear in normal play and the caveat is documented in the tooltip and in `game-design.md` rather than
+left for someone to discover as a bug. The tooltip says to raise the ceiling *before* the stride, because
+the ceiling is the one that trades correctness for legibility and the stride is the art knob.
+
+### Rejected, and why
+- **Slowing `MoveSpeed`.** Rejected: the user asked about the animation, and 1jm's crosshair note shows
+  character speed is load-bearing for feel. Not my call to make silently.
+- **Deriving cadence from `norm` instead of the measured speed** (i.e. `1.8 + norm*k` with a smaller k).
+  Rejected: it "scales with speed" only in the sense the old code already did, ignores knockback/water/perks,
+  and reintroduces the constant floor that *is* the complaint. It is a smaller diff and the wrong fix.
+- **Also fixing `norm` to see the perk/water multipliers.** Rejected as out of scope: `norm` drives the pose
+  blend, not the rate, and the rate is now correct from the measured speed. Recorded in `game-design.md` and
+  in the play-test list as a known, harmless imprecision rather than silently changed.
+- **Touching enemy gait.** `grep` for `cadence` found `PlayerAnimator` as the **sole** owner of a walk cycle;
+  the enemies move by `MoveTowards` with no animator (`game-design.md` notes this for `SummonedAlly`, and it
+  holds). Nothing to keep in step, so no shared constant was needed.
+
+### What would have been missed by grep alone
+`_lastRootPos` **exists** in the file, so an existence grep passes; the defect is that it is never *seeded*.
+Same shape as rule 8's stale-comment bullet at a different altitude: the symbol is present and correct and
+the value it holds on frame 1 is fiction. Only reading the assignment pair caught it.
+
+### Open
+- Play-test the four items in `PROGRESS.md` 1jn-status. The one that can invalidate the design rather than the
+  tuning is **foot slide at speed** - that would mean the speed the animator sees is not the speed the
+  character is actually moving at (a collider/CharacterController disagreement), not that the stride is wrong.
+
 ## 1jm. "Make the projectile fly straight from the player direction" - a point is not a direction
 
 **OPEN until the user plays it.** Two play-test questions the code cannot answer: whether the straight
