@@ -1,3 +1,120 @@
+## 1jg. "Spells fly with no trail" - restoring a deleted look, and the field that was never declared
+
+**OPEN until the play-test.** Shipped in the 1jg commit; nothing here is verified behaviour yet.
+
+### Hypothesis 1: the trail was never built - REJECTED, it was built and then deleted
+Grepped the magic tree for `TrailRenderer`, `ParticleSystem`, "trail", "exhaust" before writing anything.
+`TrailRenderer` exists - it is what the old client used for its winding-magic trail and still is for the
+legacy cast-circle FX - which is the trap rule 13 records: **an existing name in the repo is not a
+feature that is wired up.** Reading the git history instead of the tree gave the actual answer: `1155a6e`
+replaced the per-projectile `TrailRenderer` with a `ParticleSystem` exhaust, and `1eb` (`5381e8b`) deleted
+that exhaust along with `OrbFx`'s pulse modes **because the user asked**. So `game-design.md`'s "the body
+is fully static - no exhaust particles and no in-flight pulse" is a *true statement about the body* that
+reads as a statement about the whole projectile. 1jg therefore had to correct a doc invariant rather than
+extend one. That is rule 8's stale-doc shape arriving from the other direction: the doc is not wrong, it
+is **under-scoped**, and an under-scoped doc reads as a prohibition.
+
+### Hypothesis 2: the colour to use is `SpellLook.Secondary` - REJECTED, the member does not exist
+The plan, and the field's own doc comment, both say `Secondary`: "Secondary colour for two-tone FX (rim,
+**trails**, shards)". A grep for `Secondary` in `SpellLook.cs` returned **two hits and no declaration** -
+both hits were doc comments, one of them sitting directly above `public readonly Color Edge`. Confirmed
+against the full public member list of the struct: `Core`, `Edge`, `Scale`, `Tempo`, `Impact`, `Cast`,
+`DisplayShape`, `SkyRock`, `Authored`. `EdgeFor(core, r)` pushes the core hue brighter and cooler, i.e.
+exactly the two-tone member the comment was describing under the wrong name.
+
+**This is the generalisable finding, and it is why this section exists.** The grep that found `Secondary`
+is the same *shape* as the one rule 18 warns about, one level down: I grepped for a word, got a hit, and
+the hit was in a comment **about** the thing rather than the thing itself. A name appearing only inside a
+comment is evidence that a comment exists. Three habits, all mechanical:
+- **Grep the declaration list, not the prose, before typing a member name.** One `Select-String` for
+  `^public` answered in a single call what a prose grep confidently got wrong.
+- **A doc comment that names a member is a copy of that member (rule 8).** This one had rotted all the
+  way into describing a name that never existed, and it survived because nothing reads doc comments -
+  not the compiler, not rule 3's script, and not rule 5's existence grep, because the *word* was present
+  in the file. Both comments are now fixed, including `EdgeFor`'s.
+- **The doc's claim about a member is the hypothesis, not the source.** `SpellLook`'s own prose was the
+  only evidence for `Secondary`, so reading the prose was checking the hypothesis against itself.
+
+The lucky part, which is not a reason to rely on it: `SpellEffect.Initialize` already resolves the look
+(`_look = SpellLook.Resolve(spell)`), so the trail needed **no** signature change and no plumbing at all.
+Had `Secondary` existed it would still have been a one-line read. The compile error was the only thing at
+risk, and rule 3 exists precisely because there is no compiler here to catch it.
+
+### Hypothesis 3: emit from the projectile model builder - REJECTED, two of its three callers do not move
+`MagicProjectileModelBuilder.AttachDefaultProjectileVisual` is where a projectile gets its body and was
+the obvious home for a trail. It has **three** callers and only one is a projectile in flight:
+- real casts (`SpellCaster.FireProjectile`) - wants a trail;
+- `NewWorldTestGround`'s spell band - draws every castable spell as a **static pedestal model**, so a
+  trail here is a row of cubes hanging in mid-air forever;
+- `SpellCaster.DecorateProjectile` - a summoned turret's bolt, which never travels.
+
+So "emit where the projectile is built" would have produced exactly the artifact 1gb was filed for
+(objects that hang and disappear), in a new location, on every castable spell. **Rejected.** The emission
+moved into `SpellEffect.Update`, the only code path that runs *while flying* - and that gate is free
+rather than conditional: `Launch` returns early for a Zone and destroys the object **before** `_launched`
+is set, and `Update`'s first line is `if (!_launched) return;`. Verified by reading, because "a Zone does
+not trail" is a claim about a control-flow path, not about a naming convention.
+
+### Hypothesis 4: the taper needs a component - REJECTED, age IS the taper
+The deleted exhaust was a `ParticleSystem`, partly because a gradient costs something. Three refusals:
+- **No per-voxel `Update`.** A fader component on a pooled object must be re-initialised on every reuse
+  and must not fight the pooler's delayed recycle. `ObjectPooler.Get` even carries a special case for
+  stale `ParticleSystem`s, so the pooler already knows this class of problem exists.
+- **No alpha ramp, no material state.** Alpha would mean a per-voxel material to animate, which is the
+  allocation `ObjectPooler` exists to remove in the first place.
+- **Age is a free gradient.** Each voxel is recycled `Life` = 0.35 s after it is left, so the tail is by
+  construction the part about to disappear. Visited in order, the stream reads as comet exhaust with zero
+  per-voxel work. This is rule 12's "check whether the data model can hold the shape" inverted: here the
+  cheap thing *is* the expressive thing, so the component was the thing to delete.
+
+**Spacing is distance-gated, not time-gated** (`Step` = 0.3 m of accumulated flight, never one per frame),
+because a frame-gated emitter makes a trail's density a function of both speed and frame rate: at 20 m/s
+and 60 fps it lays a ~0.33 m bead per frame, so the stream thins out or closes up with framerate.
+Distance makes the look speed-invariant, which is the only version of "a trail" that is a property of the
+spell rather than of the machine.
+
+### Hypothesis 5: share the cube template with the terrain debris - REPORTED, not done
+`WorldStreamer.SharedDebrisCube` is a cube template for exactly this kind of voxel, and duplicating a
+template across two files is rule 8's second spelling that rots silently. It is `private` to the
+`WorldStreamer` partial, so sharing it means promoting it to a third owner and touching a file whose
+signature mistakes are silent visibility bugs (rule 3) - for a cosmetic FX. **Judged not worth it in this
+task, and recorded in `ProjectileTrail`'s doc comment rather than left silent.** The deciding number is
+that the alternative was a wider diff in the streamer for one cube. Open as a follow-up if a third voxel
+emitter ever appears.
+
+### Checked, because these were the ways it could be wrong in the world rather than in the code
+- **Collider on a trail voxel.** Would be caught by the projectile's own `Physics.Raycast` / ground probe
+  (a bolt detonating on its own exhaust) or by the player's `CharacterController`. Dropped on the
+  template.
+- **`Object.Destroy` is deferred, and the first emit lands in the frame that built the template.** A
+  deferred `Destroy` of the template's collider would leave it alive long enough for that frame's
+  `Instantiate` to **clone a collider onto live trail geometry**. Switched to `DestroyImmediate`, which is
+  safe precisely because the template is runtime-built and never rendered. No check in this repo looks at
+  this, and the bug would have been intermittent by construction.
+- **`Object.Instantiate` of an inactive template yields an INACTIVE clone**, so the `SetActive(true)`
+  after `Get` is load-bearing on the no-pooler path - not the redundant belt-and-braces it looks like next
+  to `SpawnCraterDebris`.
+- **`.cs` / `.cs.meta` parity** after adding the file: 378 / 378, equal.
+- **Balance on a new file.** Rule 3's script does not cover `ProjectileTrail.cs` (its `$files` list holds
+  only `WorldBuilder*`, `NewWorldTestGround` and `WorldStreamer*`), so "0 candidates" said **nothing**
+  about it - a green instrument that does not cover the file is the one shape of green that carries no
+  claim. Counted by hand on the same measure the script uses: braces 4/4, parens 25/25. `SpellEffect.cs`
+  went 147/147 -> 150/150 parens and 34/34 -> 35/35 braces, i.e. +3/+1 pairs on both sides, which is what
+  a new `if` block and three calls should cost.
+
+### Tooling note - the one that cost real time, recorded because it is a repeat of a rule-18 shape
+Prepending a section to `PROGRESS.md` with `Get-Content -Raw` + `WriteAllText` silently **corrupted 2754
+lines**. `Get-Content` without `-Encoding UTF8` decodes a BOM-less UTF-8 file as Windows-1252, and these
+docs are full of em-dashes and already-double-encoded UTF-8, so every one of them round-tripped into
+mojibake. The tell was mechanical: a 53-line prepend produced a 5561-line diff, which no prepend can do.
+`[System.IO.File]::ReadAllText` / `WriteAllText` with `UTF8Encoding($false)` round-trips **byte-identical**
+- proven first on a no-op edit (`git diff --numstat` empty) and then on the real operation (54 added, 0
+removed) rather than assumed. Two habits:
+- **A diff many orders of magnitude larger than the change is an instrument failure, not a big change.**
+  Read `git diff --numstat` before committing anything you assembled with string concatenation.
+- **Prove a file-rewriting method on a no-op before using it for content.** The no-op round-trip is one
+  command and it is the difference between "the tool corrupted my docs" and "my docs were always fine".
+
 ## 1jf. "Change the camera to 3rd view" - the request that was a decision, not a feature
 
 **OPEN until shipped; closed on commit.** Written while the framing choice and the collision risk were

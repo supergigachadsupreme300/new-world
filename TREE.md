@@ -1,4 +1,4 @@
-﻿# Project tree
+# Project tree
 
 **Generated file - do not hand-edit.** Regenerate after any structural change:
 
@@ -9,8 +9,8 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `15b5541` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-05 14:13 |
+| Generated at commit | `acd6cdd` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-05 16:43 |
 | Tracked files | 1199 = 553 non-`.meta` + 646 `.meta` |
 | C# files | 379 |
 

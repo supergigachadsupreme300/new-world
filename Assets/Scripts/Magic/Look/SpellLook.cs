@@ -142,7 +142,10 @@ public readonly struct SpellLook
 {
     /// <summary>Primary colour: the school hue with this spell's value/saturation jitter.</summary>
     public readonly Color Core;
-    /// <summary>Secondary colour for two-tone FX (rim, trails, shards). Derived from <see cref="Core"/>.</summary>
+    /// <summary>Edge colour for two-tone FX (rim, trails, shards): the core hue pushed brighter and
+    /// cooler. Derived from <see cref="Core"/> by <c>EdgeFor</c>. 1jg: this comment called the field
+    /// "Secondary", which no declaration ever matched - a reader grepping the word "trails" found a
+    /// member that did not exist. It is <c>Edge</c>.</summary>
     public readonly Color Edge;
     /// <summary>Multiplier on impact/cast/projectile visual size. ~0.88..1.12 deterministically.</summary>
     public readonly float Scale;
@@ -445,7 +448,7 @@ public readonly struct SpellLook
         return outColor;
     }
 
-    /// <summary>Secondary colour: the core hue pushed brighter and cooler, for two-tone FX.</summary>
+    /// <summary>The <c>Edge</c> colour: the core hue pushed brighter and cooler, for two-tone FX.</summary>
     private static Color EdgeFor(Color core, float r)
     {
         Color.RGBToHSV(core, out float h, out float s, out float v);

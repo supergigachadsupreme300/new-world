@@ -1,4 +1,4 @@
-﻿# Project Rules
+# Project Rules
 
 1. **Always commit and push after every task.** Commit on Git `main` and push to
    `https://github.com/supergigachadsupreme300/new-world` (PowerShell; e.g.
@@ -989,3 +989,34 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
     instrument detail worth keeping: checks 2/3/6 still READ `Legacy\WorldBuilder\WorldBuilder*.cs`, because
     the part-key parity check (rule 9) is the only guard over a contract that silently builds nothing when
     broken - and **a finding inside a `Legacy` file is a report of a rule-17 violation, not a fix queue.**
+
+19. **A per-frame effect belongs in the loop that runs while it MOVES, not in the shape factory - and
+    the reason is the factory's other callers, which are all static.** 1jg added an in-flight voxel trail
+    (`ProjectileTrail`, in `Assets\Scripts\Magic\Fx\`) and the obvious home was
+    `MagicProjectileModelBuilder.AttachDefaultProjectileVisual`, where every projectile body is born. It has **three** callers and only one is a projectile in flight: the other
+    two are `NewWorldTestGround`'s spell band (every castable spell drawn as a **motionless pedestal**)
+    and `SpellCaster.DecorateProjectile` (a summoned turret's bolt, which never flies). A trail emitted
+    there is a row of cubes hanging in mid-air on a pedestal that never moves - the exact artifact 1gb
+    was filed for, rebuilt somewhere new. Two habits:
+    - **Before putting behaviour in a builder, count the builder's callers and ask how many of them
+      actually MOVE.** A factory that draws an object owns that object's *shape* and not anything
+      time-dependent, and "it is where projectiles are made" is the fact that makes it look right.
+    - **Prefer the consumer whose loop is already gated on the condition you need.** `SpellEffect.Update`
+      opens with `if (!_launched) return;`, and `Launch` destroys a Zone *before* setting `_launched`, so
+      "only flying casts trail" is free rather than a condition someone has to remember to add. When a
+      gate already exists one layer down, moving the emission there is strictly smaller than writing the
+      gate yourself - and it cannot drift, because it is not a separate statement.
+    Two smaller points from the same task, both about a pooled FX with no `Update` of its own:
+    - **`Object.Destroy` is deferred, and the first emit usually happens in the frame that built the
+      template.** Destroying a template's Collider the ordinary way leaves it alive long enough for that
+      frame's `Instantiate` to **clone a collider onto live geometry** - intermittent by construction,
+      and invisible to every check in this repo. `DestroyImmediate` is the right call for a
+      runtime-built, never-rendered template.
+    - **A taper can be an AGE rather than a state.** Recycling each voxel a fixed life after it was left
+      makes the tail the part about to disappear, which is a gradient for free: no fader component to
+      re-initialise on reuse (which then has to not fight the pooler's delayed recycle), no alpha ramp,
+      no material state, no per-voxel `Update`. `ObjectPooler.Get` already carries a special case for
+      stale `ParticleSystem`s, so the pooler knows this class of problem is real.
+    And the reuse check: **gate on DISTANCE, never on frames, for anything drawn along a path.** A
+    frame-gated emitter makes density a function of speed *and* framerate; accumulating distance and
+    emitting every N metres makes the look a property of the spell instead of of the machine.

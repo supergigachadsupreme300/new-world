@@ -51,6 +51,11 @@ public class SpellEffect : MonoBehaviour
     /// </summary>
     private SpellLook _look;
 
+    /// <summary>1jg: flight distance accumulated since the last trail voxel was emitted. Reset
+    /// whenever the step threshold is crossed, so a slow projectile lays the same spacing as a
+    /// fast one.</summary>
+    private float _trailAccum;
+
     /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.
     /// <paramref name="radiusMult"/> scales the splash/zone radius (charged casts).</summary>
     public SpellEffect Initialize(SpellData spell, float power, Vector3 dir, SpellCaster caster,
@@ -152,6 +157,17 @@ public class SpellEffect : MonoBehaviour
         }
 
         transform.position += _dir * step;
+
+        // 1jg: trail. Gated on distance travelled (not time) so spacing is identical at any
+        // speed, and emitted here - after the move, inside the flight loop - so only a genuinely
+        // flying projectile trails: a zone resolves and dies in Launch, and the static model bench
+        // and the turret's DecorateProjectile path never reach this Update at all.
+        _trailAccum += step;
+        if (_trailAccum >= ProjectileTrail.Step)
+        {
+            _trailAccum = 0f;
+            ProjectileTrail.Emit(transform.position, _look.Edge);
+        }
     }
 
     /// <summary>

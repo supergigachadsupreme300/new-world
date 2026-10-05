@@ -619,12 +619,17 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   cell is the cover, and dormant chunks are skipped by the sweep entirely.
 - **Transient-object pooling (1e6):** the generic `ObjectPooler` (Phase 9, previously unused) is now
   live on the boot root and backs the high-churn cosmetic spawns — spell **impact VFX** (the
-  direct-hit `ImpactEffectPrefab` path) and the **excavation debris** burst from `SpawnCraterDebris`
+  direct-hit `ImpactEffectPrefab` path), the **excavation debris** burst from `SpawnCraterDebris`
   (tool digs and zone/storm/summon strikes; magic projectile impacts pass `emitDebris:false` and
-  instead play the script-built exploding sphere below, §3.7). `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
+  instead play the script-built exploding sphere below, §3.7), and **1jg's in-flight projectile trail
+  voxels** (emitted from the flight loop, recycled after `ProjectileTrail.Life`).
+  `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
   `Instantiate`+`Destroy` otherwise; pooled particle effects replay from frame 0 on reuse (`Clear`+
   `Play`). Debris cubes and impact effects are fully rewritten on every use (position/scale/material/
-  velocity), so pooling is invisible apart from the allocation drop. Enemy death debris (the model
+  velocity), so pooling is invisible apart from the allocation drop. A trail voxel's colour is likewise
+  rewritten per emit, and `Renderer.material` caches its per-renderer instance **on the pooled object**,
+  so the tint costs one allocation per pooled voxel over its whole lifetime rather than one per emit.
+  Enemy death debris (the model
   parts themselves) and loot drops are deliberately **not** pooled — they are structural/persistent,
   not transient clones.
 
@@ -1881,11 +1886,38 @@ Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Phy
 else→Sphere. Builders live in `MagicProjectileModelBuilder.BuildProjectileBody`
 (cube primitives only, via the `Cluster` / `AddTrailingFlecks` helpers), colored per damage type;
 **since `1eb` the body is fully static — no exhaust particles and no in-flight pulse** (the old `OrbFx`
-scale-pulse/spin modes and the `AttachProjectileParticles` exhaust `ParticleSystem` were removed), so
-projectiles in flight cost only their `SpellEffect`; turret summons render the projectile through the
-same call (`SpellSummon` passes the turret spell's shape). Translucency (Wind/Ice) is set via
+scale-pulse/spin modes and the `AttachProjectileParticles` exhaust `ParticleSystem` were removed): the body
+is one static shape that only moves. What a *flying* projectile additionally costs is **1jg's world-space
+voxel trail** (below) plus its `SpellEffect`; turret summons render the projectile through the same call
+(`SpellSummon` passes the turret spell's shape). Translucency (Wind/Ice) is set via
 `material.color.a` and relies on the `"Sprites/Default"` shader blending (the `"Unlit/Color"`
 fallback would render opaque).
+
+**In-flight voxel trail (1jg):** every flying projectile leaves a short exhaust of small cubes at the
+positions it has already passed through. `ProjectileTrail.Emit` is driven from `SpellEffect.Update` and
+gated on **distance travelled** (one voxel per `Step` = 0.3 m, never per frame, so a fast bolt and a slow
+one lay the same spacing instead of one drawing a dotted line and the other a ribbon); each voxel is
+5-9 cm with a random rotation and is recycled after `Life` = 0.35 s by the 1e6 pooler. The taper is
+**age, not alpha** — older voxels are simply closer to being recycled, which reads as comet exhaust with
+no per-voxel fade, no alpha ramp, and no `Update` of its own. Colour is `SpellLook.Edge`, the two-tone
+member documented for "rim, trails, shards", already resolved once on the projectile by
+`SpellEffect.Initialize`, so the trail adds no second colour lookup and derives nothing.
+
+Two placement rules, which are why it is **not** in the model builder: `MagicProjectileModelBuilder` is a
+one-shot shape factory with no per-frame behaviour, and it is shared by the **static** model bench
+(`NewWorldTestGround`'s spell band draws every castable spell as a motionless pedestal) and by
+`SpellCaster.DecorateProjectile` (a turret's bolt, which never flies) — a trail emitted there would hang a
+row of cubes on a pedestal that never moves. So emission lives in the flight loop, which only runs while a
+projectile is genuinely travelling: a Zone resolves and destroys itself in `Launch` *before* `_launched`
+is set, so it never trails, and neither the bench nor a turret bolt ever reaches `Update`. Trail voxels
+are cosmetic and carry **no collider**, so the projectile's own raycasts, the ground probe and the
+player's controller cannot hit them, and they are world-space and unparented — staying where the bolt
+was is the entire point.
+
+Do not confuse this with the **model's** "trailing flecks" (`AddTrailingFlecks`, and the flecks named in
+the table rows above): those are parented to the bolt body and travel *with* it, so they are part of the
+silhouette and they show up on the static bench. The 1jg trail is left behind in the world and shows up
+only in flight.
 
 #### Casting Flow
 

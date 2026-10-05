@@ -1,3 +1,57 @@
+## 1jg. Magic projectiles flew through a silent, trail-less world - a pooled voxel exhaust
+
+**Status: READY FOR PLAY-TEST.** A new `ProjectileTrail` emitter driven from the flight loop in
+`SpellEffect.Update`, plus a **field rename's ghost** found on the way (`SpellLook.Secondary` does not
+exist). **Verified by grep + reread + `tools\StaticChecks.ps1` -> 0 candidates; no Unity build** (rule 3),
+so the visual read is still owed.
+**skills: none applied** - the artifact is a C# edit reviewed by a human inside this repo; no installed
+skill governs that, and the Unity skills target driving an editor or `-batchmode`, which rule 3 forbids.
+
+The request was "spells fly with no trail, and collisions have no debris". Both halves are **restoring a
+look that was deliberately deleted**, which is the one kind of visual request where the history is the
+specification. Two findings from reading it:
+
+- The exhaust trail was not removed by neglect. `1155a6e` replaced a `TrailRenderer` with a particle
+  exhaust, and `1eb` (`5381e8b`) deleted it **at the user's request** - the bodies became fully static.
+  `game-design.md` records this as an invariant, so 1jg had to rewrite that sentence rather than add to
+  it: the honest statement is that the *body* is static and the *trail* is a separate, world-space thing.
+- The debris half was never deleted, only switched off: `1gb` (`c5d0c31`) made projectile impacts pass
+  `emitDebris:false`, because `SpawnCraterDebris` reads as "3 objects floating up then disappear". That
+  critique is about *shape and motion*, not about debris existing, so 1jh is a new emitter rather than
+  an un-suppression of the old one. 1jg and 1jh are therefore separate commits.
+
+**The field that does not exist.** The plan called for the trail colour to be `SpellLook.Secondary`,
+documented in two places as "the secondary colour for two-tone FX (rim, **trails**, shards)". It is
+declared **nowhere** - the member is `SpellLook.Edge`, and both doc comments had been calling it
+"Secondary" for as long as it has existed. Grepping the *comment* returned two hits and a confident
+colour; grepping the *declarations* returned none. `SpellLook.Resolve` was already called in
+`SpellEffect.Initialize`, so no signature changed - but the same grep would have been the only thing
+between this and a CS1061. Both comments are now corrected, which is the real fix: the next reader who
+greps "trails" finds `Edge`.
+
+**Where the emission lives, and why it is not the model builder.** `MagicProjectileModelBuilder` is a
+one-shot shape factory with no per-frame behaviour, and it is shared by two consumers that would both
+have looked broken: `NewWorldTestGround`'s spell band draws every castable spell as a **motionless
+pedestal**, and `SpellCaster.DecorateProjectile` is a summoned turret's bolt, which never flies. A trail
+emitted there hangs a row of cubes on a pedestal that never moves - which is, precisely, the complaint
+1gb was filed for, rebuilt in a new place. Driving the emission from `SpellEffect.Update` gets the gate
+for free: a Zone resolves and destroys itself in `Launch` *before* `_launched` is set, and neither the
+bench nor a turret bolt ever reaches `Update`, so only genuinely flying casts trail.
+
+**No `Update` on the voxels.** The old `ParticleSystem` bought its taper with a particle system, and the
+removed one was cut for cost. These voxels have no component: the taper is **age** (each is recycled
+0.35 s after it was left, so the tail is always the part about to disappear), the spacing is
+**distance**-gated (0.3 m of flight, not one per frame) so speed does not change the look, and per-emit
+randomness in rotation and size keeps the stream from reading as a mechanical dotted line. Colour is
+written with `Renderer.material`, which caches its per-renderer instance on the pooled object - so the
+tint allocates once per pooled voxel for its whole lifetime, and there was no reason to introduce
+`MaterialPropertyBlock` (which has zero uses in this project).
+
+**Play-test items:** trail reads as exhaust rather than a dotted line at both a fast bolt and a slow one;
+the `Edge` tint is visible against each school's body colour; nothing trails on the static bench or a
+turret bolt; a homing missile's trail follows the curve instead of cutting the corner; no collider snag
+on the player's controller while a bolt passes overhead.
+
 ## 1jf. The game opened in first person - it now opens in third person
 
 **Status: READY FOR PLAY-TEST, with one named risk.** A **one-field default flip**
