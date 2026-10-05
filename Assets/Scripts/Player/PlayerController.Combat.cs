@@ -452,13 +452,14 @@ public partial class PlayerController
         {
             var combat = CombatCached;
             var hand = MagicHand(combat);
-            var cam = MainCam;
-            if (hand == null || cam == null) { HidePathPreview(); return; }
+            if (hand == null) { HidePathPreview(); return; }
 
-            // Mirror caster aim (SpellCaster.Execute): from the hand toward the camera line.
+            // 1jm: mirrors the caster exactly - StraightFlightDirection is CALLED, not re-derived, so
+            // this readout cannot drift from the flight path (rule 8). The old line aimed at a point
+            // Range metres ahead of the camera, which skewed sideways in third person; note the preview
+            // no longer needs a camera reference at all, since the aim is a direction now.
             Vector3 pos = hand.transform.position;
-            Vector3 fwd = cam.transform.position + cam.transform.forward * Mathf.Max(armedSpell.Range, 5f) - pos;
-            if (fwd.sqrMagnitude < 0.0001f) fwd = hand.transform.forward; else fwd = fwd.normalized;
+            Vector3 fwd = SpellCaster.StraightFlightDirection(MainCam, hand.transform.forward);
 
             // reach is SpellEffect's flight envelope and is NOT charge-scaled here: this preview
             // mirrors what the spell actually flies, and re-deriving that ladder here would be a

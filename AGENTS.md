@@ -722,6 +722,25 @@
           the direction it sweeps and a wall beside the player now pulls the camera in. That is a
           play-test item, and the honest move was to record it in the play-test list rather than leave it
           as an unremarked side effect of "a cosmetic offset".
+        - **An aim derived from a POINT in front of the camera is silently coupled to where the camera
+          IS, so any camera edit re-aims it.** 1jm's projectile aim was
+          `normalize((camera.position + camera.forward * Range) - castOrigin)`. Read it as a direction and
+          the error term is `camera - castOrigin`, scaled by `1/Range` — so the aim depends on the camera's
+          *position*, not just its rotation. 1jl moved that camera 0.6 m sideways, which would have skewed
+          every projectile in the game for a commit whose entire diff was three lines in a camera file that
+          mentions no spell. The magnitude scales with how far the camera sits from the cast origin, which
+          is why it read as "fine" in first person (camera at the pivot, near the hand) and as a bug in
+          third person (6.5 m back), so **no amount of first-person testing clears this class of report.**
+          Two habits: when an aim, a reach or a spawn point is computed from a camera *position*, write down
+          what it now depends on; and prefer a camera **direction** for anything that flies, since a
+          direction is invariant to where the camera sits.
+        - **A "does X still happen" check must name the OTHER thing that could have caused it.** 1jm
+          changed the spell aim, and the natural verification was "cast a projectile, look at the path". But
+          the player had *also* just been given a sideways camera in 1jl, which is a second candidate for a
+          changed-looking shot, and only one of the two was under test. When a fix lands into a session
+          that already has an adjacent change in the same subsystem, name both in the play-test list and
+          say which one each check is meant to implicate - otherwise a pass attributes the fix and a fail
+          sends the next reader to the wrong file.
       - **A derived gate is a mitigation, never a licence: ask whether the second surface is worth
         its own identity.** 1f5's `NeedsLodDetail` gate was genuinely derived, not chosen â€” a
         **discrete Laplacian is exactly zero for any planar surface at any stride**, so it measured

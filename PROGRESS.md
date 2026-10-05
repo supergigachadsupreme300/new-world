@@ -1,3 +1,46 @@
+## 1jm. Projectile spells fly straight along the look direction (no camera-point convergence)
+
+**Status: SHIPPED, aim unverified.** One new shared helper + two call sites. **Verified by grep + reread;
+no Unity build** (rule 3).
+**skills: none applied** - see 1jm's THINKING note.
+
+The user asked to make player projectiles "flight straight from the player direction" so they stop having
+a weird trajectory. `SpellCaster.Execute` used to shoot from the hand toward a **point** `Range` metres in
+front of the camera. The error in that is the hand-to-**camera** vector scaled by `1/Range` - negligible in
+first person (the camera is at the pivot) and roughly `atan(6.5 / Range)` in third person, which is the
+skew the user was seeing. `Projectile` now leaves the cast origin along the camera's **forward**, taken as
+a direction, via a new `SpellCaster.StraightFlightDirection(cam, fallbackForward)`.
+
+Two things this deliberately is **not**:
+- **Not `origin.forward`.** That is the literal reading of "player direction" and it is wrong: the cast
+  origin is the magic hand on the weapon rig, and the body's rotation is yaw-only (`HandleMouseLook` writes
+  `Euler(0f, _yaw, 0f)`, pitch lives on the camera pivot), so it is a flat horizontal shot that cannot aim
+  up or down.
+- **Not a change to instant/beam/ground deliveries.** Instant and beam carry the *identical* skew and are
+  reported rather than changed, because the request was scoped to projectiles. Extending it is one edit
+  away if you want it.
+
+`FireProjectile` and `SpellEffect` already consume the vector directly (`pos += fwd * 0.5f`,
+`Quaternion.LookRotation(fwd)`), so nothing downstream needed touching. The aiming preview
+(`UpdatePathPreview`) now **calls** the same helper instead of re-deriving the formula, and no longer needs
+a camera reference at all.
+
+### 1jm-status
+- [ ] **Cast a projectile in third person and check the path is straight** - this is the check for 1jm. Note
+      that **1jl also landed in this session and also changed the shot's appearance** (camera moved 0.6 m
+      right), so if the shot looks different than expected, the two candidates are 1jm's aim change and
+      1jl's camera - a good 1jm result implicates this file, a bad one sends you to `CameraModeSwitch`.
+- [ ] **Does the crosshair still line up with the flight path?** The shot now leaves the hand parallel to
+      the view ray rather than converging on a point, so in third person it starts left of the crosshair and
+      converges toward it with distance. If that reads as mis-aimed, the alternative is spawning the
+      projectile from the camera instead - a different design, not a bug in this one.
+- [ ] **Vertical aim** - confirm you can still hit something above and below you. This is the regression
+      `origin.forward` would have caused and the reason it was rejected.
+- [ ] **Path preview matches the flight** - arm a projectile spell and compare the previewed line to where
+      the bolt actually goes. They now read one helper, so a mismatch here is a real defect, not drift.
+- [ ] Wheel-cast magic (`fast`) and a skill-granted `SpellCastEffect` cast both route through the same
+      `Execute`, so they take the new aim too - worth one cast each.
+
 ## 1jl. Third-person camera sits over the player's right shoulder
 
 **Status: SHIPPED, framing unverified.** One field + one local in `CameraModeSwitch`. **Verified by grep +

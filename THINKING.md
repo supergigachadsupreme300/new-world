@@ -1,4 +1,67 @@
-## 1jl. "Move the 3rd person camera to the right" - an offset that would have moved nothing
+## 1jm. "Make the projectile fly straight from the player direction" - a point is not a direction
+
+**OPEN until the user plays it.** Two play-test questions the code cannot answer: whether the straight
+flight reads as aimed where they expect, and whether the crosshair still lines up with the flight path
+in third person. **No Unity build** (rule 3).
+**skills: none applied** - a gameplay aim change in existing code, no editor/CLI workflow involved
+(rule 15's "informative vs authoritative").
+
+### The report, and the thing that made it non-obvious
+"Change the player projectile aiming, instead of the cursor pointing, make it flight straight from the
+player direction instead, that way it wont have weird trajectory." First check: **is there any cursor
+aiming at all?** `ScreenPointToRay`: 0 hits. The crosshair is screen-centre and the "cursor pointing" is
+really the camera. So the report is about the *trajectory*, and reading it as "remove cursor aiming" would
+have been solving a feature that is not in the game.
+
+The old aim, in `SpellCaster.Execute`:
+`normalize((camera.position + camera.forward * Range) - handPos)`. The camera is at the **pivot** in first
+person (near the hand) and 6.5 m back in third person, so the `camera - handPos` term is the whole bug:
+the flight line is drawn from the hand to a point the camera owns, and the further the camera is from the
+hand the more sideways the shot leaves. **Confirmed** by reading `PlayerController.Camera`'s
+`SetupPlayerCamera` (the switcher orbits the pivot) and `UpdateThirdPerson`.
+
+### Three candidate "player directions", and why the obvious one is wrong
+- **`origin.forward` (the hand) - REJECTED.** This looked like the literal reading of the request, and it
+  is what the preview's own fallback used. The hand hangs off the weapon rig on the body, and
+  `HandleMouseLook` writes `transform.rotation = Euler(0f, _yaw, 0f)` while pitch lives on the camera
+  pivot. So `origin.forward` is a **flat horizontal shot** - it cannot aim up or down at all. Shipping this
+  would have "fixed" the trajectory and removed vertical aim. Found by asking what the body's rotation
+  actually contains, not by looking at the call.
+- **`CurrentAimDirection` (the existing shared helper) - REJECTED for projectiles, kept for the rest.**
+  It is the *same point-aim formula*, already extracted because `SpellBeam` and `SpellSummon` were
+  disagreeing about it (1is). It is not for projectiles, so it is not the thing to change - but it is the
+  reason a second helper is not automatically a second spelling of one fact.
+- **the camera's `forward`, as a direction - CHOSEN.** It carries pitch (so vertical aim works) and it is
+  invariant to where the camera *sits*, which is the whole fix.
+
+### A claim I wrote, then had to retract
+My first draft of the helper's doc comment asserted the old and new spellings are **identical in first
+person**, on the reasoning that the camera sits at the pivot so the subtraction collapses. That is false:
+`pos` is the **hand**, not the pivot, and the hand is not at the pivot. The honest statement is the
+mechanism, not a false equivalence - the error term is the hand-to-camera vector over `Range`, so first
+person was *nearly* right rather than *exactly* right. Left uncorrected it would have been the most
+expensive kind of wrong comment: an unverified equivalence, asserted confidently, in the one place a future
+reader looks to understand the aim. Rule 8's stale-comment rule with extra confidence.
+
+### Scope: two spellings of the same formula, deliberately not merged
+`Execute` now has a projectile branch on a direction and an `else if` keeping the point-aim for
+instant/beam/ground. `SpellCaster.CurrentAimDirection` still holds the point-aim for beam and summon. That
+is three copies of related arithmetic in one subsystem, so the question is which is a fact and which is
+coincidence. Answer: two aim *modes* (direction vs point) and one shared two-line null-guard tail, which is
+defensive boilerplate and not a fact that can drift. Written into the helper's doc so the pair does not read
+as an oversight. What I did **not** do is extend the fix to instant and beam, which carry the identical
+skew - the request said projectile, and changing two more deliveries' aim is a gameplay change riding along
+unasked. Reported in `game-design.md` §3.8 instead.
+
+### A claim the change now depends on, so it had to be measured
+"Player projectile" implies the caster is the player. `Execute` aims from `Camera.main` for *every* caster -
+but that was already true before this change, so it is pre-existing, not introduced. Still, my fix makes
+the assumption load-bearing, so I checked it rather than assuming: every `SpellCaster` in the tree is
+`WeaponRigBuilder`'s `AddComponent` on `playerRoot`, or a `GetComponent<SpellCaster>()` on the player, or
+the QA bench pedestal. **No NPC or creature caster exists.** If one is ever added, it would aim with the
+player's camera - which is why the fact is now written into §3.8 rather than left to be re-derived.
+
+
 
 **OPEN until the user plays it.** The amount (0.6 m) is a taste value, not a measurement, and one new
 interaction is unverified (the collision cast). **No Unity build** (rule 3).

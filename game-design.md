@@ -1860,6 +1860,26 @@ not the spell's own `Range` — so AoE magic can be cast anywhere in the open wo
 zone on a distant ridge or a summoned turret near a far road). The landing preview
 (`PlayerController.TryAoeTarget`) mirrors the same compute. Projectile / instant / beam deliveries
 keep their spell `Range` cap, so only ground placement is unbounded.
+- **Projectile spells fly straight along the look direction (1jm).** A `Projectile` no longer converges
+  on a point `Range` metres in front of the camera. It leaves the cast origin along
+  `SpellCaster.StraightFlightDirection(cam, fallback)` — the camera's **forward**, taken as a direction.
+  The old point-aim's error is the vector from the hand to the *camera* scaled by `1/Range`, so it grew
+  with how far behind the camera sat: negligible in first person (the camera is at the pivot), roughly
+  `atan(6.5 / Range)` in third person — the reported "weird trajectory" — and 1jl's shoulder offset added
+  a lateral term on top. Taking a direction deletes the term and makes the shot independent of where the
+  camera *is*, which is what keeps 1jl from introducing a skew of its own.
+  `SpellEffect`/`FireProjectile` consume that vector directly (`pos += fwd * 0.5f`,
+  `Quaternion.LookRotation(fwd)`), so the fix needs no change downstream, and the aiming preview
+  (`UpdatePathPreview`) now **calls** the same helper rather than re-deriving the formula — it needs no
+  camera reference at all any more.
+  **The cast origin's own forward is not used**: the origin is the magic hand on the weapon rig, and the
+  body's rotation is yaw-only (`HandleMouseLook` writes `Euler(0, _yaw, 0)`, pitch lives on the camera
+  pivot), so `origin.forward` is a flat horizontal shot that cannot aim up or down.
+  Instant / beam / the four ground deliveries deliberately keep the point-aim — instant and beam carry
+  the identical skew and are **reported, not changed**, because the request was scoped to projectiles.
+  Every `SpellCaster` in the tree is the player's (`WeaponRigBuilder` adds it to `playerRoot`; everything
+  else is `GetComponent<SpellCaster>()` on the player or the QA bench), so aiming from `Camera.main` is
+  player-scoped in practice — a property this rule now depends on, which is why it is written down.
 
 **Sky spells** (`SummonFallingRock`, the meteor/boulder family) drop a **rock formation** from high
 above the ground target and read as the spell landing: the burst (damage, knockback, terrain

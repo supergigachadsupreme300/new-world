@@ -40,6 +40,45 @@ public partial class SpellCaster
         _activeCasts = Mathf.Max(0, _activeCasts - 1);
     }
 
+    /// <summary>
+    /// 1jm: the direction a <see cref="SpellDelivery.Projectile"/> leaves the caster — the player's LOOK
+    /// direction, taken as a direction rather than as a point to converge on.
+    /// <para><b>Why not the hand's forward.</b> The cast origin is the magic hand, which hangs off the
+    /// weapon rig on the body, and the body's rotation is yaw only (<c>PlayerController.HandleMouseLook</c>
+    /// writes <c>Euler(0f, _yaw, 0f)</c> and keeps pitch on the camera pivot). <c>origin.forward</c> is
+    /// therefore a flat horizontal shot that cannot aim up or down.</para>
+    /// <para><b>Why not a point in front of the camera.</b> That was the old aim: shoot from the hand
+    /// toward <c>camera.position + camera.forward * Range</c>. The error in that is the vector from the
+    /// hand to the CAMERA, scaled by 1/Range - so it grows with how far the camera sits from the hand.
+    /// First person puts the camera at the pivot, near the hand, and so was already close to right;
+    /// third person puts it 6.5 m back, which skews the shot by roughly atan(6.5 / Range) and is the
+    /// reported "weird trajectory", and 1jl's 0.6 m shoulder offset adds a lateral term on top of it.
+    /// Using the direction deletes the term instead of shrinking it, and in first person it changes the
+    /// shot by the hand-to-pivot distance only.</para>
+    /// <para>Taking a direction also makes the shot independent of where the camera <i>is</i>, which is
+    /// what stops the 1jl shoulder offset from introducing a skew of its own.</para>
+    /// <para><c>fallbackForward</c> is the caller's own forward, used only when there is no usable camera.
+    /// </para>
+    /// <para><b>Relation to <see cref="CurrentAimDirection"/>.</b> That is the point-based aim (beam,
+    /// summon, ground deliveries) and this is the direction-based one (projectile). Two modes, not two
+    /// spellings of one fact - so they are deliberately NOT folded together; the only overlap is the
+    /// two-line "fallbackForward, else Vector3.forward" tail, which is defensive boilerplate and not a
+    /// fact about the game that could drift. Stated here so the pair does not read as an oversight.
+    /// </para>
+    /// </summary>
+    public static Vector3 StraightFlightDirection(Camera cam, Vector3 fallbackForward)
+    {
+        if (cam != null)
+        {
+            Vector3 look = cam.transform.forward;
+            if (look.sqrMagnitude > 0.0001f)
+                return look.normalized;
+        }
+        if (fallbackForward.sqrMagnitude > 0.0001f)
+            return fallbackForward.normalized;
+        return Vector3.forward;
+    }
+
     private DamageResult Execute(SpellData spell, Transform origin, MagicWeaponMods mods, float charge)
     {
         float basePower = spell.BasePower * mods.DamageMult * (1f + charge * ChargeDamageBonus);
@@ -50,12 +89,21 @@ public partial class SpellCaster
         Vector3 fwd = origin != null ? origin.forward : transform.forward;
 
         Camera cam = Camera.main;
-        if (cam != null)
+        if (spell.Delivery == SpellDelivery.Projectile)
+        {
+            // 1jm: fly straight along the look direction. The old aim below converged on a point
+            // Range metres in front of the camera, which in third person (and again since 1jl moved the
+            // camera sideways) is not where the player is standing — the flight line skews off to the
+            // side. See StraightFlightDirection for why not the hand's forward either.
+            fwd = StraightFlightDirection(cam, fwd);
+        }
+        else if (cam != null)
         {
             // Ground deliveries (Zone/Vortex/Summon/Storm) land where the camera actually points —
             // out to the practical GroundAimMax cap, not the spell's short Range — so AoE magic can
-            // be placed anywhere in the open world (§3.8). Projectile/instant/beam casts keep their
-            // spell range so their aim stays conventional.
+            // be placed anywhere in the open world (§3.8). Instant/beam casts keep their spell range so
+            // their aim stays conventional; 1jm left both on the point-based aim deliberately and
+            // reported the identical skew in them rather than changing aim the user did not ask about.
             bool groundDelivery = spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex
                 || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm;
             float aimDist = groundDelivery ? GroundAimMax : Mathf.Max(spell.Range, 5f);
