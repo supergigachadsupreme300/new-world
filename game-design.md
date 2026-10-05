@@ -626,7 +626,10 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
   `Instantiate`+`Destroy` otherwise; pooled particle effects replay from frame 0 on reuse (`Clear`+
   `Play`). Debris cubes and impact effects are fully rewritten on every use (position/scale/material/
-  velocity), so pooling is invisible apart from the allocation drop. A trail voxel's colour is likewise
+  velocity), so pooling is invisible apart from the allocation drop. **1jh's projectile-impact rock
+  chips share `SpawnCraterDebris`'s cube template and therefore its pool**, so the two burst kinds
+  recycle through one queue rather than doubling the pool's object count. A trail voxel's colour is
+  likewise
   rewritten per emit, and `Renderer.material` caches its per-renderer instance **on the pooled object**,
   so the tint costs one allocation per pooled voxel over its whole lifetime rather than one per emit.
   Enemy death debris (the model
@@ -1742,6 +1745,28 @@ whole terrain moved." Its **depth** ratchets **a `CraterStep` (~1.1 m at full in
   burst (1gb)** — they carve the same dent but pass `emitDebris:false` and play their spell's own
   impact family from the pooled `SpellImpactFx` dispatcher instead (§3.7 "Every spell impact"); only
   tool digs and zone/storm/summon strikes still eject the cubes.
+
+  **Projectile impacts throw their own grey rock chips (1jh), additively to that sphere.** 1gb's
+  reason for suppressing the excavation burst was never "no debris at impacts" — it was that the burst
+  reads as *three objects floating up then disappear*, which is a complaint about **shape and motion**.
+  So 1jh adds a separate emitter, `WorldStreamer.SpawnImpactRockDebris`, rather than un-suppressing the
+  old one, and the dent is byte-for-byte the same shape either way. Four differences from the excavation
+  burst, each answering one part of that critique:
+  - **Thrown forward, not up** — biased along the projectile's own travel direction, flattened so pitch
+    cannot turn a downward strike into a skyward one, with only ~0.4–1.8 m/s of lift (the old burst gave
+    every chunk +2.5…+5 m/s of vertical velocity, which is the "floating up").
+  - **Short life — 1.4 s vs 2.5 s.** These chunks are collider-free, so they fall *through* whatever
+    they were knocked out of; a long life spends most of it sinking out of sight rather than reading.
+  - **Grey rock, not stratum colour** — `Color.Lerp(Color.gray, Color.black, …)`, the same material as
+    the world's breakable-rock debris, because a spell shattering masonry is not a shovel full of dirt.
+  - **Count and size scale with the impact radius** (2–8 chunks, size ×`clamp(radius·0.75, 0.7, 1.6)`), so
+    a charged bolt throws more and throws bigger instead of every impact looking identical.
+
+  Reached through `TerrainDeformer.ImpactRockDebris` — the same static-entry-point shape as
+  `TerrainDeformer.Apply`, so the spell layer never resolves the `WorldStreamer` itself — and spawned at
+  the **hit point** rather than the probed ground point, so a wall strike throws chips too. The sphere
+  and the chips are both kept on purpose: the sphere is the *spell's identity* (per-school impact family,
+  §3.7) and the chips are the *world reacting*, so they answer different questions.
   A Crater-shaped projectile (the root Stone Shard) carves its crater where the rock **strikes** —
   `SpellEffect.ResolveProjectileImpact` down-probes the ground at impact and deforms it there — so a
   cast never dents the caster's own feet; the pit is permanent. **Every non-Earth magic projectile
@@ -1871,7 +1896,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
 | **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Frost Bite use the Comet shape instead.) |
 | **Shard** | Translucent glass lead chip (45° diamond) + 2 smaller, dimmer glass chips trailing — frost chips (the Ice school default; Chill Touch). |
-| **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the spell's own impact family from the pooled `SpellImpactFx` dispatcher (1id) instead of a cube burst — the cubes only remain as the pickaxe/mining look (1de). |
+| **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the spell's own impact family from the pooled `SpellImpactFx` dispatcher (1id) rather than the *excavation* cube burst (that one is stratum-tinted dirt thrown upward — 1gb), and 1jh adds grey rock chips thrown forward from the hit point on top of it; the embedded model cubes only remain as the pickaxe/mining look (1de). |
 | **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
 | **Blade** | Flat translucent cross-blade (alpha ~0.4 so wind reads as a ghost of air) + two small ghost cubes trailing — Wind Blade, Razor Blade, Wind Scissor, Laceration. |

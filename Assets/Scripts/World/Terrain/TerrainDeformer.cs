@@ -101,4 +101,20 @@ public static class TerrainDeformer
             return lastGround.point;
         return fallback;
     }
+
+    /// <summary>
+    /// Throw grey rock chips where a magic projectile lands (1jh). This is NOT the excavation burst:
+    /// projectile impacts carve their dent with <c>emitDebris:false</c> and call this instead, because
+    /// the excavation burst reads as objects floating upward. Routed through here so the spell layer
+    /// never resolves the <see cref="WorldStreamer"/> itself, exactly as <see cref="Apply"/> does.
+    /// <paramref name="dir"/> is the projectile's travel direction - the chips are thrown forward along
+    /// it - and <paramref name="radius"/> scales how many are thrown and how big.
+    /// </summary>
+    public static void ImpactRockDebris(Vector3 center, float radius, Vector3 dir)
+    {
+        if (radius <= 0f) return;
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null) return;
+        streamer.SpawnImpactRockDebris(center, radius, dir);
+    }
 }

@@ -823,6 +823,70 @@ public partial class WorldStreamer
         }
     }
 
+    /// <summary>
+    /// 1jh: rock chunks knocked loose where a magic projectile lands. **Separate from
+    /// <see cref="SpawnCraterDebris"/> on purpose** - that one excavates the ground and throws
+    /// stratum-tinted dirt, and it is switched OFF for projectile impacts (<c>emitDebris:false</c>)
+    /// because its burst read as "three objects floating up then disappear". That critique is about
+    /// shape and motion, not about debris existing, so this is a new emitter rather than an
+    /// un-suppression of the old one:
+    /// <list type="bullet">
+    /// <item><b>Grey rock, not stratum colour</b> - a spell shattering masonry, not a shovel full of
+    /// dirt, so it reads as the same material the world's breakable-rock debris uses.</item>
+    /// <item><b>Thrown FORWARD, not up.</b> Bias along the projectile's own travel direction, with
+    /// only a small lift. This is the single change that answers "floating up": the old burst gave
+    /// every chunk +2.5..+5 m/s vertically, so it arced skyward and hung.</item>
+    /// <item><b>Short life (1.4 s vs 2.5 s)</b> - these have no collider, so they fall through the
+    /// terrain they were thrown from; a long life spends most of it sinking out of sight.</item>
+    /// <item><b>Count and size scale with <paramref name="radius"/></b>, so a charged bolt throws more
+    /// and throws bigger rather than every impact looking identical.</item>
+    /// </list>
+    /// Deliberately collider-free, like all cosmetic debris: a collider here would be something the
+    /// player's controller could catch on. The consequence is that pieces fall through terrain, which
+    /// the short life is there to bound.
+    /// </summary>
+    public void SpawnImpactRockDebris(Vector3 center, float radius, Vector3 dir)
+    {
+        if (radius <= 0f) return;
+        // Flattened travel direction: an impact throws rock forward along the ground, and keeping the
+        // pitch out of it stops a bolt arriving from above from firing every chunk skyward again.
+        Vector3 forward = dir.sqrMagnitude > 0.01f
+            ? new Vector3(dir.x, 0f, dir.z).normalized
+            : Vector3.forward;
+        int count = Mathf.Clamp(Mathf.RoundToInt(2f + radius * 1.8f), 2, 8);
+        float sizeScale = Mathf.Clamp(radius * 0.75f, 0.7f, 1.6f);
+        ObjectPooler pool = ObjectPooler.Instance;
+
+        for (int i = 0; i < count; i++)
+        {
+            float s = Random.Range(0.06f, 0.13f) * sizeScale;
+            // Same shared cube template and the same pool as the excavation debris (1du/1e6): the
+            // template is already the streamer's, so reusing it keeps one cube mesh in the world
+            // instead of adding a second identical one.
+            GameObject chunk = pool != null ? pool.Get(SharedDebrisCube) : Instantiate(SharedDebrisCube);
+            chunk.SetActive(true);
+            chunk.name = "ImpactRockDebris";
+            chunk.transform.position = center + Random.insideUnitSphere * 0.12f;
+            chunk.transform.rotation = Random.rotation;
+            chunk.transform.localScale = Vector3.one * s;
+            var r = chunk.GetComponent<Renderer>();
+            if (r != null) r.material.color = Color.Lerp(Color.gray, Color.black, Random.value * 0.6f);
+            var rb = chunk.GetComponent<Rigidbody>();
+            if (rb == null) rb = chunk.AddComponent<Rigidbody>();
+            rb.mass = s * s * s * 1000f;
+            // Forward is the throw; the lift is small and the spread is wide, which is what separates
+            // this from the old vertical arc without needing a second code path.
+            rb.linearVelocity = forward * Random.Range(2f, 5f)
+                + Vector3.up * Random.Range(0.4f, 1.8f)
+                + Random.insideUnitSphere * 1.6f;
+            rb.angularVelocity = Random.insideUnitSphere * 8f;
+            if (pool != null)
+                pool.Return(chunk, 1.4f);
+            else
+                Destroy(chunk, 1.4f);
+        }
+    }
+
     /// <summary>One static cube GO shared by every crater-debris clone (1du). Built once, kept
     /// inactive so its own transform/renderer cost is zero, collider removed up front because the
     /// debris clones never need physics interaction beyond their explicit Rigidbody.</summary>
@@ -836,9 +900,14 @@ public partial class WorldStreamer
                 return _sharedDebrisCube;
             _sharedDebrisCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _sharedDebrisCube.name = "DentDebrisTemplate";
+            // DestroyImmediate, not Destroy (1jh): Destroy is deferred to the end of the frame, and
+            // the first debris burst is usually emitted in the very frame this template is built - a
+            // deferred Destroy leaves the collider alive long enough for that frame's Instantiate to
+            // CLONE one onto live debris. Harmless-looking for the old rare tool digs; not harmless
+            // once 1jh puts an emitter behind every projectile impact.
             Collider col = _sharedDebrisCube.GetComponent<Collider>();
             if (col != null)
-                Destroy(col);
+                DestroyImmediate(col);
             _sharedDebrisCube.SetActive(false);
             return _sharedDebrisCube;
         }

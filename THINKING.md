@@ -1,3 +1,74 @@
+## 1jh. "Collisions have no debris" - the complaint was never about debris existing
+
+**OPEN until the play-test.** Shipped in the 1jh commit; nothing here is verified behaviour yet.
+
+### Hypothesis 1: re-enable the excavation burst - REJECTED, it is the thing that was complained about
+The cheapest-looking fix is to drop `emitDebris: false` on the projectile path and let the existing
+`SpawnCraterDebris` run. Rejected on the *stated* reason alone: `1gb` switched it off because the burst
+read as "3 objects floating up then disappear". Turning it back on ships the complaint verbatim. Two
+further reasons make it the wrong fix even if the complaint had been about the debris existing:
+- **It is the wrong material.** `SpawnCraterDebris` tints by `TerrainBandColor(seed, cx, cz, floorY)` -
+  dirt-brown near the grass line, grey at the stone band. A *spell shattering masonry* is not a shovel
+  full of dirt, and the tint is sampled from the pit floor, which a projectile impact may not even have.
+- **It is the wrong emitter for the wrong event.** It fires from inside `DeformAt`, i.e. from the
+  *excavation*, and it is deliberately Crater-only because it means "the ground was dug". A projectile
+  that hits a wall excavates nothing, so an excavation-driven burst cannot even be asked to fire there.
+
+The general point, and it is the one worth keeping: **1gb's complaint was about shape and motion, so the
+repair has to change shape and motion.** Un-suppressing and adding are different repairs, which is why
+this shipped as its own commit instead of riding along with 1jg's trail.
+
+### Hypothesis 2: give it more upward velocity to read as an explosion - REJECTED on sight
+The instinct when "impact" lacks punch is to raise the launch speed. That is precisely the axis `1gb`
+filed on. The distinguishing test is the **arrival angle**: a mortar fired flat must throw forward, and a
+spell dropped from above must not fire every chip skyward. So the bias is along the projectile's own
+travel direction with the **pitch stripped out**:
+
+```csharp
+Vector3 forward = dir.sqrMagnitude > 0.01f ? new Vector3(dir.x, 0f, dir.z).normalized : Vector3.forward;
+```
+
+The flattening is the load-bearing part and the part a first pass would omit - "not up" is trivial to say
+and easy to break for one of the arrival angles. Lift is then a small fixed 0.4-1.8 m/s, against the old
+burst's +2.5..+5 m/s, with a wide `insideUnitSphere * 1.6f` spread so the throw is a spray and not a jet.
+
+### Hypothesis 3: the chunks should fall for as long as the old ones did - REJECTED, they cannot
+Chasing the old 2.5 s lifetime looks like fidelity, and it would be the same mistake again. These chunks
+are **collider-free** (rule 19: a collider here is something the player's `CharacterController` could
+catch on), and a collider-free rigidbody falls *through* the terrain it was knocked out of. So the old
+lifetime spent most of its span below ground, invisible - which is very likely part of why the burst read
+as "then disappear" in the first place. **The short life is not a taste call, it is what bounds a known
+leak in the chosen physics.** Stated here because the honest version of the reasoning is "1.4 s because
+they have no ground to land on", and a future edit to 1.6 s should have to answer that rather than
+prefer a rounder number.
+
+### Hypothesis 4: share the excavation template, or make a second one - CHOSE sharing, deliberately
+`ProjectileTrail` (1jg) built its own cube template because `SharedDebrisCube` is `private` to the
+`WorldStreamer` partial, and recorded that duplication in a comment rather than hiding it. 1jh needed the
+opposite decision in the same file, and took it: **reuse `SharedDebrisCube` and its pool.** Two reasons,
+and they are different kinds of reason:
+- **It is the same object.** A cube with no collider, scaled and tinted per use - the two emitters differ
+  only in velocity, lifetime, colour source and count. A second template would be a second cube mesh in
+  the world for no behavioural difference.
+- **They share the pool anyway** (same template ⇒ same `EntityId` key ⇒ one queue), so a second template
+  would not have avoided a second pool, only a second mesh.
+
+The asymmetry is the point: 1jg's duplication was justified by reaching across a class boundary for a
+*cosmetic* cube, and 1jh's sharing was free because the code was already on the right side of it. Copying
+1jg's decision here would have been cargo-culting the earlier call rather than re-deriving it.
+
+### The bug 1jh did not go looking for
+`SharedDebrisCube` destroyed its Collider with plain `Destroy` - **deferred to end of frame** - while the
+template is built lazily on first use, so the first burst is emitted in the same frame and its
+`Instantiate` **clones the still-alive collider onto live debris**. Latent since `1du`.
+
+What is worth recording is *how* it surfaced: not by re-reading the template, but because routing a
+**high-frequency** emitter through it made the existing lifetime untenable. 1gb's own emitter was rare
+(tool digs, zone strikes), so a one-frame collider on the first burst was invisible; 1jh put the same
+template behind every projectile impact, and the deferral window went from "once in a while" to "every
+time a new session digs its first hole". **The severity of an existing bug is a function of how often the
+new caller will hit it** - so re-using a helper is also a review of it, and a reviewer should ask what
+else about it was sized for its previous frequency. Fixed to `DestroyImmediate`, matching 1jg's template.
 ## 1jg. "Spells fly with no trail" - restoring a deleted look, and the field that was never declared
 
 **OPEN until the play-test.** Shipped in the 1jg commit; nothing here is verified behaviour yet.

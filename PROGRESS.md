@@ -1,3 +1,54 @@
+## 1jh. Projectile impacts had no debris - grey rock chips thrown forward, not up
+
+**Status: READY FOR PLAY-TEST.** A new `WorldStreamer.SpawnImpactRockDebris` emitter plus a
+`TerrainDeformer.ImpactRockDebris` entry point, and a latent collider bug in the shared cube template.
+**Verified by grep + reread + `tools\StaticChecks.ps1` -> 0 candidates; no Unity build** (rule 3), so the
+visual read is still owed.
+**skills: none applied** - a C# edit reviewed by a human inside this repo; no installed skill governs
+that, and the Unity skills target driving an editor or `-batchmode`, which rule 3 forbids.
+
+Shipped as its own commit from the same request as 1jg, because the two halves are **different repairs**:
+1jg restored something that was deleted, and this restores something that was only **switched off**.
+
+**Why not just flip `emitDebris` back to true.** `1gb` (`c5d0c31`) made projectile impacts pass
+`emitDebris:false` for one stated reason: the burst read as *"3 objects floating up then disappear"*.
+That is a complaint about **shape and motion**, not about debris existing at impacts - so re-enabling it
+would ship the thing that was complained about, and adding the chips alongside it would leave the complaint
+half-answered. `SpawnCraterDebris` is also *excavation* debris: stratum-tinted by `TerrainBandColor`,
+sized for a dug pit, lifted +2.5..+5 m/s. Un-suppressing it is the wrong fix twice over.
+
+So 1jh is a separate emitter, and the shared excavation behaviour is **untouched** - `DeformAt` still
+guards `if (shape == TerrainShape.Crater && emitDebris)`, so tool digs and zone/storm/summon strikes are
+byte-for-byte what they were. The dent a projectile carves is unchanged; only who supplies the debris.
+
+**The four differences, one per part of the critique:**
+- **Thrown forward.** Biased along the projectile's own `_dir`, **flattened** to horizontal so a bolt
+  arriving from above cannot turn the throw skyward again - that flattening is the part that would
+  otherwise be missed, since "not up" is easy to state and hard to keep true for every arrival angle.
+- **Short life (1.4 s vs 2.5 s).** These chunks carry no collider, so they fall *through* whatever they
+  were knocked out of; the old 2.5 s spent most of its life sinking out of sight rather than reading.
+- **Grey rock, not stratum colour** - `Color.Lerp(Color.gray, Color.black, …)`, matching the world's
+  breakable-rock debris. A spell shattering masonry is not a shovel full of dirt.
+- **Count and size scale with the impact radius** (2–8 chunks, size × `clamp(radius·0.75, 0.7, 1.6)`),
+  so a charged bolt throws more and bigger rather than every impact looking identical.
+
+**Additive to the impact sphere, deliberately.** `SpellImpactFx.Spawn` is the spell's *identity* (its own
+per-school impact family, §3.7) and the chips are the *world reacting*. Rule 13's asymmetry test - do the
+two adjacent lines share an identity? - says no, so both stay. Spawned at the **hit point**
+(`transform.position`), not the probed ground point, so a wall strike throws chips too.
+
+**The latent collider bug, found by the new caller rather than by looking for it.** `SharedDebrisCube`
+destroyed its Collider with plain `Destroy`, which is deferred to end of frame - and the first debris
+burst is normally emitted in the very frame the template is built, so that frame's `Instantiate` **cloned
+a collider onto live debris**. It has been there since `1du`. Survivable for rare tool digs; not a good
+bet the moment an emitter goes behind every projectile impact, which is exactly what 1jh did - so the new
+caller exposed the old bug rather than merely inheriting it. Now `DestroyImmediate`, matching what 1jg did
+in its own template. A convention that only ever finds new code is not yet a convention (AGENTS rule 19).
+
+**Play-test items:** chips read as rock knocked off the impact rather than as objects floating; a
+ground strike throws forward and dies in about a second; a wall strike throws chips too; a charged cast
+visibly throws more/bigger than an uncharged one; the chips do not spoil the school-coloured impact
+sphere (this is the one that could read as "too busy"); tool digs and zone strikes look exactly as before.
 ## 1jg. Magic projectiles flew through a silent, trail-less world - a pooled voxel exhaust
 
 **Status: READY FOR PLAY-TEST.** A new `ProjectileTrail` emitter driven from the flight loop in

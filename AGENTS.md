@@ -1011,7 +1011,11 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
       template.** Destroying a template's Collider the ordinary way leaves it alive long enough for that
       frame's `Instantiate` to **clone a collider onto live geometry** - intermittent by construction,
       and invisible to every check in this repo. `DestroyImmediate` is the right call for a
-      runtime-built, never-rendered template.
+      runtime-built, never-rendered template. 1jg fixed it in the new trail template and **1jh found the
+      same hazard already live** in `WorldStreamer.SharedDebrisCube`, where `Destroy` had been deferred
+      since 1du; it had been survivable for rare tool digs and stopped being a good bet the moment an
+      emitter went behind every projectile impact. A convention that only ever finds new code is not
+      yet a convention.
     - **A taper can be an AGE rather than a state.** Recycling each voxel a fixed life after it was left
       makes the tail the part about to disappear, which is a gradient for free: no fader component to
       re-initialise on reuse (which then has to not fight the pooler's delayed recycle), no alpha ramp,

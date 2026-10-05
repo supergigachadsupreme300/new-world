@@ -352,8 +352,11 @@ public class SpellEffect : MonoBehaviour
             if (Physics.Raycast(probe, Vector3.down, out RaycastHit groundHit, 30f))
             {
                 impactGround = groundHit.point;
-                // emitDebris:false — this dent is a magic projectile impact, and its visual burst is
-                // the school-colored exploding sphere below (1gb), not the tool-dig cube debris.
+                // emitDebris:false — this dent is a magic projectile impact, so it does NOT throw the
+                // excavation burst: that burst is stratum-tinted dirt thrown upward (2.5-5 m/s of lift)
+                // and reads as "3 objects floating up then disappear". 1jh replaces it with the grey
+                // rock chips below, which are thrown FORWARD and die in 1.4 s. The dent is identical
+                // either way — only who supplies the debris changed.
                 TerrainDeformer.Apply(impactGround, dentRadius, TerrainShape.Crater, _dir, emitDebris: false);
             }
 
@@ -363,6 +366,12 @@ public class SpellEffect : MonoBehaviour
             // and the shape choice is per-spell while the fade/lifetime stay shared. The sphere
             // survives as the Sphere family, so no spell lost its old look by accident.
             SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Mathf.Max(0.8f, _spell.Radius));
+
+            // 1jh: rock chips off the impact, ADDITIVE to the sphere above rather than replacing it —
+            // the sphere is the spell's identity (per-school family) and the chips are the world
+            // reacting, so the two answer different questions and both belong. Spelled at the HIT
+            // point, not the probed ground point, so a wall hit throws chips too.
+            TerrainDeformer.ImpactRockDebris(transform.position, dentRadius, _dir);
         }
 
         Destroy(gameObject);
