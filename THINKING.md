@@ -1,3 +1,64 @@
+## 1jj. "mapbuilder compile bug, seatedplayer"
+
+**OPEN until the play-test.** Shipped in the 1jj commit. The fix is 4 one-word prefixes; everything worth
+recording is how the sites were found and why one of them needed authorisation.
+
+### The user named two things: a class and a pose
+"mapbuilder compile bug, seatedplayer" is two claims, and they turned out to be *different files*. The
+first move was to take the class literally and grep it: `MapBuilder` has no `BuildPlayerModel`,
+`BuildSeatedPlayerModel` or `BuildSitPlayerModel` in any of its 10 Legacy partials, so every
+`MapBuilder.Build*Model` reference is CS0117. Then the pose narrowed it to the *seated* builders, which is
+what made the rest tractable - `PlayerModelBuilder` exposes exactly three public members and only two of
+them are seated, which is a 2-name search rather than a tree-wide hunt.
+
+### The sweep that caused the bug searched for the wrong unit - and the console could not show it
+`75fd44d` rewrote `MapBuilder.BuildPlayerModel` -> `PlayerModelBuilder.BuildPlayerModel` at **10 sites in
+10 files**. The decisive evidence is not what it changed but what it *touched*: `git show` lists
+`+++ b/.../CutsceneManager.Driving.cs` and `+++ b/.../CutsceneManager.Helpers.cs` with **no `Build` line
+changed in either**. So the file was in the author's hands during the sweep, and still came out wrong -
+because the sweep was keyed on the one symbol the console had reported. Those two files hold the *seated*
+variants, which nobody had asked about yet.
+**The unit of a rename sweep is the moved class's whole public surface, not the symbol that was quoted.**
+Enumerated once: 3 public members, and each needs its own call-site count. The second habit is the one that
+would have caught it at the time - **count the files the sweep rewrote against the files it touched**. 8
+rewritten, 2 touched-and-unchanged: those 2 are the gap, visible from the diff alone, before anyone compiles.
+
+### A false zero from my own pattern, and what it cost
+My first enumeration of `Driving.cs` used `Build(Player|Seated|Sit)Model` and printed **nothing** for a file
+I had just read a matching line out of. The alternation requires `Model` straight after `Seated`, so it
+cannot match `BuildSeatedPlayerModel`. The correct pattern is `Build(Player|SeatedPlayer|SitPlayer)Model`.
+That is the same failure as 1iu's one-level `-Path` glob: a scan reporting an absence has to be shown able
+to report a presence first, and the cheapest proof is to run the same pattern against a file you know has no
+match. I ran the control (`SaveManager.cs` -> 0) and the corrected pattern agreed with the 3 lines I had
+already read by eye - **so the number was confirmed twice by different means, and the first number was
+discarded rather than reported.**
+
+### The one site that was not mine to fix, and why asking was cheaper than choosing
+`PlayerSitController.cs:33` was one word. The other 3 were in `Legacy/`, which rule 18 makes read-only in
+both directions, and the two candidate fixes are opposites rather than degrees:
+- **qualify the 3 lines** - completes the interrupted sweep, but edits frozen old-game source;
+- **add a `MapBuilder` forwarder** - leaves Legacy byte-identical, but rule 17's 1ji bullet forbids a
+  forwarder to a Legacy host, and it makes a working build out of a hole instead of closing it.
+
+There was a third option I rejected without being asked: **move `Driving.cs` out of `Legacy/`**, on the
+theory that a live cutscene has no business being frozen. That is a rule-18 decision of its own (and the
+folder already holds 8 endings plus `Driving`, `Helpers` and `CutsceneManager.cs` - 11 files, not "the ten
+endings" the rule text says), so it is not a drive-by.
+The reason the fence is worth a question rather than a judgement call: **8 sibling files in the same folder
+already call `PlayerModelBuilder.BuildPlayerModel`**, so the edge legacy->live exists 9 times over and was
+created by the same commit that moved the class. One more instance of an edge that is already there is a
+different act from opening a new one - but that judgement is the owner's to make, so it was asked rather
+than argued. Recorded in AGENTS.md rule 18 as the single authorised exception, with the three things it
+explicitly does **not** license.
+
+### Reporting the diff as a shape, not a count
+The verification that would have caught a bad edit here is cheap and countable: **the diff is exactly 4
+lines, prefix-only, and the Legacy hunk is 3 added / 3 deleted**. A `-U0` diff printing the old and new
+lines side by side shows there is no second change hiding in the fence. Balance came out at **zero delta**
+on both files against HEAD - reported as a delta, since the edit can only insert a prefix and an absolute
+"it is balanced" would claim more than that. And stated plainly rather than glossed: **neither edited file
+is in `StaticChecks.ps1`'s `$files`**, so the script's 0 candidates is a statement about other files, and
+the manual balance count is the only instrument that actually looked at these two.
 ## 1ji. "the name MakePart does not exist in model builder"
 
 **OPEN until Unity compiles.** Shipped in the 1ji commit; the fix itself is a rename, so the risk is

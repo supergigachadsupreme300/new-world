@@ -1,3 +1,51 @@
+## 1jj. `MapBuilder.BuildSeatedPlayerModel` - the call sites 75fd44d never finished, incl. 3 in Legacy
+
+**Status: READY FOR PLAY-TEST.** Four CS0117 sites from the same class split 1ji finished. One live line
+plus **3 lines inside the `Legacy/` fence, fixed on the owner's explicit authorisation** and recorded in
+AGENTS.md rule 18 so a later reader files it as an exception, not a violation.
+**Verified by grep + reread + `tools\StaticChecks.ps1`; no Unity build** (rule 3).
+**skills: none applied** - a C# edit reviewed by a human inside this repo; the Unity skills drive an editor
+or `-batchmode`, which rule 3 forbids.
+
+| File | Line(s) | Was | Now |
+|---|---|---|---|
+| `Interactions/PlayerSitController.cs` | 33 | `MapBuilder.BuildSitPlayerModel` | `PlayerModelBuilder.BuildSitPlayerModel` |
+| `Legacy/Cutscenes/CutsceneManager.Driving.cs` | 46, 172, 507 | `MapBuilder.BuildSeatedPlayerModel` | `PlayerModelBuilder.BuildSeatedPlayerModel` |
+
+**This is the call side of 1ji's bug, and it was missed by the commit that caused it.** `75fd44d` moved the
+player-model class out of `MapBuilder` and rewrote `MapBuilder.BuildPlayerModel` ->
+`PlayerModelBuilder.BuildPlayerModel` at **10 sites in 10 files**. It *touched* `CutsceneManager.Driving.cs`
+and `CutsceneManager.Helpers.cs` and changed **no `Build` line in either** - because those two hold the
+*seated* variants and the sweep searched for the one name that had moved. So the fence was crossed 9 times
+by that commit family and `Driving.cs` alone was left calling a member that no longer exists.
+
+**Enumerate the moved class's public surface, not the symbol the console quoted.** `PlayerModelBuilder`
+exposes exactly 3 public members, and all three had to be accounted for separately:
+`BuildPlayerModel` (10 sites, done by `75fd44d`), `BuildSeatedPlayerModel` (3 sites, this task) and
+`BuildSitPlayerModel` (1 site, this task). A sweep keyed on the reported name would have found 1 of 3.
+
+**The Legacy decision, stated rather than assumed.** 3 of the 4 sites are in read-only `Legacy/`, and
+rule 18 forbids editing it in either direction. I stopped and asked rather than picking, because the two
+plausible fixes are opposites: qualify the 3 lines (completes the interrupted sweep, but edits frozen
+old-game source) or add a `MapBuilder` forwarder (leaves Legacy byte-identical, but rule 17 forbids a
+forwarder to a Legacy host and it hides the sweep gap behind a working build). The owner chose the first.
+It is also the one consistent with **8 sibling files in the same folder** already calling
+`PlayerModelBuilder.BuildPlayerModel`.
+
+**Verification, with the instruments named honestly:** 0 stale `MapBuilder.Build*Model` references remain
+tree-wide (the pattern was checked against a known-zero control first - an earlier version of it
+`Build(Player|Seated|Sit)Model` could not match `BuildSeatedPlayerModel` and reported a false 0). The diff
+is **exactly 4 lines**, prefix-only, with the Legacy hunk 3 added / 3 removed and no other content touched.
+Balance delta **zero** on both files (`PlayerSitController` 12/12 braces 43/43 parens; `Driving.cs` 68/68 and
+269/269, identical to HEAD). Both files kept their encoding - `Driving.cs` has a UTF-8 BOM, `PlayerSitController`
+has none, and both pass a strict UTF-8 decode. **Neither file is in `StaticChecks.ps1`'s `$files` list**, so
+the manual balance count is the only instrument that touched them; the script still reports 0 candidates
+project-wide.
+
+**Play-test:** the driving cutscene still seats the player in the car at all three points (intro, mid, and
+the later repeat) - that is the one line count that proves the 3 Legacy edits, since a wrong signature
+there would build nothing rather than error at runtime. Sitting in a chair still spawns the chair pose. The
+player model and race proportions are unchanged from 1ji.
 ## 1ji. `MakePart` did not exist in PlayerModelBuilder - a `partial` split that git recorded as unchanged
 
 **Status: READY FOR PLAY-TEST.** The user pasted the Unity error (`the name 'MakePart' does not exist`

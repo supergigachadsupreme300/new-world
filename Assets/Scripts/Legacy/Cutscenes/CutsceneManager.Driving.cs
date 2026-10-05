@@ -43,7 +43,7 @@ public partial class CutsceneManager
                 _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
                 RegisterSpawned(_introCar);
 
-                _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+                _introPlayer = PlayerModelBuilder.BuildSeatedPlayerModel(_introCar.transform);
                 RegisterSpawned(_introPlayer);
 
                 if (_introCar != null)
@@ -169,7 +169,7 @@ public partial class CutsceneManager
 
         _introCar = MapBuilder.BuildCar(null, Vector3.zero);
         _introCar.SetActive(false);
-        _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+        _introPlayer = PlayerModelBuilder.BuildSeatedPlayerModel(_introCar.transform);
         _introPlayer.SetActive(false);
 
         if (_introCar != null)
@@ -504,7 +504,7 @@ public partial class CutsceneManager
 
             _introCar = MapBuilder.BuildCar(null, new Vector3(RoadX, 0f, IntroStartZ));
             RegisterSpawned(_introCar);
-            _introPlayer = MapBuilder.BuildSeatedPlayerModel(_introCar.transform);
+            _introPlayer = PlayerModelBuilder.BuildSeatedPlayerModel(_introCar.transform);
             RegisterSpawned(_introPlayer);
 
             if (_introCar != null)

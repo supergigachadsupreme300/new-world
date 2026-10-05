@@ -30,7 +30,7 @@ public class PlayerSitController : MonoBehaviour
         if (existing != null)
             _standingModel = existing.gameObject;
 
-        _sitModel = MapBuilder.BuildSitPlayerModel(transform);
+        _sitModel = PlayerModelBuilder.BuildSitPlayerModel(transform);
         Vector3 facing = _seat.Facing;
         facing.y = 0f;
         if (facing.sqrMagnitude > 0.001f)

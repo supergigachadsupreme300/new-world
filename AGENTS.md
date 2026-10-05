@@ -964,6 +964,18 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
         for **all** bare identifiers the file uses that resolve to the former host before fixing the one
         name on the console: 1ji's report was `MakePart` only, and `ActiveGender` was sitting behind it.
         Unity prints what you look at, not what is broken.
+      - **The mirrored mistake is on the CALL SIDE, and a partial sweep is the same bug wearing the other
+        hat.** 1ji fixed the moved *file*; 1jj found the call *sites* were never fixed. `75fd44d` rewrote
+        `MapBuilder.BuildPlayerModel` -> `PlayerModelBuilder.BuildPlayerModel` at 10 sites in 10 files -
+        and **touched** `CutsceneManager.Driving.cs` and `CutsceneManager.Helpers.cs` while changing **no
+        `Build` line** in either, because those files hold the *seated* variants (`BuildSeatedPlayerModel`,
+        `BuildSitPlayerModel`) and the sweep searched for the one name that had moved. Every
+        `MapBuilder.Build*Model` reference is then CS0117, so **the sweep's unit is the moved class's whole
+        public surface, not the symbol the console quoted** - and its denominator is *every* caller, not the
+        files you happened to open. Two habits: enumerate the class's `public` members once and account for
+        each one (here exactly 3, each with its own call-site count), and count the files the sweep rewrote
+        against the files it *touched* - a file in the diff with no `Build` line changed is a gap someone
+        should have caught in that same commit.
       - **Qualify with the former host (`MapBuilder.MakePart`), and never add a forwarder to the host
         when the host is `Legacy/`** - rule 18 makes that a read-only fence. Live -> legacy calls are
         the sanctioned direction, and the repo already had the convention (`SaveManager` and
@@ -1006,6 +1018,17 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
       folder is a one-way door: `MapBuilder.BuildTree` is still called by `ChunkObject`, so the streamed
       terrain draws through quarantined code, and that is exactly why the temptation to "just fix it there"
       is strong. It stays a fence, not a shared workbench.
+    - **There is exactly ONE authorised exception on record, and it is recorded here so a reader does not
+      file it as a violation.** 1jj changed 3 lines in `Legacy/Cutscenes/CutsceneManager.Driving.cs`
+      (`MapBuilder.BuildSeatedPlayerModel` -> `PlayerModelBuilder.BuildSeatedPlayerModel`), on the
+      owner's explicit authorisation, because those lines were CS0117 and the project could not compile.
+      Why it is not a new dependency: `75fd44d` - the commit that moved the class out of `MapBuilder` in the
+      first place - had already rewritten **8 of the 9** `CutsceneManager` files in that same folder to
+      call `PlayerModelBuilder.BuildPlayerModel` and missed only `Driving.cs`. The fence was crossed nine
+      times by the same commit family; this completes a sweep that was already half-done rather than
+      choosing a direction. Three rules the exception does **not** grant: it is not a precedent for editing
+      Legacy again, it does not license the `MapBuilder` forwarder that rule 17's 1ji bullet forbids, and a
+      Legacy edit that is *not* a compile fix still needs the same authorisation.
     Note what the quarantine is NOT: a claim that legacy is unreferenced. 1jc measured it - the legacy types
     are the *hub* the new systems hang off (23 live files name `WorldBuilder`, 15 name `MapBuilder`, 11 name
     `CutsceneManager`), and `Assets/Scenes/SampleScene.unity` - the only scene in `EditorBuildSettings` -
