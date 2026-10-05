@@ -1,3 +1,5 @@
+﻿17. **Do not touch legacy code.** The cutscenes (CutsceneManager.*), WorldBuilder.*, and MapBuilder partials (NPCs, buildings, nature, vehicles, etc.) are legacy content and **must not** be modified, moved, or deleted unless explicitly directed. Do not rename their symbols or update comments referencing them. Treat them as read-only. If we want a "modern" equivalent, create a new class/file in the appropriate `Models/` or `World/` namespace and leave legacy untouched.
+
 # Project Rules
 
 1. **Always commit and push after every task.** Commit on Git `main` and push to
@@ -18,31 +20,31 @@
 
 2. **Before finishing any implementation, read AND update all "read/update" docs below in the same
    pass as the code change** (never a follow-up commit by itself):
-   - `game-design.md` â€” keep it in sync with implemented behavior (section references like Â§3.3,
-     Â§3.7, Â§3.8, Â§5.7). Update stats/counts, status tables, and signature mechanisms on any feature
+   - `game-design.md` Ã¢â‚¬â€ keep it in sync with implemented behavior (section references like Ã‚Â§3.3,
+     Ã‚Â§3.7, Ã‚Â§3.8, Ã‚Â§5.7). Update stats/counts, status tables, and signature mechanisms on any feature
      change, and remove stale text (e.g. a removed currency/UI leftover) in the same pass.
-   - `AGENTS.md` â€” this file; update it whenever a recurring convention changes (see rules 4-6).
-   - `PROGRESS.md` â€” record every completed task as a new `## 1xx` entry at the top with a `### 1xx-status`
+   - `AGENTS.md` Ã¢â‚¬â€ this file; update it whenever a recurring convention changes (see rules 4-6).
+   - `PROGRESS.md` Ã¢â‚¬â€ record every completed task as a new `## 1xx` entry at the top with a `### 1xx-status`
      block; note pending play-test items and any follow-up fixes. Refresh the intro ("Last updated")
      when older entries drift.
-   - `THINKING.md` â€” for any non-trivial investigation, keep the raw reasoning trail (hypotheses,
+   - `THINKING.md` Ã¢â‚¬â€ for any non-trivial investigation, keep the raw reasoning trail (hypotheses,
      evidence for/against, dead ends, verdicts) in a `## 1xx` section; mark each hypothesis
      confirmed/rejected/open and keep the section marked OPEN until the task ships. This is the
-     "how I reasoned it out" log â€” never cite it as implemented behavior.
+     "how I reasoned it out" log Ã¢â‚¬â€ never cite it as implemented behavior.
 
 3. **No CLI/Unity build is run in this project.** Compile and behavior are verified by code review;
    the user play-tests in Unity afterwards. Note that verification status in each task's status block.
    **Review is not compilation:** grep confirms a symbol exists, not that two signatures agree, and a
    local declared inside a `switch` case is in scope for the *whole* switch, so a read from a sibling
    case looks legal and only fails definite assignment. When the user pastes Unity console errors,
-   fix them in a **new commit** (never an amend) and sweep the whole class â€” every
+   fix them in a **new commit** (never an amend) and sweep the whole class Ã¢â‚¬â€ every
    `return <void helper>(...)`, and every name declared in one `case` and read in another.
    **Run `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1` before committing any
-   change to `WorldBuilder*.cs` or `NewWorldTestGround.cs`** â€” it mechanises exactly those checks
+   change to `WorldBuilder*.cs` or `NewWorldTestGround.cs`** Ã¢â‚¬â€ it mechanises exactly those checks
    (balance, overload-aware arity, void-return, unassigned locals, cross-case locals, part-key parity).
    It reports *candidates*, not verdicts: 0 candidates still means "not compiled", so paste Unity's
    output into the handoff rather than fixing errors silently. If you add a file in those areas, add
-   it to the script's `$files` list or checks 1â€“5 stop covering it. **Balance is not
+   it to the script's `$files` list or checks 1Ã¢â‚¬â€œ5 stop covering it. **Balance is not
    reachability.** 1in wrote `dishSpan = span;` above `float span = 0f;` (CS0103) and the script
    reported `braces 44/44 parens 263/263` on a file that could not compile: the script has no
    declaration-order check, so a clean run says nothing about use-before-declaration. Reread for that
@@ -50,7 +52,7 @@
    on every legitimate field read trains the next reader to ignore it, which is the false-positive
    failure rule 7 already documents. 1in added `WorldStreamer.CraterAudit.cs` to `$files`; it is a
    `WorldStreamer` partial, so only checks 1, 4 and 7 apply to it. 1f6 added `ChunkDistanceCull.cs`
-   and `NewWorldSystems.cs` — the cull is the class the streamer *skips dormant entries for*, so a
+   and `NewWorldSystems.cs` â€” the cull is the class the streamer *skips dormant entries for*, so a
    wrong signature there is a silent visibility bug rather than an error, which is exactly the
    failure review cannot see.
 
@@ -67,18 +69,18 @@
 
 6. **When done with all requested tasks, wrap up with a short closing summary** in your final message:
    one line per task naming the task id (`1xx`), the commit hash it shipped in, and the files touched;
-   then state the verification performed (grep/reread â€” no build) and list the pending play-test items
+   then state the verification performed (grep/reread Ã¢â‚¬â€ no build) and list the pending play-test items
    the user should check in Unity. Do not add this summary until every requested task is actually
    committed and pushed.
 
 7. **Measure before fixing a visual/geometry report.** When the user reports something you cannot see
    from the code (gaps, holes, invisible meshes, z-fighting, popping), add a read-only on-demand
-   measurement lane to `NewWorldTestGround.cs` FIRST â€” one key, one number, cached on the HUD and
-   logged â€” and let the readout name the mechanism before changing behaviour. Ship the measurement and
+   measurement lane to `NewWorldTestGround.cs` FIRST Ã¢â‚¬â€ one key, one number, cached on the HUD and
+   logged Ã¢â‚¬â€ and let the readout name the mechanism before changing behaviour. Ship the measurement and
    the fix as SEPARATE tasks so the readout that justified the fix stays in history. A fix chosen
    without a measurement is a guess: it can be correct and still change nothing, and then the real
    cause is still unmeasured for the next attempt. Read-only means read-only: no rebuild, no patch,
-   no re-stamp, no forced poll â€” the report must describe the frame the key was pressed on.
+   no re-stamp, no forced poll Ã¢â‚¬â€ the report must describe the frame the key was pressed on.
    Three conventions 1hy added, all of them about making a *positive* result mean something:
    - **Order the sections by whether their PREMISE holds, not by how much they look like a test.**
      The F3 corner/void audit runs its build fingerprint *first*, ahead of the two sections that
@@ -90,18 +92,18 @@
    - **Scope the walk to the band where a positive result is *possible*, and print the band.** The
      void walk covers rings `0 .. view + FarOuterKeep` because that is the union of what the two
      owners promise, so a hole in it means something. Scanning everything visible instead pulls in
-     real chunks that are dormant-and-hidden past that ring with no far-cell owner â€” ~84 correct,
+     real chunks that are dormant-and-hidden past that ring with no far-cell owner Ã¢â‚¬â€ ~84 correct,
      expected, invisible "voids" at 630 m that bury the one real finding. A measurement that reports
      known-absent things is not conservative, it is unreadable.
    - **Never re-derive another component's private formula to define that scope.** The visible radius
       is `ChunkDistanceCull.EffectiveCullDistance()` and it is private; copying that expression into
       the lane would be rule 8 in reverse (a second spelling that rots when the cull side changes, and
-     silently mis-scopes the audit when it does). Find the invariant both sides already agree on â€”
-     here, the ownership band â€” and scope to that instead.
-   - **A scope is a claim about the mechanism, so write it down as one â€” and a correct scope for the
+     silently mis-scopes the audit when it does). Find the invariant both sides already agree on Ã¢â‚¬â€
+     here, the ownership band Ã¢â‚¬â€ and scope to that instead.
+   - **A scope is a claim about the mechanism, so write it down as one Ã¢â‚¬â€ and a correct scope for the
      wrong *family of owner* still reports "clean" confidently.** 1hy scoped section B to the band
      where a void is possible and printed the band, which is why B's zero was trustworthy. It then
-     scoped section C to `_loadedChunks`, comparing real chunks against each other â€” and never stated
+     scoped section C to `_loadedChunks`, comparing real chunks against each other Ã¢â‚¬â€ and never stated
      that this *presupposed the defect is between two loaded chunks*. The player then reported the
      gap **only at the outer x/z corner tile**, which is the near/far boundary: one loaded quadrant
      and three far ones. C could not see it at any depth, and it printed real numbers the whole time,
@@ -111,33 +113,33 @@
      surface that is live but one step off is exactly the failure a "is anything drawn here" check
      cannot see.
    - **A verdict line that conflated "broken" with "smaller than promised" is the same bug as a
-     coverage walk that admits one owner â€” and the conflation is what makes a number unusable.**
+     coverage walk that admits one owner Ã¢â‚¬â€ and the conflation is what makes a number unusable.**
      1i1's section B reported 2965 undrawn footprints because it demanded `!FarShadowedByCoarse` on a
      footprint's owner, but that helper is *true* when a live coarser cell already covers the same
-     ground â€” it names a reserved shadow, not an absence. So all 2965 were reserved shadows being
+     ground Ã¢â‚¬â€ it names a reserved shadow, not an absence. So all 2965 were reserved shadows being
      called holes. Two habits: ask coverage questions directly (enumerate every owner that can draw,
      take the first live one) instead of inferring them from the ownership predicate, and split the
      remainder into **claimed-dead** (an owner exists and nothing is drawing: a hole) and **unowned**
      (nothing claims it: a shorter horizon) with separate verdicts. When a number is retracted, say
-     the replacement is *unknown*, not zero â€” 1i2 retracted 2965 and had no number to put in its
+     the replacement is *unknown*, not zero Ã¢â‚¬â€ 1i2 retracted 2965 and had no number to put in its
      place.
    - **Gate a classifier on the WIDTH of its own test, or it will name a mechanism for arithmetic
      noise.** 1i1's section D used `RenderedCornerTolerance` both as the "is this stepped" threshold
      and as the "is this side on pristine noise" test, so two values each within tol of the same
-     pristine value could differ by up to `2*tol` â€” stepped *and* both-pristine at once. It filed 19
-     nodes at 1â€“2 cm under `not an edit - look at the lattice/seed`, which reads like a finding and
+     pristine value could differ by up to `2*tol` Ã¢â‚¬â€ stepped *and* both-pristine at once. It filed 19
+     nodes at 1Ã¢â‚¬â€œ2 cm under `not an edit - look at the lattice/seed`, which reads like a finding and
      is noise from two facets rounded to one lattice. Any threshold comparison used to *enter* a
      classification must be at least the sum of the tolerances used *inside* it.
    - **A check is only evidence if you have seen it fail on the thing it is for.** A check that flags a
      false positive on the first file you add it to is a check whose silence has stopped meaning
      anything. 1hy's `StaticChecks.ps1` check 4 reported every `out` parameter as an unassigned local;
      a reader trained by 4 false candidates waves through the next real CS0165. **A balance check
-     cannot see a construct in the wrong place** â€” 1i4 declared a method between the `using` block and
+     cannot see a construct in the wrong place** Ã¢â‚¬â€ 1i4 declared a method between the `using` block and
      `partial class WorldStreamer` and reported braces 25/25, because the method body and the class
      body were two separate well-formed constructs. Grep found the symbol, balance passed, review
      passed, and only Unity's parser objected (CS0106, which does not even name the class). Check 7
      now flags any member at brace depth 0, and was verified by **reintroducing that exact bug and
-     watching it fire** â€” a green check nobody has seen fail is not a check.
+     watching it fire** Ã¢â‚¬â€ a green check nobody has seen fail is not a check.
 - **A scan that reports ABSENCES must first be shown able to report PRESENCES, or its misses mean
       nothing.** The same class of error running the other way, and it is easy to mistake for a
       finding: verifying 1iu's two READMEs, `Select-String -Path 'Assets\Scripts\*.cs',
@@ -184,7 +186,7 @@
         `PROGRESS.md` and a commit message before anything caught them; the true counts are **1 each**,
         confirmed twice (regex `Matches`, then an `IndexOf` walk) against bogus-GUID controls. So:
         **count with `([regex]::Matches($text,[regex]::Escape($g))).Count`, never `String.Split` on a
-        multi-char needle**, and **print a known-zero control beside every count** — a check that has
+        multi-char needle**, and **print a known-zero control beside every count** â€” a check that has
         never been shown able to report 0 for a string it does not contain is not a count.
       - Corollary for the *inverse* edit: relocating a live asset "properly" (into `Resources/`, say) means
         hand-editing a serialized GUID inside a scene file, which no review here can verify
@@ -192,7 +194,7 @@
         than dedupe it on paper.
   - **A safe idiom in one caller is not evidence it is safe in another.** 1i4 read `_loadedChunks` from
      `BuildChunkMeshData`, which runs on a **ThreadPool thread** via `BackgroundGenerateChunk`, while
-     the main thread builds/unloads/demotes â€” and `Dictionary<TKey,TValue>` is not safe to read during
+     the main thread builds/unloads/demotes Ã¢â‚¬â€ and `Dictionary<TKey,TValue>` is not safe to read during
      a write. The F3 audit reads the same dictionary constantly and never races, because it is
      main-thread-only, so the pattern looked safe. **Check the thread the code runs on before reusing
      an idiom, and never argue that a data source is "strictly better" without naming the thread.**
@@ -228,7 +230,7 @@
       spelling. The lane and the toggle both fired on one press, so the measurement was taken with
       weapons drawing underneath it. Three habits:
      - **Search for the CONCEPT across every spelling its API offers, not the one you remember.**
-       The Input System (used exclusively here — zero legacy `Input.*` calls) binds a key as
+       The Input System (used exclusively here â€” zero legacy `Input.*` calls) binds a key as
        `Keyboard.current.f1Key`, as `Keyboard.current[Key.F1]`, or indirectly as `kb[SomeLaneKey]`.
        Grepping the enum literal alone only ever matches the second of those three.
      - **A key choice recorded as a reason is a claim that outlives the task that made it.** The
@@ -245,15 +247,15 @@
      next real CS0165. Fix the check rather than filing the candidates as "expected".
    - **An absent measurement and a measurement of zero are different, and the UNIT decides which is
      which.** 1ik's frame-budget probe reads a `ProfilerRecorder` per source, and the trap is that a
-     *valid* recorder which has never been filled still returns 0 â€” so printing that 0 into a
+     *valid* recorder which has never been filled still returns 0 Ã¢â‚¬â€ so printing that 0 into a
      millisecond column reads "this side costs nothing" about the one side the Editor cannot see,
      which sends the next reader to the wrong subsystem. The rule generalises: **in a time-valued
      column, 0 means "no sample" and must print `n/a`; in a count-valued column, 0 is a real
      observation** (0 draw calls is the frame that proves nothing is being drawn). Decide this per
-     source from that source's own declared unit, never from which field is being read â€” hard-coding
+     source from that source's own declared unit, never from which field is being read Ã¢â‚¬â€ hard-coding
      "divide by 1e6" at each call site is rule 8's rotting second spelling in numeric form. Print the
      sample count beside every averaged source, and when nothing could be measured, say the
-     measurement failed â€” never let an absent column read as a fast frame.
+     measurement failed Ã¢â‚¬â€ never let an absent column read as a fast frame.
    - **A verdict's DENOMINATOR must mean the same thing as its numerator, and a clamp breaks
      that.** 1ik's first version divided measured work by the *frame* time to decide which side
      owned the frame. Under vsync that is not a share of anything: a frame can only be a whole number
@@ -261,13 +263,13 @@
      as 0.60, and a majority threshold on it would refuse to name the side that did it. Three habits:
      (a) prefer a comparison between the **sides** (CPU vs GPU), which needs no reference frame and
      is clamp-proof; (b) when the denominator is quantised, report the **bracket** ("work in (1
-     interval, 2.0 intervals]"), not a point estimate; (c) label the residual per regime â€” under a
+     interval, 2.0 intervals]"), not a point estimate; (c) label the residual per regime Ã¢â‚¬â€ under a
      clamp up to one interval of residual is arithmetic, and calling it "unexplained" files a finding
      against nothing.
     - **Two counters with different windows must not sit on adjacent lines.** `peaks` in the QA HUD
       resets every refresh while `cull sweep`'s peak (the 1ea rolling cull's, `PeakCullMs`) is a
       monotonic max since scene start that nothing
-      resets — so `peaks 0.00` directly above `cull sweep 0.62 / 60.56` compares a window against a
+      resets â€” so `peaks 0.00` directly above `cull sweep 0.62 / 60.56` compares a window against a
       since-boot figure and reads as one quantity. 1ik is how that 60 ms was traced to the initial
       fill sweep instead of a recurring cost. State each counter's window in its own label, and reset
       per-window peaks on the same cadence as the counters beside them.
@@ -304,7 +306,7 @@
         structural commit; a generated one is at worst out of date and self-reporting. **Prefer a file
         that can be re-derived over a file that must be remembered.**
       - **Grep every identifier the doc names, after writing it.** A prose claim about a symbol's
-        *ownership* is exactly as rot-prone as a stale symbol name (rule 8's third bullet) — the name can
+        *ownership* is exactly as rot-prone as a stale symbol name (rule 8's third bullet) â€” the name can
         exist and still be filed under the wrong owner, which is the more expensive error because it
         sends the reader somewhere plausible.
       - **Never write a line number.** It is a copy of a fact that dies on the next edit above it, and
@@ -316,28 +318,28 @@
         glyphs into the directory names, so both sides of the comparison were empty. Rule 7's "a green
         check nobody has seen fail is not a check" applies to the verification of the fix, not just the
         fix. Re-run it wrong on purpose and watch it go red.
-   - **"I can't find X" is a claim about NAMES, not about existence — and grep only ever proves
+   - **"I can't find X" is a claim about NAMES, not about existence â€” and grep only ever proves
      existence.** 1iz was asked to "group models and animations together, I don't see magic models." The
      magic models existed, worked, and had been shipping the whole time: `BuildStaff`, `BuildHolyBook`,
      `BoneWand` and `BuildControlOrb` are four **contiguous methods at L199-275 of the 379-line
-     `Models/WeaponModelBuilder.cs`**, numbered 11–14 among fourteen melee/ranged/shield weapons, with no
+     `Models/WeaponModelBuilder.cs`**, numbered 11â€“14 among fourteen melee/ranged/shield weapons, with no
      file, folder, or symbol anywhere in the repo that says "magic model". So the report read as a
      missing feature and was actually a **discoverability** failure, and the two demand opposite fixes
      (build it vs. name it). Three habits:
      - **A feature with no name is invisible, and no search will find it.** Before concluding a feature
-       is absent, ask *what a reader would have typed*. Here every plausible query — "magic", "staff",
-       "wand", "orb", "book" — returns a folder or a method that is about something else. `grep` proves
+       is absent, ask *what a reader would have typed*. Here every plausible query â€” "magic", "staff",
+       "wand", "orb", "book" â€” returns a folder or a method that is about something else. `grep` proves
        the code is there; nothing in the toolchain can prove it is *findable*, so the fix is a name and a
        home, not an implementation.
      - **A contiguous block of methods is a latent file, and the tell is that it is contiguous.** Four
-       adjacent sections with their own numbering (`// 11.` … `// 14.`) inside an 18-weapon-builder file is a
+       adjacent sections with their own numbering (`// 11.` â€¦ `// 14.`) inside an 18-weapon-builder file is a
        category that has not been split yet. Scrolling a file top to bottom is how you find these; a
        directory listing never shows them, which is why the user noticed and the code review did not.
      - **"Group A and B together" is usually a report that A and B are not separable.** Both this and
        1iw's request had the shape *move these files, the premise is wrong*: here `Models/` is a
        **procedural geometry factory** (`BuildCloud`, `BuildTornado`, `BuildCafe`, `BuildPoliceCar` sit
        beside `BuildPlayerModel` in one 40-dependent `MapBuilder` class), so "group the models" has no
-       single target. **Measure what each file actually is before naming a destination** — and when the
+       single target. **Measure what each file actually is before naming a destination** â€” and when the
        answer is "this folder is three categories wearing one name", write that down instead of moving
        files into a differently-shaped pile.
  - **A data model that cannot express a shape cannot be coaxed into it by tuning tolerances.** 1f2
@@ -354,11 +356,11 @@
 8. **A seam invariant is only as good as the arithmetic of the COPY, not the source.** When a value is
    copied out of another structure instead of re-derived (the corner lattice copies a tile's stored
    vertex; a cache copies a source array; a lookup indexes by another system's key), the addressing
-   rule of that copy IS the seam contract. Do not infer correctness from how pure the source is â€” pure
+   rule of that copy IS the seam contract. Do not infer correctness from how pure the source is Ã¢â‚¬â€ pure
    noise sampled per corner is exact, the same noise *copied through a wrong owner slot* is off by a
    whole metre, permanently, in an unedited world. Two habits follow: check the copy's index/owner
    arithmetic with a concrete worked example at a boundary node (the 4-chunk corner catches what
-   mid-edge checks miss), and never let a validator stand in for a layer it does not read â€”
+   mid-edge checks miss), and never let a validator stand in for a layer it does not read Ã¢â‚¬â€
    `ChunkValidator` compares tile heights tile-vs-tile and is structurally blind to a lattice bug, so
    a green validator is not evidence about the lattice.
    **Two spellings of "a corner's height" exist here, and they disagree by half a metre.** Corners sit
@@ -376,24 +378,24 @@
      the block comment documented `CraterCapRadius` and `CraterTerraceStep` when the code declares
      `craterCapR` (a local) and `CraterTerraceFraction`/`Min`/`Max`; it described the
      `min(CraterStep, reach)` clamp as a live tool-dig path when `reach` is `radius + feather`, so no
-     real dig ever clamps; and the `game-design.md` pointer said `Â§5.7` for a lane that lives under
-     `Â§2.2`. None of these can fail a compile or a static check - they are the *narrative* around a
+     real dig ever clamps; and the `game-design.md` pointer said `Ã‚Â§5.7` for a lane that lives under
+     `Ã‚Â§2.2`. None of these can fail a compile or a static check - they are the *narrative* around a
      change, which is precisely what no tool in this repo reads. So when an edit introduces or renames
      a symbol, **grep the new comment for the symbol it names and confirm the declaration exists**, and
      when it cites a doc section, confirm the heading is still where it was. A comment that documents
      a path that is not taken is worse than no comment: the next reader sizes a decision on it.
-   - **A task id is a copy of a fact about the repo's history, and the copy is written LAST — so
+   - **A task id is a copy of a fact about the repo's history, and the copy is written LAST â€” so
      "grep before you edit" cannot cover it.** 1ip wrote `1io` into four places (the code comment, the
      `game-design.md` bullet, the `PROGRESS.md` and `THINKING.md` headings) and `1io` is a **real
-     shipped task** (the crater lane's F1 → F13 move); `1im` is taken too. Only a grep of
+     shipped task** (the crater lane's F1 â†’ F13 move); `1im` is taken too. Only a grep of
      `PROGRESS.md`'s `^## 1..` headings *after* writing them caught it. Three reasons this is worse than
-     a stale symbol name: (a) **nothing in review catches it** — a stale `CraterCapRadius` looks wrong,
+     a stale symbol name: (a) **nothing in review catches it** â€” a stale `CraterCapRadius` looks wrong,
      whereas a stale `1io` looks like an ordinary task reference *precisely because some task called
      `1io` genuinely exists*; (b) the id is chosen at commit time, i.e. **after every file is edited**,
      so the pre-edit grep habit structurally cannot see it; (c) the answer lives in the one file a task
      *adds* to. So: **assign the id by enumerating `PROGRESS.md`'s headings first**, and when a task id
      has already been pushed out of order (1ip's predecessor shipped as `1il`, between `1ik` and `1im`),
-     leave it and say so in `PROGRESS.md` — rule 1 forbids amending, so renumbering is not on the table.
+     leave it and say so in `PROGRESS.md` â€” rule 1 forbids amending, so renumbering is not on the table.
    - **State which inputs are on different ladders, or the derived number is silently a different
      number at every call site.** 1f3's cap depth is `min(CraterStep, reach)`, and `reach` is
      `radius + feather`, so the clamp that looked necessary (a sphere deeper than its rim radius) is
@@ -409,7 +411,7 @@
       *procedural walk/run* component for the `MapBuilder` model. Nothing errors, and a reader who trusts
       it is sent to the wrong file with full confidence. Three habits, all mechanical:
       - **Grep every identifier the doc names, after writing it.** A prose claim about a symbol's
-        *ownership* is exactly as rot-prone as a stale symbol name (rule 8's third bullet) — the name can
+        *ownership* is exactly as rot-prone as a stale symbol name (rule 8's third bullet) â€” the name can
         exist and still be filed under the wrong owner, which is the more expensive error because it
         sends the reader somewhere plausible.
       - **Never write a line number.** It is a copy of a fact that dies on the next edit above it, and
@@ -422,59 +424,59 @@
       **centre** Y, so the bottom face has to be re-derived by every reader and misses its support by a
       fraction of a metre without anything looking wrong. When adding or editing geometry there, use the
       bottom-referenced helpers in `WorldBuilder.Blueprints.cs` and keep these conventions:
-   - `CreatePartBoxOn(root, x, bottomY, z, size, colour)` â€” never hand-compute a centre from a bottom;
+   - `CreatePartBoxOn(root, x, bottomY, z, size, colour)` Ã¢â‚¬â€ never hand-compute a centre from a bottom;
      write the support's top and the block that rests on it on adjacent lines.
-   - `CreatePartPanelBetween(root, a, b, halfWidth, thickness, across, colour)` â€” roofs, ramps and
+   - `CreatePartPanelBetween(root, a, b, halfWidth, thickness, across, colour)` Ã¢â‚¬â€ roofs, ramps and
      stairs are stated as the two ends of their **underside**, never as a tilt sign. A tilt sign hides
      an inverted pitch: the pagoda's four roofs were authored `Euler(+14)` for the +Z panel, which in
      Unity pitches the outer eave *up*, so all four read as a butterfly roof with the centre cap
-     floating 0.57â€“1.44 m above its own panels â€” invisible in the source, obvious in the world.
-    - `CreatePartGableSteps(...)` â€” the stepped profile that closes a gable triangle; each step's top
+     floating 0.57Ã¢â‚¬â€œ1.44 m above its own panels Ã¢â‚¬â€ invisible in the source, obvious in the world.
+    - `CreatePartGableSteps(...)` Ã¢â‚¬â€ the stepped profile that closes a gable triangle; each step's top
       overshoots 6 cm into the roof underside, because **a 6 cm intersection is invisible and a 6 cm
-      gap is a slit** â€” never place two solids flush. Its `gableHalfSpan` (the wall) and
+      gap is a slit** Ã¢â‚¬â€ never place two solids flush. Its `gableHalfSpan` (the wall) and
       `roofHalfSpan` (the eave) are separate arguments for a reason: they were one number only because
       the church's wall and eave happened to agree, and one number traces the roof's line on a narrower
       wall.
    - **A derived dimension whose inputs sit on different ladders is clamped in the helper, never at the
-      call site.** A gable band's height is `roofUnderside(innerEdge) âˆ’ wallTop`: the first datum belongs
+      call site.** A gable band's height is `roofUnderside(innerEdge) Ã¢Ë†â€™ wallTop`: the first datum belongs
       to the roof, the second to the wall, and they are only guaranteed ordered while the eave stays
       *above* the wall's top line. The church cleared that by 6 cm, the shrine's 64 cm eave drop does not,
-      and the un-clamped helper answered with a **negative height** â€” a mirrored cube whose BoxCollider
+      and the un-clamped helper answered with a **negative height** Ã¢â‚¬â€ a mirrored cube whose BoxCollider
       is inside out. Any helper that subtracts one structure's datum from another's must decide inside
       itself what happens when they cross, and every caller must then be re-checked, because "the fix
       changed the church's band width" means the church was passing the clamp by luck.
     Related invariants for the same structures: all parts of one structure share the site origin
     (author in site coordinates, y = 0 at the platform top) so the assembly is auditable in one frame;
-    and **never rename a structure part type** (`Church_*` / `Shrine_*` / `Pagoda_*`) â€” those strings are
+    and **never rename a structure part type** (`Church_*` / `Shrine_*` / `Pagoda_*`) Ã¢â‚¬â€ those strings are
     the save/load keys, and a renamed part falls through `SpawnStructurePart`'s dispatch to the generic
     `else switch` and builds *nothing*, silently. Put new content inside an existing part instead.
 
 10. **A menu's own chrome is not in its panels' coordinate system, and it is drawn LAST.** The
     panels under `MenuPanelBase` share the canvas origin (`Body` is inset 60/60, so the origin is
-    the canvas centre) and are built *before* the subclass's own chrome â€” so a tab bar or band is
+    the canvas centre) and are built *before* the subclass's own chrome Ã¢â‚¬â€ so a tab bar or band is
     the **later sibling** and Unity draws it **over** the content, with nothing in the content's
     coordinates saying so. A band that no panel mentions is a band whose height is set by nothing:
     the 84-unit Character Info band silently covered the Skills sub-tabs, both Skills readouts, the
     Faith title/status and the top of the Info/Inventory headings. Three habits follow:
     - **Size a band from the rows under it, not from taste.** Read every widget whose extent
-      reaches it (`grep` the `P(â€¦, yyy)` literals in the partials), then place the band's *bottom*
+      reaches it (`grep` the `P(Ã¢â‚¬Â¦, yyy)` literals in the partials), then place the band's *bottom*
       edge above the tallest one and keep the band in a named constant. The band is a *later
       sibling* of the content, so an overlap hides the content; it is never the other way round.
     - **A row's real height is its INK, not its box.** `MakeBodyText` is TopLeft in a fixed box
-      (`MakeButton` is pivot-top), so glyphs grow *downward* from the declared y â€” a title at 238 in
+      (`MakeButton` is pivot-top), so glyphs grow *downward* from the declared y Ã¢â‚¬â€ a title at 238 in
       a 34 box reaches ~200. Two rows that "don't overlap" as boxes can overlap as text; the Faith
       title/status pair did, invisibly, for as long as the band covered it.
     - **Anything that must not be clipped is a mask, and a mask built later wins.**
       `TreeViewport` is a `RectMask2D` added after the Skills header row, so a row that overlaps it
-      loses its bottom border â€” check the mask's edge as if it were solid.
+      loses its bottom border Ã¢â‚¬â€ check the mask's edge as if it were solid.
     - A metric that **two code paths must agree on** (a build pass and an aspect-fit pass) is one
       named constant. The band carried `36` in one site and `34` in the other, so it used to change
       position the first time the window was resized.
     - **A field's border is drawn INSIDE the field, and the field's text is inset to clear it.** A
       border hung *outside* the rect is a collision waiting to happen: the class/race rows are 4 units
       apart and the last one is 2 units from the buttons under it, so an outside border lands on the
-      neighbour's glyphs. The inset costs the row height it is paid for â€” a 30-tall row minus 2Ã—4
-      leaves 22 for a 22.5pt line, whose descent then crosses the border it just paid for â€” so the
+      neighbour's glyphs. The inset costs the row height it is paid for Ã¢â‚¬â€ a 30-tall row minus 2Ãƒâ€”4
+      leaves 22 for a 22.5pt line, whose descent then crosses the border it just paid for Ã¢â‚¬â€ so the
       row grows to 34 and the font cap is stated against the *inset* box, never the outer one.
     - **Never 9-slice a border that has to serve two different rect shapes.** Unity scales a slice by
       the drawn rect's *own* dimension, so a 2-texel ring is ~2 units on a 64-wide stat field and ~58
@@ -487,13 +489,13 @@
 11. **Editing the terrain's RENDER algorithm changes nothing that is already on screen, and half the
     world keeps the old geometry until the resident terrain is dropped.** Three holders of render
     output all outlive a code edit:
-    - `_loadedChunks` â€” every `ChunkObject` owns an uploaded `RootMesh`, and nothing re-runs the
+    - `_loadedChunks` Ã¢â‚¬â€ every `ChunkObject` owns an uploaded `RootMesh`, and nothing re-runs the
       generator for a chunk that is already loaded.
-    - `_dormantChunks` â€” the wake pass re-shows a demoted chunk "in place â€” the same GameObject,
+    - `_dormantChunks` Ã¢â‚¬â€ the wake pass re-shows a demoted chunk "in place Ã¢â‚¬â€ the same GameObject,
       same pooled mesh, same tile data", and `EnqueueChunkIfNeeded` *wakes* a dormant chunk rather
       than re-dispatching it. So returning to a region re-activates the mesh that region was built
       with, however old.
-    - the far shell â€” its cells are sampled from the real chunks' surfaces, so they keep the old
+    - the far shell Ã¢â‚¬â€ its cells are sampled from the real chunks' surfaces, so they keep the old
       heights as well.
     A mid-session render edit therefore leaves a world where the resident chunks are OLD-algorithm and
     the chunks that stream in later are NEW-algorithm, and the two part along their shared edges.
@@ -502,11 +504,11 @@
       matter: a dormant chunk you never wake is a landmine that pops the stale mesh back the moment
       the player walks into that region again.
     - **`WorldStreamer.ResetTerrainSaves()` is the right sequence and the wrong tool.** It does
-      exactly the right thing in order (`ClearFarShell()` â†’ unload + requeue every loaded and
+      exactly the right thing in order (`ClearFarShell()` Ã¢â€ â€™ unload + requeue every loaded and
       dormant chunk) but first calls `ChunkSaveManager.ResetWorldSaves(Seed)`, which **permanently
-      deletes the player's terrain edits** â€” the save files hold *heights*, which are data, not
+      deletes the player's terrain edits** Ã¢â‚¬â€ the save files hold *heights*, which are data, not
       render output. Use it only when a pristine world is the actual goal.
-    - **Since 1hx the only remedy is a play-session restart** â€” the non-destructive wrapper
+    - **Since 1hx the only remedy is a play-session restart** Ã¢â‚¬â€ the non-destructive wrapper
       (`DropResidentTerrainKeepSaves`) and its bench key were removed at the user's request, so a
       renderer change is not observable until every chunk has been rebuilt from scratch. Two things
       that makes worse, both worth saying out loud before editing render code: an inspector tweak to
@@ -522,88 +524,88 @@
     - **An algorithm edit is not verified by watching chunks stream in.** That only ever exercises
       the new code. Stream one chunk, then walk back and forth across a boundary so a resident chunk
       and a freshly built one are on screen together. (1hx removed the F2/F3/F4 measurement lanes;
-      **1hy restored F3** as a read-only rendered-corner + void audit â€” see the last bullet of rule 7
-      â€” so this is measurable again, but only for the near/far resident set, and F2's cross-chunk seam
+      **1hy restored F3** as a read-only rendered-corner + void audit Ã¢â‚¬â€ see the last bullet of rule 7
+      Ã¢â‚¬â€ so this is measurable again, but only for the near/far resident set, and F2's cross-chunk seam
       measurement is still gone. F4 was not restored.)
     - **1ia is itself an instance of this rule, and the reason its verification cannot be claimed in
       the same session.** Reverting the render algorithm to pre-1hi is exactly the edit this rule
       describes, so the facet world stays on screen until the next launch no matter how obviously the
       code says otherwise. Do not report the revert as seen working from a session that was already
-      running â€” the *only* honest statement is "restarted, then observed".
+      running Ã¢â‚¬â€ the *only* honest statement is "restarted, then observed".
 
 12. **The facet size is ONE decision living in two files, and the step must divide three numbers.**
     The near chunks and the far shell render the same facet language, so `WorldStreamer.LowPolyStep`
-    and `FarSectorStep` (`WorldStreamer.FarShell.cs`) are the same constant wearing two hats â€” change
+    and `FarSectorStep` (`WorldStreamer.FarShell.cs`) are the same constant wearing two hats Ã¢â‚¬â€ change
     one and the world reads *inverted*: chunky underfoot, finer at the horizon, with a density break
     at the rim. Two invariants ride on the value:
-    - **It must divide 30, 90 AND 180** â€” the near chunk side and the far cells' span-3 and span-6
+    - **It must divide 30, 90 AND 180** Ã¢â‚¬â€ the near chunk side and the far cells' span-3 and span-6
       boxes. That set is {1, 2, 3, 5, 6, 10, 15, 30}; anything else leaves the last grid row short
       of a chunk boundary, which is a visible crack along every chunk edge. (A *non*-uniform ladder
       is worse still: the pre-1ej 3/6/9/12/15-by-radius version produced T-junction rows on every
-      shared cell edge, read as permanent "thin lines" â€” which is why `FarSectorStep` ignores its
+      shared cell edge, read as permanent "thin lines" Ã¢â‚¬â€ which is why `FarSectorStep` ignores its
       `span`/`maxRing` arguments on purpose.)
     - **A coarser step is not free.** The collider rides the same step, so footing gets lumpier, and
       prop heights still sample the 1 m lattice, so props float/sink by up to the facet error. The 1 m
       grid stays canonical for saves and edits either way, but the *edit granularity* is the step:
       a 1 m dig only moves a facet vertex when the edited corner happens to land on the grid.
-    1hx moved the default 3 â†’ 6 because 3 m facets sampled this 5-octave field (base octave amplitude
+    1hx moved the default 3 Ã¢â€ â€™ 6 because 3 m facets sampled this 5-octave field (base octave amplitude
     55 m at frequency 0.0012) came out near-coplanar, and facet shading contrast scales with
-    `curvature Ã— span` â€” so at 3 m the normals barely differed and the world still read as smooth
+    `curvature Ãƒâ€” span` Ã¢â‚¬â€ so at 3 m the normals barely differed and the world still read as smooth
     haze. The lesson generalises: **"low-poly" is a normal-contrast problem, not a triangle-count
     problem**, so reach for the span before reaching for the shading.
     - **1ia: the facet language is DORMANT (`LowPolyFacets = false`), and `FarSectorStep` is NOT one
       of the gated values.** The flag governs the *flat-facet render path* (flat per-quad far normals,
-      the 1ew split at threshold 0, and the 1hi.1 coarse roots) â€” but `FarSectorStep` returns a
+      the 1ew split at threshold 0, and the 1hi.1 coarse roots) Ã¢â‚¬â€ but `FarSectorStep` returns a
       constant with no reference to the flag, so the far shell samples every 3 m whether or not the
       look is on. That means a "revert the look" change is **two edits, not one**: flipping the flag
       alone leaves the far shell at whatever step it was left on, and the shell's sampling density is
       then describing a surface nobody is drawing. 1ia moved both to 3 together. When you next move
-      this step, grep for `FarSectorStep` as well as the field â€” and remember `NewWorldTestGround`
+      this step, grep for `FarSectorStep` as well as the field Ã¢â‚¬â€ and remember `NewWorldTestGround`
       mirrors **both** (`EnableLowPolyTerrain`, `LowPolyStep`) and pushes them onto the streamer in
       `Awake` *before* the first stream poll, so a mirror left at the old value silently re-applies
       the look on the test platform every session. The 1i9 `CraterFacetSkirt` is likewise dormant
       (it is gated on `EffectiveLowPolyStep`, which is `0` while the flag is off), which is why the
       1 m-resolution world needs no skirt at all.
-    - **Raising the step SILENTLY DELETES every carve narrower than half a facet â€” check this
+    - **Raising the step SILENTLY DELETES every carve narrower than half a facet Ã¢â‚¬â€ check this
       before changing the step, and again after.** The rendered surface holds only every
       `step`-th lattice node, so a deform whose *reach* is smaller than the worst-case distance to
-      a sampled node (`step/âˆš2`, and 3 m at step 3 vs 4.24 m at step 6) writes its entire shape
+      a sampled node (`step/Ã¢Ë†Å¡2`, and 3 m at step 3 vs 4.24 m at step 6) writes its entire shape
       into nodes no triangle is built from. It does not look wrong, does not error, and leaves the
-      data layer perfectly correct â€” it simply stops existing on screen. 1hx (3 â†’ 6) deleted the
+      data layer perfectly correct Ã¢â‚¬â€ it simply stops existing on screen. 1hx (3 Ã¢â€ â€™ 6) deleted the
       universal projectile impact dent this way: its 1.9 m reach fell inside the new 4.24 m
       worst case, and the user reported "the dent function is gone now" with the impact sphere
-      still playing, which is the tell â€” **the FX is outside the carve's gate, so a crater that
+      still playing, which is the tell Ã¢â‚¬â€ **the FX is outside the carve's gate, so a crater that
       vanishes while its effect plays is a resolution problem, not a hit-detection problem.**
       (This bullet only bites while the facet look is ON; at the 1ia default the surface holds every
       1 m node, so a carve under 4.24 m renders normally. Check the flag before diagnosing a
       "missing" carve.)
       Three habits:
-      - **Compare a deform's reach to `step/âˆš2`, not to `step` or to the step's value.** The
+      - **Compare a deform's reach to `step/Ã¢Ë†Å¡2`, not to `step` or to the step's value.** The
         bound is the *diagonal* of the sampled cell, because the nearest sampled node can be half
         a step away in BOTH axes.
       - **A carve guarantee must be a `Max` with the authored influence, never a replacement for
         it.** `DeformAt`'s `CraterFacetSkirt` returns 0 unless the carve would move *no* rendered
-        node, so it can only ever turn an invisible carve into a visible one â€” the authored radius,
+        node, so it can only ever turn an invisible carve into a visible one Ã¢â‚¬â€ the authored radius,
         depth and per-cast ratchet stay untouched, and a carve that already reaches a sampled node
         keeps exactly its shape. Widening the reach instead would have multiplied the excavation
         rate with it (a Crater ratchets `CraterStep` per cast), turning a "small dent" into a pit.
       - **Widen the loop's WRITE bounds to cover the guarantee, or the skirt targets nodes the loop
-        never visits** â€” a guarantee computed outside the region being written is a guarantee that
+        never visits** Ã¢â‚¬â€ a guarantee computed outside the region being written is a guarantee that
         writes nothing.
       - Unfixed consequence of the same coupling: the RAISED shapes (`Wall`/`Ring`/`Pillar`/
         `Spikes`) use the same radii and are subject to the same invisibility, but 1i9 scoped
         itself to `Crater` deliberately. If a raised shape is reported invisible, that is this
-        same bug, not a new one â€” and the fix must keep the shapes' `Max(current, target)`
+        same bug, not a new one Ã¢â‚¬â€ and the fix must keep the shapes' `Max(current, target)`
         idempotency intact.
 - **A second surface for the same ground is a resolution bug before it is a performance win
       (1f5, resolved by deletion in 1f6).** This used to be written as "a LOD band is a THIRD owner of
       the surface": `ChunkLodManager` switched detail at **30 m and 60 m** and
-      `ChunkObject.BuildLodChild` decimated the 31x31 corner lattice to every 2nd/3rd corner — the same
-      `step/√2` resample as the facet step, one dimension down. So the `step/√2` test above applied to
+      `ChunkObject.BuildLodChild` decimated the 31x31 corner lattice to every 2nd/3rd corner â€” the same
+      `step/âˆš2` resample as the facet step, one dimension down. So the `step/âˆš2` test above applied to
       the LOD stride too, and at a distance that needs no commitment:
       a 1.9 m-reach crater cleared Lod1's 1.41 m worst case by 0.5 m and fell **inside** Lod2's 2.12 m,
       so backing up while playing silently swapped the surface you were looking at for a resampled one.
-      **1f6 deleted the whole thing** — the band children, `RefreshLodMeshes`/`BuildLodChild`/
+      **1f6 deleted the whole thing** â€” the band children, `RefreshLodMeshes`/`BuildLodChild`/
       `BuildVoxelLodChild`, the `LodDirty` staleness flag, the `NeedsLodDetail`/`LodDetailCurvature`
       gate, and the `ChunkCornerGrid.Normals` copy only those builders read. A chunk's root mesh is now
       its only render output at every distance (~+400k resident triangles for ~336 chunks; draw calls
@@ -613,18 +615,18 @@
         stale mesh is *rebuild*; a decimated mesh is perfectly fresh and rebuilding changes nothing,
         because the information was never in it. Check whether the value is *wrong* or *absent* before
         reaching for a refresh. Conversely the carve's staleness guard (`_lodDirty`, `LodDirty`) worked
-        fine and was never the bug — a passing staleness test is not evidence that a surface carries
+        fine and was never the bug â€” a passing staleness test is not evidence that a surface carries
         the feature you are looking at.
       - **A feature change can expose a dormant defect, and then the feature gets blamed.** 1f3 did
         not create this: pre-1f3 the crater was a smooth cone, and a smooth cone resampled at 2 m
         still looks like itself. Terraces are the highest-frequency content in the shape and decimation
         deletes high frequencies first, so 1f3 turned an invisible LOD defect into a reported one. When
         a shape change produces a "it used to be fine" report, suspect the coupling it made legible
-        rather than the shape — and say so in the handoff, or the next reader hunts in the wrong file.
+        rather than the shape â€” and say so in the handoff, or the next reader hunts in the wrong file.
       - **A derived gate is a mitigation, never a licence: ask whether the second surface is worth
-        its own identity.** 1f5's `NeedsLodDetail` gate was genuinely derived, not chosen — a
+        its own identity.** 1f5's `NeedsLodDetail` gate was genuinely derived, not chosen â€” a
         **discrete Laplacian is exactly zero for any planar surface at any stride**, so it measured
-        relief, not scale (natural floor ≈0.016 m over one 1 m cell; terraced crater ≈0.24–0.95 m;
+        relief, not scale (natural floor â‰ˆ0.016 m over one 1 m cell; terraced crater â‰ˆ0.24â€“0.95 m;
         gate 0.20 m). That derivation is what made it safe to ship *unmeasured*, and it was still the
         wrong answer: it made the terrain passable at two different shapes instead of one. If a gate
         exists only to keep a second surface honest, delete the surface. Keep the derivation skill for
@@ -632,7 +634,7 @@
         decimated collider).
       - **Adaptive detail is where a resolution bug turns into a GEOMETRY bug, and the cheap version is
         the wrong one.** Subdividing only the distorting cells leaves each refined cell's shared edge as
-        a polyline against its neighbour's straight chord — the T-junction row rule 12 records from the
+        a polyline against its neighbour's straight chord â€” the T-junction row rule 12 records from the
         pre-1ej far shell, now with a visible crack instead of thin lines. With no compiler (rule 3)
         that is not a gamble worth taking, so 1f5 refined **whole-chunk**: a uniform stride has no
         transitions and therefore cannot crack. Ask which failure you would rather ship before
@@ -640,36 +642,36 @@
       - The 1f5 remark "a refined chunk keeps the root's 900 quads out to the last band" describes a
         world that no longer exists. If you find yourself reasoning about which stride a chunk is on
         because of its DISTANCE, you are looking at the deleted design; the only distance-driven
-        question left is the cull (§2.5, `ChunkDistanceCull`).
+        question left is the cull (Â§2.5, `ChunkDistanceCull`).
     - **The COLLIDER is the ground, and it is a separate decision from the render step (1ex).** The
-      player has no ground raycast â€” `CharacterController.Move` sweeps the chunk `MeshCollider`
-      directly (`PlayerController.Movement.cs`) â€” so `ChunkColliderDecimation` *is* the surface
+      player has no ground raycast Ã¢â‚¬â€ `CharacterController.Move` sweeps the chunk `MeshCollider`
+      directly (`PlayerController.Movement.cs`) Ã¢â‚¬â€ so `ChunkColliderDecimation` *is* the surface
       underfoot. It is not the facet step: `ColliderStep` is `_meshStep > 0 ? _meshStep :
       ChunkColliderDecimation`, so the low-poly look borrows the facet step while the default uses its
       own value (1 m since 1ex). Three habits:
-      - **Never refine the render surface while leaving the collider coarse** â€” that *widens* the
-        mismatch, it does not close it. 1ex raised the collider 2 â†’ 1 after the
+      - **Never refine the render surface while leaving the collider coarse** Ã¢â‚¬â€ that *widens* the
+        mismatch, it does not close it. 1ex raised the collider 2 Ã¢â€ â€™ 1 after the
         walk-through-a-visible-crater bug: at 2 m a 1 m crater centred on an odd x or z had **no
         sampled collider node inside its footprint**, so the player crossed a pit they could see. The
         pairing (render step : collider step) is the invariant; the render step alone is not. A
         "finer mesh" change that does not touch the collider is a visual-only change and must be
         stated as one.
-      - **A collider-step change owes a number on F2.** The recipe is ring bodies Ã— tris-per-collider:
-        `ColliderRingRadius = 7` Chebyshev = 225 bodies, each `(30/step + 1)Â²` verts, so 1 m â‡’
-        961 verts / 1800 tris and **~405k** ring triangles (2 m â‡’ 256 / 450 and ~101k). Do not carry
-        a stale figure forward â€” three comments claimed "~7k-tri" and were wrong at *every* step.
-      - **The lattice is horizontal quads only â€” there is no vertical strip pass** (the render mesh
+      - **A collider-step change owes a number on F2.** The recipe is ring bodies Ãƒâ€” tris-per-collider:
+        `ColliderRingRadius = 7` Chebyshev = 225 bodies, each `(30/step + 1)Ã‚Â²` verts, so 1 m Ã¢â€¡â€™
+        961 verts / 1800 tris and **~405k** ring triangles (2 m Ã¢â€¡â€™ 256 / 450 and ~101k). Do not carry
+        a stale figure forward Ã¢â‚¬â€ three comments claimed "~7k-tri" and were wrong at *every* step.
+      - **The lattice is horizontal quads only Ã¢â‚¬â€ there is no vertical strip pass** (the render mesh
         has one for cliffs). A vertical step is therefore sampled as a ramp whose slope is
-        step-dependent: 1 m â‡’ 45Â°, exactly the default `CharacterController.slopeLimit`, which this
+        step-dependent: 1 m Ã¢â€¡â€™ 45Ã‚Â°, exactly the default `CharacterController.slopeLimit`, which this
         project never assigns. Cliff traversal is a play-test item on any collider-step change.
 
-13. **A spell's colour, shape and halo are derived in exactly one place â€” and "one place" is not the
+13. **A spell's colour, shape and halo are derived in exactly one place Ã¢â‚¬â€ and "one place" is not the
     same as "one colour everywhere".** 1ib added `SpellLook.Resolve` so no consumer re-derives a
     spell's identity, which is rule 8's "second spelling that rots" applied to look rather than
     geometry. This codebase had already shipped **two** drifting `DamageType` palettes, so the
     convention is not theoretical. Three habits:
     - **Resolution has exactly three steps, and a named fallback is not a fourth.** authored
-      `SpellLookProfile` on the `SpellData` â†’ deterministic pick from the school's family â†’ the
+      `SpellLookProfile` on the `SpellData` Ã¢â€ â€™ deterministic pick from the school's family Ã¢â€ â€™ the
       identity-less `Resolve(DamageType, ProjectileShape)`. That last one exists for callers that
       genuinely have no spell. Anything else needs its own resolution step *stated*, because "just
       resolve it again, differently" is how the second spelling appears.
@@ -680,7 +682,7 @@
       value.
     - **A swatch is not a readout, and that is the sanctioned exception.** `MagicTestMatrix`'s school
       header keeps its own palette rather than calling `SpellLook.SchoolColor`. 1ib merged them and
-      silently recoloured four schools â€” and the merge destroyed the QA signal, because a header
+      silently recoloured four schools Ã¢â‚¬â€ and the merge destroyed the QA signal, because a header
       tinted the same colour as the thing it labels cannot show you that the thing is mis-coloured.
       **Before deduplicating a colour, ask what would catch the bug if that value were wrong.** If the
       answer is "the same table, because it is tinted to match", the two tables must stay separate and
@@ -690,7 +692,7 @@
       1if made the spell-backed release burst look-derived and the *no-spell-armed* burst Arcane-pink
       on the grounds that the two look inconsistent. They are not the same event: pink there asserts
       "an Arcane spell was cast", which is false. When you fix a colour regression, check whether the
-      two neighbouring lines actually share an identity before restoring the symmetry â€” and if they
+      two neighbouring lines actually share an identity before restoring the symmetry Ã¢â‚¬â€ and if they
       do not, say so in a comment or the next reader will "fix" it again.
     - **Rule 15's other exception: a skill may shape the approach but still lose to a project rule.**
       "Derived in one place" is a source-level invariant; a skill that says "call the factory" does not
@@ -721,35 +723,35 @@
 
 14. **A removal has three failure modes, and only one of them is a compile error.** Deleting a feature
     leaves behind more than references to the deleted *name*, and the three residue classes fail in
-    three different ways â€” 1hz removed the multiplayer layer, the night club, fast travel and horse
+    three different ways Ã¢â‚¬â€ 1hz removed the multiplayer layer, the night club, fast travel and horse
     riding in one pass and hit all three:
     - **Producers outlive their consumer.** Grepping the deleted type's name finds the *call sites*;
       it cannot find code that existed only to **feed** the deleted system, because that code is
       perfectly correct on its own. `FastTravelSign` went away with `FastTravelMenu` and four POI
       files went on building sign GameObjects, colliders and `SignPost` cubes for a list nothing
-      would ever read. The grep "passed" â€” it found exactly the four files that needed deleting and
+      would ever read. The grep "passed" Ã¢â‚¬â€ it found exactly the four files that needed deleting and
       reported nothing left over. So for each hit ask **what is this line for**, not *does it name the
       deleted type*; and when a type disappears, list what it was *fed by*, not just what read it.
     - **A save key outlives its builder, and a missing `case` never fails to compile.** A `switch`
       dispatching on a save key is legal with any subset of its cases, so deleting a building's
       builder leaves the key live and silent. `WorldBuilder.Persistence` still listed `"NightClub"`
       in the essential-restore branch, whose body is `RebuildEssentialBuilding(...)` followed by
-      `_buildings[_buildings.Count - 1]` â€” no case, nothing appended, and the club's health, part
+      `_buildings[_buildings.Count - 1]` Ã¢â‚¬â€ no case, nothing appended, and the club's health, part
       healths and **door state** were written onto the *previous* building. A compile error stops the
       game; this loads a village that looks fine and has one ruined building. This is rule 9's part-key
-      concern one level out, and unlike part keys it has **no** parity check in `StaticChecks.ps1` Â§6.
-      When a builder is deleted, grep for its *save key* as well as its type â€” and verify the fall-through
+      concern one level out, and unlike part keys it has **no** parity check in `StaticChecks.ps1` Ã‚Â§6.
+      When a builder is deleted, grep for its *save key* as well as its type Ã¢â‚¬â€ and verify the fall-through
       is actually inert before relying on it (read `CreateBuildingEntity`/`SpawnBuildingDirect`, don't
       assume a missing definition is a safe skip).
     - **A behavioural orphan is invisible to every grep.** `RichManNPC` kept an entire state machine
-      (`ClubHangState`, `ClubIdleState`, pace spots, `HandleClubHangout`, a 19:00â€“21:00 window) pacing
+      (`ClubHangState`, `ClubIdleState`, pace spots, `HandleClubHangout`, a 19:00Ã¢â‚¬â€œ21:00 window) pacing
       the player around a building 1hz deleted. Every symbol resolved, the file compiled, the code
-      ran â€” it was just an NPC walking an empty lot; the 1hz follow-up commit removed it. Removing a
+      ran Ã¢â‚¬â€ it was just an NPC walking an empty lot; the 1hz follow-up commit removed it. Removing a
       *place* means re-reading whatever *story* pointed at it, and that is a human read, not a search.
       Two things a removal like this also takes with it that no compile error names: **the breadcrumb
       the behaviour was the player's only lead for** (that hangout's "he is at the bar" toast was the
       only in-game cue for the 21:00 deal, so the deletion silently made a quest step
-      undiscoverable â€” replace it or say so), and **any constant the deleted block shared with
+      undiscoverable Ã¢â‚¬â€ replace it or say so), and **any constant the deleted block shared with
       surviving code** (its `CLUB_WINDOW_END` was a second, independent spelling of the deal's 21:00,
       so removing it left `TryStartDeal`'s bare `TimeOfDay < 21f` as the only remaining hour; both now
       read one `DEAL_HOUR`).
@@ -757,11 +759,11 @@
     - **Deleting a block deletes its locals, and a local is in scope for the whole method.** Removing
       `DungeonSystem`'s sign block took `Vector3 doorDir` with it, but `doorDir` is read 20 lines
       later for the enemy spawn offset. Grep the removed block's *identifiers* for other readers
-      instead of trusting that the block looked self-contained â€” this caught the error in my own edit,
+      instead of trusting that the block looked self-contained Ã¢â‚¬â€ this caught the error in my own edit,
       and it is the same reflex that finds the first bullet's leftovers.
     - **A localized string is a runtime key, so "no reference" needs the dynamic path checked too.**
       14 dead `Localization` keys looked removable from the comment above them, but `Localization.T`
-      resolves by string at runtime, so a key is live if *any* code passes that Vietnamese text â€”
+      resolves by string at runtime, so a key is live if *any* code passes that Vietnamese text Ã¢â‚¬â€
       including the ~60 non-literal `T()` call sites and any `.asset`/`.json`. Use exact
       (`-SimpleMatch`) matching, not a regex: a `.`-wildcarded Vietnamese pattern returned 50 008
       "matches" against a mangled console, which is worse than no search because it looks like a
@@ -783,10 +785,10 @@
     - **An enum or field with no reader can still be a doc's promise - deleting it orphans the
       DOCUMENT, and that is a removal failure no compile reports.** 1it deleted the `HandUsage` enum
       (3 cases, no field on `WeaponData` used it) and found `game-design.md` listing "hand usage
-      (single / dual / two-hand)" as a `WeaponData` shared field, with the doc's own §2208-2216
+      (single / dual / two-hand)" as a `WeaponData` shared field, with the doc's own Â§2208-2216
       saying wielding is governed by `Weight` + `StrengthRequirement`. The doc described a field that
       did not exist, and deleting the enum would have left it describing one that still does not. The
-      enum's own header also cited §5.4, which is *Crafting* - the wielding section is §5.5. So when
+      enum's own header also cited Â§5.4, which is *Crafting* - the wielding section is Â§5.5. So when
       a deletion removes a name that appears in a design doc as an implemented field, **fix the doc
       in the same pass** (rule 2), and check the section number the comment cites still holds that
       heading. Rule 8's stale-comment rule, applied to prose instead of C#.
@@ -803,30 +805,30 @@
     runs with skills available outside this repo (Blender, Maya, ZBrush, Unreal, Unity, asset and
     pipeline skills, plus `skill-creator` for authoring new ones). Rule 2 lists the docs you must
     update; it does not list this. **Before starting a task, check whether a skill covers it, and load
-    it if one does** â€” the Skill tool costs one call, and re-deriving a domain workflow from scratch is
+    it if one does** Ã¢â‚¬â€ the Skill tool costs one call, and re-deriving a domain workflow from scratch is
     both slower and more likely to be wrong than following the shipped one.
-    - **Silence is not a verdict.** 1ibâ€“1ij shipped in three commits without a single skill loaded, and
+    - **Silence is not a verdict.** 1ibÃ¢â‚¬â€œ1ij shipped in three commits without a single skill loaded, and
       the omission only surfaced when the user asked afterwards. Not loading a skill is a *decision*;
       it has to be made deliberately and **stated in the handoff**, the same way rule 3's "no build" is.
-      A future reader cannot tell "I checked and none applied" from "I forgot" â€” the two are identical
-      in the transcript. Write one line: `skills: none applied â€” <reason>`, or name what was loaded and
+      A future reader cannot tell "I checked and none applied" from "I forgot" Ã¢â‚¬â€ the two are identical
+      in the transcript. Write one line: `skills: none applied Ã¢â‚¬â€ <reason>`, or name what was loaded and
       what it changed about the approach.
     - **A skill that contradicts this project's rules loses to this project's rules, and the conflict
       gets stated.** The Unity skills are the obvious case: `scenario-unity-expert` and its siblings
       target driving a running editor over MCP or in `-batchmode`, while rule 3 says **no Unity build or
-      CLI run happens in this project**. Loading one is still allowed â€” it may carry real API and
-      architecture knowledge â€” but it cannot *verify* anything here, and the difference between
+      CLI run happens in this project**. Loading one is still allowed Ã¢â‚¬â€ it may carry real API and
+      architecture knowledge Ã¢â‚¬â€ but it cannot *verify* anything here, and the difference between
       "informative" and "authoritative" is exactly what rule 11 is about for render changes. Say which
       of the two it was.
     - **Match the skill to the artifact, not to the topic.** Most of the installed set is DCC-side (Maya,
       Blender, ZBrush, Unreal, image/video/audio generation). A task that merely *mentions* Unity, or
-      the phrase "a skill", is not a match. Ask what artifact the task produces â€” a `.blend`, a `.ma`
-      scene, an Unreal `.uasset`, a C# edit reviewed by a human â€” and load only when the skill governs
+      the phrase "a skill", is not a match. Ask what artifact the task produces Ã¢â‚¬â€ a `.blend`, a `.ma`
+      scene, an Unreal `.uasset`, a C# edit reviewed by a human Ã¢â‚¬â€ and load only when the skill governs
       that artifact. The failure this prevents is loading a heavyweight 3D-DCC workflow to edit 12 lines
       of `PlayerController.Combat.cs`: a near-miss skill burns context and contributes nothing.
     - **The repo's own tooling is not a substitute, and does not excuse skipping the set.**
       `tools/StaticChecks.ps1` (rule 3) is mandatory on its own terms, but it checks *this codebase's*
-      invariants â€” brace/paren balance, overload arity, CS0165 candidates, part-key parity,
+      invariants Ã¢â‚¬â€ brace/paren balance, overload arity, CS0165 candidates, part-key parity,
       member-at-depth-0. It is not a general engineering skill, and "the project has a script" is not a
       reason to skip the skill set.
     - **When a skill's guidance is what you actually followed, name it in `PROGRESS.md`** so the next
@@ -844,18 +846,18 @@
       like at the instant of the capture, not at the start of the phase. If the answer is "mid-pose",
       the capture is wrong for every phase after the first.
     - **The tell is an ASYMMETRY in the data, not a magnitude.** Nothing about "the animation changes
-      the rotation" is alarming; a 14° accent on a 30° base reads fine. The finding was that *only
+      the rotation" is alarming; a 14Â° accent on a 30Â° base reads fine. The finding was that *only
       magic* drifted, and the reason turned out to be structural (the only defs with a **rotation**
-      accent — staff 14°, book 16°, wand 10°, orb 30°; lute is scale-only, and every melee/ranged/shield
+      accent â€” staff 14Â°, book 16Â°, wand 10Â°, orb 30Â°; lute is scale-only, and every melee/ranged/shield
       def is `K_None` or a no-op). When a per-instance bug shows up on one category only, diff that
-      category's data against the others before theorising about timing — here it named the mechanism
+      category's data against the others before theorising about timing â€” here it named the mechanism
       in one step. This is rule 13's "ask what would catch the bug if that value were wrong" applied to
       animation.
-    - **Restoring *to* the base cannot unwind a polluted base — so state the rest once, separately.**
+    - **Restoring *to* the base cannot unwind a polluted base â€” so state the rest once, separately.**
       `SyncRestFromIdle` (write, only while no phase owns the transform) and `RestoreAuthoredRest`
       (read) are the pair. Keeping them as two named methods is what stops the next phase entry from
       re-introducing the sample, and it makes an already-drifted session self-heal on the next cast
-      instead of needing a restart. Note the guard's condition — "no phase owns the transform" — is
+      instead of needing a restart. Note the guard's condition â€” "no phase owns the transform" â€” is
       also what keeps re-parenting correct: a re-parent rewrites the local pose, so the rest must be
       re-authorable, and an idle rig is exactly when that is safe.
 
