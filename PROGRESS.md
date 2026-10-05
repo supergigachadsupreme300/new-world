@@ -1,3 +1,66 @@
+## 1jf. The game opened in first person - it now opens in third person
+
+**Status: READY FOR PLAY-TEST, with one named risk.** A **one-field default flip**
+(`CameraModeSwitch.StartInFirstPerson` -> `false`), no framing change and no other code touched.
+**Verified by grep + reread + `tools\StaticChecks.ps1` -> 0 candidates; no Unity build** (rule 3), so the
+visual read is still owed and **one specific failure mode is what the read is for** (below).
+**skills: none applied** - same reasoning as 1jd/1je: no installed skill governs a serialized-default edit
+inside one repo, and the Unity skills target driving an editor or `-batchmode`, which rule 3 forbids.
+
+The request ("change player camera angle to 3rd view") read like new work, so the first question was whether
+third person *worked at all*. **It already did, and had for some time**: `CameraModeSwitch` toggles both ways
+on **F5**, with distance/height/collision/smoothing all authored. So this task is not a camera system - it
+is a decision about **which of two working views the game opens on**, and the only honest risk is that the
+rarely-used one has an unexercised failure nobody had to look at until now.
+
+| Finding | Evidence | Consequence |
+|---|---|---|
+| `CameraModeSwitch` is added at runtime, not serialized | `PlayerController.Camera.cs` `SetupPlayerCamera` does `AddComponent<CameraModeSwitch>()`; **0** occurrences of `CameraModeSwitch`/`StartInFirstPerson` in `SampleScene.unity` | the C# default **does** govern - a scene override would have made this edit a silent no-op |
+| the flip is self-contained | `StartInFirstPerson` has exactly **1** reader (its own `OnEnable`); `CurrentMode`/`IsFirstPerson` have **0** external readers | the mode is render-side only; no gameplay consumer to update, and none should have been reading it |
+| a *second* third-person class is dead | `Player/Controller/ThirdPersonCamera.cs`: 1 declaration, **0** code refs (only a `ScreenShake` comment mentions it), GUID in **0** assets | `CameraModeSwitch` is the camera owner. Left alone - deleting it is a rule 14 task, not a camera task |
+| cutscenes are unaffected | `CameraModeSwitch.LateUpdate` writes the camera in **both** modes, so `CutsceneManager`'s one-shot writes were already losing to it | the default flip changes nothing here; not a new conflict |
+
+**Decisions, with the reason:**
+
+- **Framing left exactly as authored** (6.5 m back, 2.6 m up, dead-centre, no shoulder offset). The user
+  asked to change the *view*, not the framing, and a framing guess is a play-test cycle I cannot verify
+  without an editor. Offered as a follow-up rather than bundled in.
+- **`ThirdPersonCamera.cs` reported, not deleted.** It is a genuine 1iw-shaped finding - a file whose
+  folder says "camera" that no code calls - but removing it is its own task with its own sweep.
+- **Fixed a wrong tooltip while in the file (rule 8).** `ThirdPersonY` was documented as "vertical offset
+  **above the pivot**", which is not what the code does: `UpdateThirdPerson` adds
+  `up * (ThirdPersonY - pivot.localPosition.y)` to the pivot's **world** position, so the two cancel and
+  the camera lands at feet + `ThirdPersonY`. The number is right (2.6 m up a 1.8 m character reads as
+  over-the-shoulder), the sentence about it was not - and the play-test below depends on the reader
+  interpreting 6.5/2.6 correctly. Also stated there that raising it does **not** raise the look-at point,
+  which is the natural next wrong move.
+- **No comment added about the collision risk** (see `THINKING.md` §1jf): it is an unverified hypothesis,
+  and a comment asserting it would be a claim nobody measured.
+
+### 1jf-status
+- **Shipped:** commit pushed to `origin/main`; files touched: `Assets/Scripts/Player/CameraModeSwitch.cs`,
+  `game-design.md`, `PROGRESS.md`, `THINKING.md`, `AGENTS.md`, `TREE.md`.
+- **Verified:** grep + reread. `StartInFirstPerson` 1 reader; `CurrentMode`/`IsFirstPerson` 0 external
+  readers; `ThirdPersonCamera` 0 refs + 0 asset GUID refs; 0 scene occurrences of the component or field.
+  Paren/brace **delta** 2/2 on `CameraModeSwitch.cs` (both pairs inside the new tooltips - baseline was
+  15/15 braces, 73/73 parens). `tools\StaticChecks.ps1` -> **0 candidates**.
+- **Pending play-test (the point of this task):** press play and confirm the camera is **actually behind
+  the player**. The named risk is that it will not be, and the failure is silent: the third-person
+  collision `SphereCast` **starts at the pivot**, which is 1.5 m up and therefore **inside your own
+  `CharacterController`** (radius `>= 0.3`, height `>= 1.8`, centre `y = height/2 = 0.9`), with
+  `CollisionMask = ~0` (everything). If that own collider registers, `_cachedFinalDist` becomes
+  `max(hit.distance - 0.2, 0.1)` and the camera parks **0.1 m from the pivot** - i.e. third person renders
+  as first person and this commit looks like it did nothing. **Decision on this: play-test first, do not
+  pre-emptively exclude the player** (the user chose this explicitly). Read it as: camera at the player's
+  head = the trap fired, exclude the player's own colliders and say so; camera 6.5 m back = clean.
+- **Pending play-test, lower risk:** (1) the camera does not clip the ground on slopes
+  (`CollisionCheckInterval = 0.1f` reuses a cached clamp, so a wall can be entered up to 0.1 s late);
+  (2) the player model **is visible** (layer 6 is re-added to the culling mask on entering third, and
+  arms stay visible in both modes); (3) the held weapon sheaths in casual and draws in combat, since
+  `SetMode` calls `ReApplyWeaponPose`; (4) F5 still returns to first person and the model is culled again.
+- **Follow-up, not in this task:** closer/tighter framing, or an over-the-shoulder lateral offset, if the
+  default framing reads wrong in motion.
+
 ## 1je. The summoned ally was a bare cube - a real body, and a bench you can actually look at
 
 **Status: READY FOR PLAY-TEST.** A deliberate **addition plus one required handle change**, not a move:

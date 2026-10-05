@@ -655,6 +655,34 @@
         deletes high frequencies first, so 1f3 turned an invisible LOD defect into a reported one. When
         a shape change produces a "it used to be fine" report, suspect the coupling it made legible
         rather than the shape â€” and say so in the handoff, or the next reader hunts in the wrong file.
+      - **Promoting a rarely-used path to the only path promotes its unexercised assumptions â€” enumerate
+        them BEFORE the flip, and make the play-test a verdict.** 1jf was one boolean
+        (`CameraModeSwitch.StartInFirstPerson` â†’ `false`) to open the game in third person, and the edit
+        itself had **zero** interesting failure modes: the field had one reader, `CurrentMode`/`IsFirstPerson`
+        had **0** external readers, and `CameraModeSwitch` is `AddComponent`ed at runtime so no scene
+        override existed. The whole risk lived in the path becoming *unavoidable*. Four checks, all cheap,
+        all mechanical, and the first two are the ones that decide whether the edit does anything at all:
+        - **Is the value serialized?** A `[Tooltip]` field initializer is a **default**, and a default
+          loses to whatever the scene stored. 1jf grepped the one live scene for the component *and* the
+          field (0 each) and confirmed the `AddComponent` path, because "I flipped the default" and "the
+          game now starts that way" are different claims and only the second one is the task.
+        - **Read the path for assumptions that only pay off when it is optional.** The third-person camera
+          clamp `SphereCast`s **from the pivot**, which sits 1.5 m up â€” inside the player's own
+          `CharacterController` â€” with `CollisionMask = ~0`. If Unity reports that overlap the camera
+          clamps to 0.1 m from the pivot and third person renders as first person: the commit looks inert
+          and nobody can tell a no-op from a success by looking. So state the numbers, then write the
+          read **both ways** ("camera at the head = trap fired; camera 6.5 m back = clean") so the read is a
+          verdict rather than an impression.
+        - **Do not encode the hypothesis in a comment.** 1jf found this trap and deliberately wrote
+          **no** comment about it, because asserting an unmeasured mechanism is rule 8's stale-comment
+          failure with extra confidence: it reads as settled and stops the next reader from measuring.
+        - **Grep for a second owner of the concept before assuming there is one path.** The folder held a
+          second, **dead** `ThirdPersonCamera` (0 code refs, 0 asset-GUID refs) - the 1iw shape. Reported,
+          not deleted: that is a rule 14 task with its own sweep, and riding it onto a camera flip is how
+          a one-field commit becomes an unreviewable diff.
+        - Corollary: a **framing** request and a **view** request are different tasks. "Change the camera
+          angle to 3rd view" carried both, so 1jf asked rather than picking, and shipped the framing
+          untouched â€” a guessed framing is a play-test cycle no static check can verify (rule 3).
       - **A derived gate is a mitigation, never a licence: ask whether the second surface is worth
         its own identity.** 1f5's `NeedsLodDetail` gate was genuinely derived, not chosen â€” a
         **discrete Laplacian is exactly zero for any planar surface at any stride**, so it measured

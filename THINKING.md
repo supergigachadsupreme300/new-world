@@ -1,3 +1,70 @@
+## 1jf. "Change the camera to 3rd view" - the request that was a decision, not a feature
+
+**OPEN until shipped; closed on commit.** Written while the framing choice and the collision risk were
+being weighed. Shipped = committed, pushed, and the visual read done in Unity.
+
+**Request:** "change player camera angle to 3rd view". Two words in it are load-bearing and I could not
+resolve either by reading: **"angle"** (is this the view, or the framing?) and **"3rd view"** (does
+third person exist?). Guessing wrong on the first wastes a play-test cycle; guessing wrong on the second
+means building a camera system that shipped months ago.
+
+**Hypothesis 1: third person does not exist and must be built. REJECTED.** `CameraModeSwitch` has a
+`Mode { First, Third }`, F5 toggling, authored distance/height/smoothing, terrain collision, player-model
+culling by layer, and a `_player.ReApplyWeaponPose()` re-pose on switch. It is finished work. **A
+"3rd view" that already exists makes the request a question about which one the game OPENS on** - so the
+whole task is one serialized default, and the real risk is not the edit at all: it is the failure nobody
+had to look at while the mode stayed optional. **CONFIRMED** by reading the class end to end.
+
+**Hypothesis 2: the framing needs changing too. OPEN - asked, not assumed.** "Camera angle" is a framing
+word, so I offered four framings (as-is / tighter / over-the-shoulder / framing-only) instead of picking
+one. **As-is chosen**, which is the option that changes least and is reversible by a single number.
+
+**Hypothesis 3 (the one that mattered): the flip might not take effect. CONFIRMED as a real hazard, then
+ruled out.** `StartInFirstPerson` is a `[Tooltip]` **serialized field**, and rule 8's whole subject is
+that a serialized value beats the code default. If `SampleScene.unity` carried a `CameraModeSwitch`
+component, editing the C# default would have been a **silent no-op** - the game would still open in first
+person and the commit would look like it did nothing. Grepped the one scene in `EditorBuildSettings`:
+**0** occurrences of `CameraModeSwitch`, **0** of `StartInFirstPerson`. Then the mechanism:
+`PlayerController.Camera.cs`'s `SetupPlayerCamera` does `GetComponent` -> `AddComponent`, so on this
+player the component is **created at runtime** and the C# initializer is what survives. Flip is live.
+
+**Hypothesis 4: something else breaks when first person is no longer the default. CONFIRMED harmless.**
+Checked the two ways this could go. (a) *A second writer.* Every `Camera.main...transform.position`
+assignment I found is a one-shot in `Legacy/CutsceneManager.*` - but `CameraModeSwitch.LateUpdate` already
+wrote the camera **every frame in both modes**, so a cutscene was already losing to it and the default
+flip adds nothing. (b) *A consumer of the mode.* Grepping `IsFirstPerson`/`CurrentMode` outside the class
+returns **0 hits**: the mode is purely render-side, which is exactly why one boolean needs no companion
+edit. Contrast 1je, where adding a multi-part model *forced* a field change (`_renderer` -> `Renderer[]`)
+because something downstream indexed one renderer; nothing here does.
+
+**The unexercised failure, and why I refused to pre-empt it.** Promoting a rarely-used path to the only
+path means its failure modes stop being optional. Reading `UpdateThirdPerson`, the camera clamp does
+`Physics.SphereCast(pivotPos, ...)` and `pivotPos` is `_pivot.position` - the pivot is a child of the
+player at local y 1.5, and the player's `CharacterController` is radius >= 0.3, height >= 1.8, centre
+`y = height/2 = 0.9`. **The cast therefore starts inside the player's own capsule**, with
+`CollisionMask = ~0`. If Unity reports that overlap, `_cachedFinalDist = max(hit.distance - 0.2, 0.1)`
+and the camera sits **0.1 m from the pivot** - third person rendering as first person, i.e. this commit
+looks inert. I do not know Unity's answer here and **cannot derive it from the source**, so:
+
+- I did **not** add a comment asserting it. Rule 2's stale-comment rule inverted: a comment claiming a
+  mechanism nobody measured is worse than none, and the next reader would treat it as settled.
+- I did **not** pre-emptively exclude the player's own colliders. It is a behaviour change to a path that
+  might be fine, and the user was asked and chose **play-test first**.
+- I **did** record the exact numbers and the two-way read of the result, so the play-test is a **verdict**
+  rather than a vibe: camera at the head = the trap fired; camera 6.5 m back = clean.
+
+**Incidental rot found by reading the numbers.** `ThirdPersonY`'s tooltip said "vertical offset above the
+**pivot**". The code adds `up * (ThirdPersonY - pivot.localPosition.y)` to the pivot's **world** position,
+so the terms cancel and the camera lands at **feet + `ThirdPersonY`** - the number (2.6 m on a 1.8 m
+character) was right and the sentence was wrong. Worth fixing *now* rather than later because the play-test
+depends on a reader interpreting 6.5/2.6 correctly, and because the natural next edit (raise the camera)
+does not raise the look-at point, which is the kind of thing a wrong sentence invites.
+
+**Verdict:** ship the one-field flip with the framing untouched, the corrected tooltip, and the collision
+clamp as the named thing to look at. If the play-test shows the camera at the player's head, the fix is to
+drop the player's own colliders from the cast - and that is a new commit with its own evidence, not a
+quiet edit to this one (rule 1).
+
 ## 1je. The summoned ally's cube - the fourth time the same discoverability hole, and the check that
 nearly sent me after a phantom defect
 

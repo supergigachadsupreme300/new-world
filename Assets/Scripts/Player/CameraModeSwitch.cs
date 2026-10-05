@@ -23,12 +23,12 @@ public sealed class CameraModeSwitch : MonoBehaviour
     }
 
     [Header("Startup")]
-    [Tooltip("Start in first person on spawn.")]
-    public bool StartInFirstPerson = true;
+    [Tooltip("Start in first person on spawn. 1jf: false - the game opens in third person. F5 still toggles both ways, so this only chooses the spawn view; nothing else in the codebase reads it, so flipping it needs no other change (grep: this is its only reader, its own OnEnable).")]
+    public bool StartInFirstPerson = false;
 
     [Header("Third-person")]
     [Min(0.5f)] public float ThirdPersonDistance = 6.5f;
-    [Tooltip("Vertical offset of the third-person camera above the pivot.")]
+    [Tooltip("Height of the third-person camera above the player's FEET, not above the pivot: UpdateThirdPerson adds up * (ThirdPersonY - pivot.localPosition.y) to the pivot's world position, so the two terms cancel and the camera lands at feet + this. With the pivot at 1.5 m, 2.6 reads as '2.6 m up the player's body', which is why raising this does NOT raise the look-at point - the camera still looks at the pivot.")]
     public float ThirdPersonY = 2.6f;
     [Tooltip("Position smoothing seconds for the third-person camera.")]
     public float SmoothTime = 0.15f;

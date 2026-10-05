@@ -9,8 +9,8 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `62c9968` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-05 13:45 |
+| Generated at commit | `15b5541` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-05 14:13 |
 | Tracked files | 1199 = 553 non-`.meta` + 646 `.meta` |
 | C# files | 379 |
 

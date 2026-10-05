@@ -2791,7 +2791,7 @@ The active PC URP config — QualitySettings level 1 → `PC_RPAsset.asset` guid
   `_buildings[_buildings.Count - 1]` stamped the club's health/door/part state onto the
   **previous** building.
 
-### 9.4 Source Layout (1iu, 1iy, 1iz, 1ja, 1jb, 1jd, 1je)
+### 9.4 Source Layout (1iu, 1iy, 1iz, 1ja, 1jb, 1jd, 1je, 1jf)
 
 **The controller / modelling / animation split is planned in `ARCHITECTURE.md`** — read that for the
 target layout and the staged migration. This section keeps only the load-bearing invariants.
@@ -2901,6 +2901,20 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   `NewWorldTestGround` grew `EnableSummonModels` + `SpawnSummonModels` (key **Numpad1**, three pedestals
   at `z = PlatformCenter.z + 11f`): the other two summon bodies ride along, because until now none of the
   three had a readout. See `PROGRESS.md` §1je.
+- **The game opens in third person (1jf).** `CameraModeSwitch` is the camera owner, and it is the class to
+  read for the view — **not `Player\Controller/ThirdPersonCamera.cs`**, which is a dead class: one
+  declaration, **zero** code references (its only mention anywhere is a comment in `ScreenShake.cs`) and
+  its `.meta` GUID is referenced by **zero** assets. The live path is `PlayerController.Camera`'s
+  `SetupPlayerCamera`, which `AddComponent`s a `CameraModeSwitch` and calls `Setup` — so **the spawn view
+  is the C# field default and nothing in the scene overrides it** (grep: `StartInFirstPerson` has exactly
+  one reader, `CameraModeSwitch.OnEnable`; 1jf flipped it to `false`). F5 still toggles both ways, so this
+  is a *spawn* choice only. `CurrentMode`/`IsFirstPerson` have **zero** external readers, which is what
+  makes the flip self-contained: the mode is a render-side switch with no gameplay consumer, so no other
+  system needed changing and none should have been reading it.
+  Framing kept as authored: 6.5 m behind, camera at `ThirdPersonY = 2.6` m above the player's **feet**
+  (not above the pivot — `UpdateThirdPerson` adds `up * (ThirdPersonY - pivot.localPosition.y)` to the
+  pivot's *world* position, so the two cancel), looking at the 1.5 m pivot. Player-model layer 6 is culled
+  in first person only; arms stay visible in both.
 
   The dividing line is **shape vs. lifetime**: everything that only builds transforms moved; everything
   that decides *when a piece moves next frame* stayed, because that is behaviour. `SkillFx`'s
