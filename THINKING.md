@@ -1,3 +1,68 @@
+## 1ju. Camera aim: the smoother was a steering input, and "a bit" was 13 degrees
+
+OPEN until the user play-tests strafing. **The report was four words long and needed no measurement lane**,
+which is the exception, not the rule - see H5 for why I was allowed to skip it.
+
+**H1 (confirmed by elimination, not by instrument) - "moving to the side" is a yaw, and only a strafe
+produces one.** I did not want to guess between three candidates, so I enumerated the writers instead of
+hypothesising. The player's rotation is written in exactly one gameplay place - `HandleMouseLook` -
+every other `transform.rotation` write on the player is spawn-reset or a cutscene, and strafing touches
+none of them (grep: the movement code contains **no** rotation write at all, so the character does not
+turn to face a strafe). In third person, `LateUpdate` is the only writer of the camera's rotation, and
+`CameraFollow` - the other rotation writer, which slerps toward the pivot - is correctly disabled by
+`ApplyCameraFollow` (`_follow.enabled = CurrentMode == Mode.First`). So one writer remains, and its only
+strafe-dependent input is the **smoothed position**. That is a closed argument, not a preference.
+
+**H2 (confirmed, arithmetic) - the lag magnitude is `v * SmoothTime`, and the user said "a bit".**
+`0.15 s x 5 m/s = 0.75 m` over a `6.5 m` boom = **6.6 deg**; sprinting (`SprintMultiplier` 2) `13 deg`.
+Two things made this worth the arithmetic rather than a shrug. First, **the reported magnitude was wrong
+by an order of magnitude** - "a bit" reads as 1-2 deg and the real number is a 13 deg swing, so a fix
+sized to the report would have been sized to the wrong number. Second, `0.75-1.5 m` is the same order as
+`ThirdPersonSideOffset` (`0.9 m`), which is what made the over-the-shoulder framing wobble as well - so
+one lag term explains *two* of the things 1jl shipped, and I would not have predicted the second without
+computing it. Rule 13's "ask what would catch the bug if that value were wrong" has a camera form:
+**a report phrased "a bit" is a prompt to compute the number before you touch a knob.**
+
+**H3 (the finding I did not expect) - the wrong-direction test is what makes this diagnosable at all.**
+The bug only fires on translation **perpendicular** to the view axis. Running forward trails *along* the
+axis, so it produces a pitch shift of the same order and reads as normal follow-camera feel; it was
+invisible because it was *correct-shaped*. A test that only walks forward passes. This is the general
+habit: **when a report names a motion, check what component of that motion is perpendicular to whatever
+the code differentiates against** - here "moving" vs "moving sideways" are different mechanisms, and 1jr's
+report had already used both phrasings for a different bug (`_cachedDir` across a turn).
+
+**H4 (confirmed, and it is the whole fix) - the unlagged value was already in hand one line above.**
+`desired` is `pivotPos + toCam * finalDist` - the boom position, computed *before* the SmoothDamp and
+*after* the collision clamp. So the fix is one token, and the claim that makes it safe is an identity
+rather than a judgement: `lookTarget - desired` contains neither `pivotPos` nor the smoothed position, so
+when the camera has caught up it is byte-identical to `lookTarget - _camera.transform.position`. I chose
+`desired` over the tempting `Quaternion.LookRotation(-toCam)` on purpose: `-toCam` is *also* lag-free
+and one character shorter, but it silently drops the **collision** yaw as well, and that is a visible
+behaviour change. Picking the expression that removes exactly the lag term is what lets the whole task
+be defended as "changes nothing at rest".
+
+**H5 (confirmed, and the reason no measurement lane was built) - rule 7 measures what the code cannot
+show.** Rule 7's own examples are geometry the code cannot decide (a gap, a hole, z-fighting). Here the
+whole claim is a closed-form property of four lines I could read: one writer, one smoothed input, and
+`v * tau`. A QA lane that printed "camera yaw in degrees while strafing" would have cost a key, a HUD
+row and a play-test cycle to re-derive a subtraction. The discipline I did keep is the part that actually
+bites: **verify the fix by rereading that the subtracted term is the smoothed one and the replacement is
+not**, because "0 candidates from a script that does not cover this file" is not verification.
+
+**H6 (rejected, and the correction it produced) - `toCam` does not change on a strafe.** Checking H1's
+elimination turned up a claim in code and in `game-design.md` that `toCam` "changes every time the player
+turns **or strafes**". It does not: `toCam = (desired - pivotPos).normalized`, and `desired` contains
+`lookTarget = pivotPos + pivot.right * offset`, so **the `pivotPos` term cancels exactly** and `toCam`
+depends only on the pivot's orientation and three constants. Strafing is pure translation. The claim had
+survived 1jr because grep finds the sentence and not its algebra - the doc's own justification for the
+recast was resting on a strafe that cannot happen. Fixed in code, doc and AGENTS.md in the same pass.
+
+**H7 (open, filed not fixed) - the collision pull-in re-creates the yaw from a different term.** With
+`finalDist < targetDist`, `lookTarget`'s lateral `0.9 m` stops cancelling against `toCam`'s own lateral
+component, so the camera yaws toward it - up to ~17 deg at a 2 m pull-in. Same anti-pattern, different
+trigger, and a *visible* change to remove, so it is reported (in `game-design.md`, `PROGRESS.md` and this
+section) rather than bundled onto a fix whose entire value is that it changes nothing at rest.
+
 ## 1jt. Casting-circle placement: the enum that would have eaten two Meteors, and a predicate vs a list
 
 OPEN until the user play-tests the placement. **The user asked twice, and the second question is the one

@@ -1,3 +1,50 @@
+## 1ju. The camera turned a bit when strafing - position smoothing was steering the aim
+
+Reported by the user: "the camera turning abit when moving to the side is not needed". `CameraModeSwitch`
+derived its rotation from `LookRotation(lookTarget - _camera.transform.position)`, and that position is
+the output of `Vector3.SmoothDamp`. A smoother leaves the camera **trailing** the player, so the trail
+was being subtracted from the look-at: **position lag steered the aim**. Forward running trails *along*
+the view axis, which is only a pitch shift and reads as "fine"; **strafing** trails *sideways*, which is
+a yaw. Steady-state lag is `v * SmoothTime` = 0.75 m at walk over a 6.5 m boom = **6.6 deg**, and
+**13 deg** sprinting, flipping sign with the strafe direction - and 0.75-1.5 m is comparable to
+`ThirdPersonSideOffset` (0.9 m), so the over-the-shoulder framing shifted during the strafe too. The fix
+is **one token**: aim from `desired`, which the method already computes as the unlagged boom position.
+
+### 1ju-status
+- [ ] **Strafe left, then strafe right** - the horizon must not yaw in either direction, and the two
+      must match. This is the whole report; everything else is a guard against a regression I introduced.
+- [ ] **Walk forward / backward** - the view must be unchanged from before (the old pitch-shift artifact
+      is also gone; a small pitch wobble on accel/decel is expected and was always there).
+- [ ] **Strafe while turning the mouse** - the two must compose; no yaw should come from the strafe alone.
+- [ ] **A wall beside the player** (collision pull-in) - must still pull in and yaw as it did before.
+      Deliberately **unchanged** by this task; see below.
+- [ ] **F5 both ways** - first person snaps to the pivot rotation and never entered the changed line, so
+      it must be bit-identical.
+- [ ] **1jr regression** - turning while moving must still not zoom the camera in.
+- [x] Provenance: with the player's rotation written only by mouse look (grep: every `transform.rotation`
+      write on the player is mouse-look, spawn-reset, or a cutscene) and `CameraFollow` correctly disabled
+      in third person (`ApplyCameraFollow`), `LateUpdate` L204 was the **only** writer of the third-person
+      camera's rotation and the smoothed position its only strafe-dependent input.
+- [x] The change is a no-op at rest: `lookTarget - desired` contains neither `pivotPos` nor the smoothed
+      position, and `desired` is the boom position, so when the camera has caught up the expression is
+      byte-identical to the old one. Identical under a collision pull-in too (same `finalDist`).
+- [x] `SmoothTime`'s tooltip now records that it is position-only and can no longer steer the view.
+- Verification: grep + reread. `tools\StaticChecks.ps1` does **not** cover `CameraModeSwitch.cs` (not in
+      its `$files`), so this edit is outside the rule-3 instrument by construction - reread, not script.
+      No Unity build (rule 3).
+      `skills: none applied` - no installed skill governs a follow-camera aim fix, and the Unity skills
+      cannot run in this project.
+
+### Reported, not fixed (deliberately)
+- **The collision yaw.** When a wall pulls the boom in, `finalDist < targetDist` and `lookTarget` (0.9 m
+  right of the pivot) stops cancelling against `toCam`'s own lateral component, so the camera yaws toward
+  it - up to ~17 deg at a 2 m pull-in. It is the *same* anti-pattern but a different trigger, and fixing
+  it is a visible behaviour change, so it is filed here rather than bundled onto a fix whose whole value
+  is that it changes nothing at rest.
+- **`Player/ThirdPersonCamera.cs`** is a second, **dead** class carrying the same anti-pattern
+  (`LookRotation(pivotPos - transform.position)` at its own `RotationSmoothTime`). Zero code references;
+  its only mention anywhere is a comment in `ScreenShake.cs` - the comment-mention false positive a bare
+  grep cannot filter out (rule 8). Deleting it is a rule-14 task with its own sweep.
 ## 1jt. Casting circles drew on the held weapon - and the fix that deleted two Meteors was a one-word enum change
 
 Requested by the user: summon casting circles belong under the player, every other delivery's belongs
@@ -2665,15 +2712,14 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-06 (1jt). Read this first in a new session; then continue with the
+Last updated: 2026-10-06 (1ju). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded. **1jt is the newest task and is not yet play-tested**; its open
-follow-ups are the behind-player summon extension (deliberately not bundled) and the F4
-`authored profiles` count moving 21 -> 22, which is a profile existing, not a changed look.
+for the reasoning it recorded. **1ju is the newest task and is not yet play-tested** - a strafe
+must not yaw the view (1ju), and 1jt's casting-circle placement is still open underneath it.
 
 ## 1ik. Frame-budget attribution lane (F2) â€” shipped, NOT verified
 

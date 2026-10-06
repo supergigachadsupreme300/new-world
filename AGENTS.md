@@ -875,7 +875,10 @@ when it cites a doc section, confirm the heading is still where it was. A commen
           makes that false.** 1jr: the user reported "the camera sometime bug and zoomin if player turn
           while moving". `UpdateThirdPerson` runs its `SphereCast` at ~10 Hz and reused the clamped
           distance in between - but a distance is only meaningful *along the ray that produced it*, and
-          `toCam` changes on every turn and strafe. So a clamp measured "straight back" was applied to
+          `toCam` changes on every turn (1ju: **not** on a strafe - `toCam` is
+          `(desired - pivotPos).normalized` and `pivotPos` cancels exactly, so it depends only on the
+          pivot's orientation and three constants; this bullet previously said "and strafe" and was wrong).
+          So a clamp measured "straight back" was applied to
           "back and to the left", and the error was largest exactly when the direction changed fastest:
           **turning**. Three habits:
           - **When a cache exists to save a *query*, its validity is tied to the frame of reference the
@@ -891,6 +894,40 @@ when it cites a doc section, confirm the heading is still where it was. A commen
             cannot matter.** `_cachedFinalDist < 0` (no obstruction) skips the `Angle` test entirely, so
             a clean frame is still one query per 0.1 s. A correctness fix that runs a physics query every
             frame has usually moved the bug rather than fixed it.
+        - **A SMOOTHED position must never feed a look-at, or the smoother is a steering input.** This is
+          1jr's "name the phase of every writer" turned inside out: 1jr's bug was a *distance* cached
+          across a change of *direction*, and 1ju's is the same shape one level down — the camera's
+          rotation was `LookRotation(lookTarget - _camera.transform.position)` where that position is the
+          output of `Vector3.SmoothDamp`. A first-order smoother leaves the camera **trailing** the
+          player, so the lag vector was being subtracted from the look-at, i.e. **position lag steered
+          the aim**. Three habits, each from something that would have shipped:
+          - **The bug names the motion that has a component along the thing you are not smoothing.**
+            Forward running trails *along* the view axis (a small pitch shift), so it reads as "fine";
+            **strafing** trails *sideways*, which is yaw. That is why the report said "moving to the side"
+            and a test that only walks forward passes. Before fixing a follow-camera report, ask **which
+            translation direction makes the lag perpendicular to the view** — that is the one to measure.
+          - **Steady-state lag is `v * SmoothTime`, so always quote the number, not "a bit".** Here
+            0.15 s × 5 m/s = 0.75 m over a 6.5 m boom = **6.6°**, and 13° sprinting — comparable to
+            `ThirdPersonSideOffset` (0.9 m), which is why the over-the-shoulder framing wobbled too. A
+            report phrased as "a bit" hides a 13° swing; the magnitude is what makes the fix reviewable.
+          - **Derive the aim from the UNSMOOTHED target when the unlagged value is already in hand, and
+            then prove it is a no-op at rest.** `CameraModeSwitch` already computed `desired` (the boom
+            position) one line above the SmoothDamp, so the fix was **one token** — aim from `desired`.
+            The claim that makes it safe is that `lookTarget - desired` is *byte-identical* to the old
+            expression whenever the camera has caught up, and identical under a collision pull-in because
+            it is the same `finalDist`. Say that out loud in the diff; "I subtracted a different position"
+            reads as a behaviour change and is not one.
+          - **Corollary — the same anti-pattern, a DIFFERENT trigger, is a separate task.** Under a
+            collision pull-in, `lookTarget` reappears as a lateral term in the new expression and the
+            camera still yaws toward it. Fixing that too is a *visible* change, so it was reported rather
+            than bundled onto a fix whose whole value is that it changes nothing at rest.
+          - **A derivation that disproves an existing comment is part of the fix, not a footnote.** 1jr's
+            comment (and `game-design.md`) both claimed `toCam` changes "on every turn **and strafe**".
+            It does not: `toCam` is `(desired - pivotPos).normalized` and `pivotPos` **cancels exactly**,
+            so `toCam` depends only on pivot orientation and three constants — strafing is pure
+            translation and leaves it bit-for-bit invariant. The wrong claim had survived a shipped task
+            because grep finds the sentence and not its algebra, so it was corrected in code, in the
+            design doc and here in the same pass.
         - **An aim derived from a POINT in front of the camera is silently coupled to where the camera
           IS, so any camera edit re-aims it.** 1jm's projectile aim was
           `normalize((camera.position + camera.forward * Range) - castOrigin)`. Read it as a direction and

@@ -32,7 +32,7 @@ public sealed class CameraModeSwitch : MonoBehaviour
     public float ThirdPersonY = 2.6f;
     [Tooltip("Lateral offset of the third-person camera in metres. Positive = to the player's RIGHT, negative = to the LEFT, 0 = the pre-1jl centred look. Added as pivot.right * this to BOTH the camera position and the look-at point, so the view direction is unchanged and the character sits off-centre (over the shoulder). Offsetting only the position would not move the character on screen: the camera would just rotate to keep re-centring it. First person is unaffected - it orbits the pivot with no offset. This moves FRAMING only: nothing that flies is derived from the camera's position (the projectile aim is a direction off the look pivot, see SpellCaster.StraightFlightDirection), so raising it cannot bend a shot.")]
     public float ThirdPersonSideOffset = 0.9f;
-    [Tooltip("Position smoothing seconds for the third-person camera.")]
+    [Tooltip("Position smoothing seconds for the third-person camera. 1ju: this now affects POSITION only - the view direction is derived from the unlagged boom position, so smoothing can no longer steer the camera's aim. Raising it makes the follow heavier without turning the view.")]
     public float SmoothTime = 0.15f;
 
     [Header("Collision")]
@@ -177,8 +177,12 @@ public sealed class CameraModeSwitch : MonoBehaviour
         float finalDist = targetDist;
         _collisionTimer -= Time.deltaTime;
 
-        // A cached DISTANCE is only meaningful along the direction it was measured on, but `toCam`
-        // changes every time the player turns or strafes. Re-measure whenever the boom has swung more
+        // A cached DISTANCE is only meaningful along the direction it was measured on, and `toCam`
+        // is that direction. 1ju: `toCam` changes when the player TURNS only - it is built from
+        // `desired - pivotPos`, and the pivotPos term cancels, so it depends solely on the pivot's
+        // ORIENTATION and the three constants. Strafing is pure translation and leaves it exactly
+        // invariant (an earlier version of this comment claimed otherwise, and was wrong).
+        // Re-measure whenever the boom has swung more
         // than RecastOnTurnDegrees since the last cast: otherwise a clamp taken "straight back" gets
         // applied to "back and to the left", which reads as the camera randomly zooming in precisely
         // while the player is turning. Only worth doing while a clamp is ACTIVE - with no obstruction
@@ -201,7 +205,17 @@ public sealed class CameraModeSwitch : MonoBehaviour
 
         _camera.transform.position = Vector3.SmoothDamp(
             _camera.transform.position, desired, ref _velocity, SmoothTime);
-        _camera.transform.rotation = Quaternion.LookRotation(lookTarget - _camera.transform.position);
+        // 1ju: aim from `desired`, NOT from the smoothed position. SmoothDamp leaves the camera
+        // trailing the player, and a strafe is the one ordinary motion that puts a LATERAL
+        // component in that trail - running forward trails along the view axis (pitch only),
+        // but strafing trails sideways, which steers the look-at and yaws the whole view.
+        // The lag is v * SmoothTime, so at 5 m/s walk it is 0.75 m over a 6.5 m boom = 6.6 deg
+        // of yaw, 13 deg sprinting at 10 m/s, flipping sign with the strafe direction.
+        // `desired` is already the unlagged boom position (pivotPos + toCam * finalDist), and
+        // `lookTarget - desired` has no pivotPos term and no smoothed position in it - so this is
+        // byte-identical to the old expression whenever the camera has caught up, and also
+        // identical under a collision pull-in, and carries no lag at all when it has not.
+        _camera.transform.rotation = Quaternion.LookRotation(lookTarget - desired);
     }
 
     /// <summary>

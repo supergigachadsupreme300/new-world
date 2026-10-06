@@ -3155,12 +3155,47 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   - **The boom's collision clamp is re-measured when the player turns (1jr).** `CollisionCheckInterval`
     is **0.1 s** (≈10 Hz, for the `SphereCast`), and between casts the clamp distance was being reused
     *unconditionally*. A cached distance is only meaningful **along the direction it was measured on**,
-    but that direction (`toCam`) changes on every turn and strafe — so a clamp taken "straight back"
+    but that direction (`toCam`) changes on every turn — so a clamp taken "straight back"
     was being applied to "back and to the left", and the camera read as randomly zooming in **while the
     player turned**. `RecastOnTurnDegrees` = **8°** re-measures as soon as the boom has swung further
     than that since the last cast. The check only runs while a clamp is **active**: with no obstruction
     cached there is no clamp to misapply, and the 10 Hz timer still catches new ones. Reported by the
     user as "camera sometimes bug and zooms in if player turn while moving".
+    *Corrected by 1ju:* this entry originally said `toCam` changes "on every turn **and strafe**". It
+    does not. `toCam` is `(desired - pivotPos).normalized`, and `desired` is built from `lookTarget`,
+    which is itself `pivotPos + pivot.right * offset` — so **the `pivotPos` term cancels exactly** and
+    `toCam` depends only on the pivot's **orientation** and three constants. Strafing is pure
+    translation and leaves it bit-for-bit invariant, so the recast never fires on a strafe and never
+    needed to. The comment in `UpdateThirdPerson` carried the same wrong claim and was fixed with it.
+
+  - **The view direction is derived from the unlagged boom position, not the smoothed one (1ju).**
+    Reported by the user as "the camera turning a bit when moving to the side is not needed". The camera's
+    rotation was `LookRotation(lookTarget - _camera.transform.position)`, where the position is the
+    output of `Vector3.SmoothDamp`. A smoother leaves the camera **trailing** the player, and that trail
+    was being subtracted from the look-at — so **position lag steered the aim**. Running *forward* trails
+    along the view axis (a pitch shift, much smaller), but **strafing** trails *sideways*, which is a yaw.
+    Steady-state lag of a first-order smoother is `v * SmoothTime`: at `MoveSpeed` 5 m/s that is
+    **0.75 m** over a **6.5 m** boom = **6.6°** of yaw; sprinting (`SprintMultiplier` 2 → 10 m/s) it is
+    **1.5 m** = **13.0°**, flipping sign with the strafe direction. The lag is also comparable to
+    `ThirdPersonSideOffset` (0.9 m), so the over-the-shoulder framing visibly shifted during a strafe too.
+    The fix is one token — aim from `desired`, which line 204 has already computed as the unlagged boom
+    position `pivotPos + toCam * finalDist`. `lookTarget - desired` contains neither `pivotPos` nor the
+    smoothed position, so it is **byte-identical** to the old expression whenever the camera has caught
+    up, **identical** under a collision pull-in (same `finalDist`), and lag-free when it has not.
+    `SmoothTime`'s tooltip now says what it no longer does: it is position-only and cannot steer the view.
+    Consequences worth naming: any aim reading `cam.forward` during a strafe was skewed by up to 13° and is
+    now correct, which is 1jm's camera coupling getting *smaller*, not larger — projectile aim already
+    reads the look pivot's direction and is unaffected either way. First person never entered this method
+    (it snaps to the pivot's rotation, which is lag-free by construction). **Deliberately not changed:**
+    the residual *collision* yaw — when a wall pulls the boom in, `lookTarget` reappears as a lateral
+    term and the camera yaws toward it — is the same anti-pattern but a different trigger, so it is
+    reported rather than bundled.
+
+  **Reported, not fixed:** `Player/ThirdPersonCamera.cs` is a second, **dead** class carrying the same
+  anti-pattern (`Quaternion.LookRotation(pivotPos - transform.position)` at `RotationSmoothTime`,
+  position-driven aim) and still has **zero** code references — its only mention anywhere is a comment in
+  `ScreenShake.cs`, which is exactly the comment-mention false positive a bare grep cannot filter out.
+  Deleting it is a rule-14 task with its own sweep, not something to ride along on a one-token camera fix.
 
   The dividing line is **shape vs. lifetime**: everything that only builds transforms moved; everything
   that decides *when a piece moves next frame* stayed, because that is behaviour. `SkillFx`'s
