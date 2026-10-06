@@ -28,6 +28,38 @@ bounds now have to come **after** the upload instead of alongside it, which is t
 optimised version relied on - and a bounds pass over 58 vertices three times a second is not a
 measurement. So the fix that was *forced* by a compile error happened to be the simpler code.
 
+### The second error was not a second bug - it was the same assumption, and the fix was to delete a type
+`cannot convert float to byte`, from `new Color32(look.Edge.r, look.Edge.g, look.Edge.b, look.Edge.a)`.
+`SpellLook.Edge` is `public readonly Color` - four normalised floats - and the `Color32` constructor
+takes four bytes. The tempting repair is four `(byte)` casts, which is what I nearly did, and it is
+wrong in the way that matters: **a `Color -> Color32` conversion does exist**, as an implicit *operator*.
+A conversion existing is not a constructor overload accepting those argument types, so "the types are
+compatible" was never the fact that failed. The fact that failed was *which member* does the conversion.
+
+Which made me look for the actual rule, and the rule is not "cast it". The colour had to cross a type
+boundary **twice** - once on the way in (`SpellLook.Edge` -> `_base`) and once on the way out (per
+vertex, alpha faded). A value that crosses a type boundary twice is a value whose boundary should be
+removed: store it as `Color` the whole way and there is no ladder to get wrong. That deleted the
+`(byte)` cast, the `Mathf.RoundToInt`/`Clamp` to 0-255, and the `new Color32(...)` per vertex - three
+statements and an entire class of narrowing error, replaced by one `c.a = Mathf.Clamp01(...)`.
+
+The unexpected part is what deleting the boundary bought for free. `List<Color32>` appeared **nowhere**
+in the 378-file tree, while `List<Color>` is what `FarShell`, `VoxelMesher` and `ChunkMeshGenerator` all
+hand to `SetColors`. So the type cleanup silently moved an API call onto the overload the project has
+actually been proving for months. Two unverified assumptions were stacked on the same line; fixing the
+one I was shown also removed the one I had not been shown yet.
+
+Which is the actual lesson, and it is about **counting errors per file, not per line**: two console
+errors from one new file is a signal about the file. So instead of patching the second, I swept every
+remaining call against a precedent, and it immediately produced a **third** candidate - `SetColors(
+List<Color32>)`, a genuinely valid Unity overload with zero local precedent, the same family of
+assumption that had now failed twice. The same sweep checked `ObjectPooler.Get`/`Return` and found they
+are *instance* methods on a `MonoBehaviour`, so any static call would be CS0120 - a fourth error that
+was never going to be reported, because the code turns out never to call them (it only mentions the
+pooler in prose explaining what it replaced). **Two errors in a file is a prompt to audit the file, and
+an error you find in that audit costs nothing, while a third console round-trip costs the user another
+compile.**
+
 ## 1jq. "Make the projectile trail more efficient" - the cost was never the cubes, it was the pooler
 
 **Shipped.** `TrailStrip.cs` (new), `SpellEffect.cs`, `NewWorldTestGround.cs`; `ProjectileTrail.cs`

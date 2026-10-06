@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -79,12 +80,12 @@ public sealed class TrailStrip : MonoBehaviour
     private int _count;
 
     private Vector3[] _verts;
-    private Color32[] _cols;
+    private List<Color> _cols;
     private int[] _tris;
     private Mesh _mesh;
     private MeshRenderer _renderer;
     private Camera _cam;
-    private Color32 _base;
+    private Color _base;
 
     /// <summary>Last usable side vector, so a degenerate frame reuses the previous orientation rather
     /// than snapping to world-up and popping.</summary>
@@ -153,11 +154,18 @@ public sealed class TrailStrip : MonoBehaviour
         strip._mesh.bounds = new Bounds(position, Vector3.one * 0.01f);
 
         strip._verts = new Vector3[MaxPoints * 2];
-        strip._cols = new Color32[MaxPoints * 2];
+        strip._cols = new List<Color>(MaxPoints * 2);
         strip._tris = new int[(MaxPoints - 1) * 6];
 
-        Color c = look.Edge;
-        strip._base = new Color32(c.r, c.g, c.b, c.a);
+        // Stays a float `Color` all the way through, deliberately. 1jq's first two versions stored a
+        // `Color32` here and each was a compile error: `new Color32(look.Edge.r, ...)` is CS1503,
+        // because `SpellLook.Edge` is a `Color` (four normalised FLOATS) while the Color32 CONSTRUCTOR
+        // takes four bytes - and a Color -> Color32 conversion existing (as an implicit OPERATOR, not an
+        // overload of the constructor) does not make that signature legal. Keeping one type removes the
+        // whole float->byte ladder. It also puts `SetColors(List<Color>)` on the same overload the rest
+        // of this project actually uses (FarShell, VoxelMesher, ChunkMeshGenerator all hand it a
+        // `List<Color>`), where `List<Color32>` appears nowhere in the tree.
+        strip._base = look.Edge;
         strip._cam = Camera.main;
 
         strip.Push(position);
@@ -260,10 +268,13 @@ public sealed class TrailStrip : MonoBehaviour
             _verts[i * 2] = _pts[i] + off;
             _verts[i * 2 + 1] = _pts[i] - off;
 
-            // Color32, not float Color: float vertex colours on a runtime mesh read flat and wrong.
-            byte a = (byte)Mathf.Clamp(Mathf.RoundToInt(_base.a * t), 0, 255);
-            _cols[i * 2] = new Color32(_base.r, _base.g, _base.b, a);
-            _cols[i * 2 + 1] = new Color32(_base.r, _base.g, _base.b, a);
+            // Fade the authored alpha along the strip. One float write per vertex now, no byte
+            // rounding and no clamp-to-0-255 step: the ramp is linear in float and the GPU quantises
+            // it once, on upload.
+            Color c = _base;
+            c.a = Mathf.Clamp01(_base.a * t);
+            _cols[i * 2] = c;
+            _cols[i * 2 + 1] = c;
 
             bounds.Encapsulate(_pts[i]);
         }

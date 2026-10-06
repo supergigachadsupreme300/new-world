@@ -53,6 +53,12 @@ grep or by `StaticChecks.ps1`):
   one-point strip lives for its first 0.3 m with an empty mesh.
 
 ### 1jq-status
+- [x] **CS1503 `cannot convert float to byte`** (found on the user's console, fixed in the follow-up
+      commit). `SpellLook.Edge` is a `Color` (four normalised floats) and `Color32`'s *constructor* takes
+      four bytes; the `Color -> Color32` conversion that does exist is an implicit **operator**, a
+      different member from a constructor overload. Fixed by storing the trail colour as a `Color` end to
+      end, which removed the whole float->byte ladder. That in turn put `SetColors(List<Color>)` on the
+      overload the rest of the project uses - `List<Color32>` appears nowhere in the 378 files.
 - [x] **CS0246 `MeshUpdateFlags` could not be found** (found on the user's console, fixed in the
       follow-up commit). The runtime mesh update used `MeshUpdateFlags` + the `(array, start, count,
       flags)` overloads; the type exists in Unity 6000.5.1f1 but `TrailStrip.cs` was the only file in

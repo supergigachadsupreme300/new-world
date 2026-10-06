@@ -56,6 +56,21 @@
        and stale indices reference real vertex slots - so garbage geometry, not a harmless no-op. 1jq had
        to add `Array.Clear` over the index tail for exactly this. Whenever you trade a bounded write for
        an unbounded one, ask what the leftovers now point at.
+     - **"A conversion exists" is not "this CONSTRUCTOR accepts these argument types."** 1jq's next
+       error was CS1503 `cannot convert float to byte`, from `new Color32(look.Edge.r, look.Edge.g, ...)`.
+       `SpellLook.Edge` is a `Color` (four normalised floats) and the `Color32` *constructor* takes four
+       bytes; a `Color -> Color32` conversion does exist, but as an **implicit operator**, which is a
+       different member from an overload of that constructor. So the fix that also deleted the whole
+       float->byte ladder was to store the colour as a `Color` end to end - which then put
+       `SetColors(List<Color>)` on the overload the rest of the project uses (`FarShell`, `VoxelMesher`,
+       `ChunkMeshGenerator` all pass a `List<Color>`), where `List<Color32>` appears **nowhere** in 378
+       files. **When a value has to cross a type boundary twice, remove one side of the boundary.**
+     - **After the second console error in one file, sweep for a THIRD rather than patching again.**
+       Two errors from the same new file is a signal about the file, not about the two lines. Grepping
+       every remaining call against a precedent found `SetColors(List<Color32>)` - valid Unity API, zero
+       local precedent, and the same family of assumption that had already failed twice - plus a check
+       that `ObjectPooler.Get`/`Return` are **instance** methods on a `MonoBehaviour`, so a static call
+       would have been CS0120 (it turned out the code never calls it at all).
    **Run `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1` before committing any
    change to `WorldBuilder*.cs` or `NewWorldTestGround.cs`** Ã¢â‚¬â€ it mechanises exactly those checks
    (balance, overload-aware arity, void-return, unassigned locals, cross-case locals, part-key parity).
