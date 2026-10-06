@@ -29,12 +29,14 @@ using UnityEngine;
 /// </para>
 ///
 /// <para>
-/// <b>Colour.</b> <c>SpellLook.Edge</c>, the struct's two-tone member documented for "rim, trails,
-/// shards", passed in ALREADY RESOLVED by the projectile (<c>SpellEffect.Initialize</c> resolves the
-/// look once). So the trail is per-spell — authored profile, then id-hash, then school default — and
-/// this file adds no second <c>SpellLook.Resolve</c> and derives no colour of its own (rule 13). It is
-/// carried in the MESH's vertex colours, not in a material, which is why one shared material serves
-/// every strip of every school.
+/// <b>Colour.</b> <c>SpellLook.Trail</c> (1js), passed in ALREADY RESOLVED by the projectile
+/// (<c>SpellEffect.Initialize</c> resolves the look once). So the trail is per-spell — authored profile,
+/// then id-hash, then school default — and this file adds no second <c>SpellLook.Resolve</c> and derives
+/// no colour of its own (rule 13). It was <c>SpellLook.Edge</c> until 1js, which is the two-tone rim
+/// colour and not a trail colour: <c>EdgeFor</c> drops saturation to 55%, so a thin ribbon at partial
+/// alpha read as grey instead of as its element. <c>Trail</c> keeps the school hue exactly and is WHITE
+/// for <c>DamageType.Physical</c>. It is carried in the MESH's vertex colours, not in a material, which
+/// is why one shared material serves every strip of every school.
 /// </para>
 /// </summary>
 public sealed class TrailStrip : MonoBehaviour
@@ -179,7 +181,7 @@ public sealed class TrailStrip : MonoBehaviour
         // the whole float->byte ladder. It also puts `SetColors(List<Color>)` on the same overload the
         // rest of this project actually uses (FarShell, VoxelMesher, ChunkMeshGenerator all hand it a
         // `List<Color>`), where `List<Color32>` appears nowhere in the tree.
-        strip._base = look.Edge;
+        strip._base = look.Trail;
         strip._cam = Camera.main;
 
         strip.Push(position);

@@ -1,3 +1,48 @@
+## 1js. The projectile trail did not read as its element - a trail colour that is computed, not a table
+
+Requested by the user: "make the magic projectile trail match with the element, with physical type make
+it white". The trail already received the per-spell resolved look, so it was *already* per-element in
+provenance - it read `SpellLook.Edge`, which is `EdgeFor(core, r)` and drops saturation to 55%. That is
+correct for a one-quad rim highlight and wrong for a wide, soft, partially-transparent ribbon: 55%
+saturation on a thin additive strip reads as grey, so no school was legible as itself. Added
+`SpellLook.Trail` (a real member on the look struct, resolved in `Resolve` alongside `Core`/`Edge`, so
+rule 13's "derived in exactly one place" holds and `TrailStrip` still derives nothing) and pointed the
+strip at it. `SpellLook.TrailColor` derives from the existing `SchoolColor` table rather than spelling a
+third per-school palette, with `Physical` overridden to pure white.
+
+### 1js-status
+- [ ] **Fire, Ice, Lightning and Earth casts in flight** - the readout cannot show this. The QA matrix
+      band draws every spell on a motionless pedestal and `TrailStrip.Spawn` is only reached from
+      `SpellEffect.Update` *after* `if (!_launched) return`, so a non-launched matrix entry has no trail
+      to look at. Verified by casting.
+- [ ] **A physical spell (arrow / bolt) in flight** - the trail must be white, and the projectile *body*
+      must stay gold. That second half is the part that proves the override landed in `TrailColor` and
+      not in `SchoolColor`, which would have recoloured every physical projectile and impact as a side
+      effect of a trail request.
+- [x] Resolved values confirmed by hand, all ten schools, with two passing controls
+      (`Lerp(black,white,0.45)=0.45`, `Lerp(white,white,0.45)=1`): see the `game-design.md` §3.8.3 list.
+- [x] `SpellLook.SchoolColor` and `SpellImpactFx`'s `look.Edge` reader deliberately **not** changed -
+      confirmed still gold and still reading `Edge` respectively.
+- Verification: grep + reread + `tools\StaticChecks.ps1` -> 0 candidates; balance delta vs HEAD
+      `SpellLook.cs` +1/+1 braces +7/+7 parens, `NewWorldTestGround.cs` 0/0 and +3/+3. No Unity build
+      (rule 3). `skills: none applied` - no installed skill governs a look-resolution edit reviewed by
+      grep, and the Unity skills cannot run here anyway.
+
+### Follow-ups filed, not done
+- **A colour formula is a piece of arithmetic that can be wrong in a way nothing reports.** The first
+  version of `TrailColor` held hue in HSV and raised saturation and value ("same hue, brighter"). Hand
+  checking showed it turned `Earth` (0.78,0.62,0.42) into `(1.00,0.73,0.38)` - r-g = 0.27, g-b = 0.35,
+  which is a saturated **orange**, i.e. the Earth trail would have read as *Fire*, the exact confusion
+  this task removes. Chroma is saturation x value, so raising value on a low-saturation school shifts its
+  apparent hue; holding `h` constant does not hold the *perceived* hue constant. `Color.Lerp` toward
+  white is monotone and preserves every school's channel ORDER, so the result is checkable by hand and
+  cannot surprise. Recorded in `AGENTS.md` rule 13.
+- **`LookKey` was deliberately NOT extended** with the new colour. The key is bit-full at 34 bits, and
+  `TrailColor` is a pure function of `DamageType`, so the new axis is strictly COARSER than the `Core`
+  RGB already packed into it: it can only split a group in the coincidence where two schools `Tint` to
+  the same `Core`, which is not the collision the 1ic audit measures. Said out loud because rule 13's
+  corollary requires it - a quiet "the numbers should not have moved" is indistinguishable from never
+  re-running the audit.
 ## 1jr. The third-person camera zoomed in when the player turned while moving - a cached distance applied to the wrong ray
 
 Reported by the user as "camera sometime bug and zoomin if player turn while moving". The cause is in

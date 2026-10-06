@@ -623,8 +623,20 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   (tool digs and zone/storm/summon strikes; magic projectile impacts pass `emitDebris:false` and
   instead play the script-built exploding sphere below, §3.7). **1jq removed 1jg's projectile trail
   from the pooler entirely**: the trail is no longer a stream of pooled cubes but a single
-  camera-facing quad strip that owns one pre-sized mesh and fades itself, so it has nothing to pool
-  and no longer appears in this list.
+camera-facing quad strip that owns one pre-sized mesh and fades itself, so it has nothing to pool
+   and no longer appears in this list. **1js gave the strip its own colour member**: the trail reads
+   `SpellLook.Trail`, not `SpellLook.Edge`, because `Edge` is the two-tone *rim* colour and `EdgeFor`
+   drops saturation to 55% — right for a highlight, wrong for a wide soft ribbon, which read as grey
+   rather than as its element. `SpellLook.TrailColor` derives it from the same
+   `SpellLook.SchoolColor` table (`Color.Lerp(school, white, 0.45f)`) so it cannot drift from the
+   school palette, with **Physical overridden to pure white** because its school colour is the legacy
+   gold and gold exhaust behind an arrow is indistinguishable from a fire spell. Overriding the trail
+   and not `SchoolColor` is deliberate: physical projectile *bodies* stay gold. Resolved trail colours —
+   Physical `(1,1,1)` white, Fire `(1.00,0.73,0.56)`, Ice `(0.73,0.92,1.00)`, Lightning `(1.00,0.97,0.67)`,
+   Holy `(1.00,0.97,0.84)`, Dark `(0.92,0.70,1.00)`, Wind `(0.84,1.00,0.97)`, Earth `(0.88,0.79,0.68)`,
+   Water `(0.67,0.81,1.00)`, Arcane `(1.00,0.73,1.00)` — are printed by the QA matrix's `Describe`, which is
+   the only readout that can show them (the band draws motionless pedestals and `TrailStrip` spawns only
+   for a launched projectile).
   `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
   `Instantiate`+`Destroy` otherwise; pooled particle effects replay from frame 0 on reuse (`Clear`+
   `Play`). Debris cubes and impact effects are fully rewritten on every use (position/scale/material/

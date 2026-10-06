@@ -984,8 +984,51 @@ when it cites a doc section, confirm the heading is still where it was. A commen
     - **Rule 15's other exception: a skill may shape the approach but still lose to a project rule.**
       "Derived in one place" is a source-level invariant; a skill that says "call the factory" does not
       get to decide where the factory lives. State which side won.
-    - **A new visual axis needs the resolution pattern AND a way to SEE it, and the second half is the
-      one that gets forgotten.** 1f7 added `SkyRockStyle` because the falling rock was the last spell
+    - **A held HUE is not a held PERCEIVED hue, so "same colour, brighter" is not a one-line change -
+      and a new colour member must be checkable BY HAND.** 1js asked for the projectile trail to read
+      as its element. The trail already received the per-spell resolved look, so this was a
+      **wrong-member** finding, not missing data: it read `SpellLook.Edge`, and `EdgeFor` drops
+      saturation to 55% - correct for a one-quad rim highlight, grey for a wide soft ribbon at partial
+      alpha. The first fix held hue in HSV and raised saturation and value, which is the textbook way
+      to write "same hue, brighter" and was **still wrong**: chroma is `s * v`, so raising `v` on a
+      low-saturation school increases apparent chroma and the perceived hue drifts while `h` sits
+      untouched. Hand-checked, that formula turned `Earth (0.78,0.62,0.42)` into `(1.00,0.73,0.38)` -
+      r-g = 0.27, g-b = 0.35, a saturated **orange**, i.e. the Earth trail read as *Fire*: the exact
+      confusion the task existed to remove, introduced by the fix. Three habits, all from that:
+      - **Prefer a colour operation whose result you can redo in your head.** `Color.Lerp(c, white, t)`
+        is monotone and preserves each channel's ORDER, so "does Dark stay violet" is answerable by
+        comparing two subtractions. `RGBToHSV -> clamp -> HSVToRGB` is not, and its failure is silent
+        because the output is still a plausible colour.
+      - **Before writing a colour formula, ask which schools are LOW-chroma**, because they are the
+        only ones a brightness boost can re-hue. Fully saturated primaries survive almost anything;
+        `Earth` and `Holy` are where a "brighter" pass does its damage. Then check the extreme cases
+        explicitly, not the average one.
+      - **A request about one drawn surface is not permission to restyle the palette it comes from.**
+        "Make the physical trail white" was satisfiable by editing `SchoolColor(Physical)` - the
+        smallest diff, and it would have recoloured every physical projectile body and impact as a side
+        effect. The right shape was a NEW member on the look struct with the override inside its own
+        resolver, which is rule 13's drawn-vs-gameplay split one level down. **Then prove which side
+        landed**: physical trail white *and* physical body still gold is the read that shows the
+        override went into the trail resolver.
+    - Corollary for the instrument: **1js's PowerShell HSV helper printed a complete, plausible
+      ten-school table and was wrong** - its own round-trip self-test (`RGB->HSV->RGB`) reported a
+      worst-case error of **0.70**, and a hand calculation of one school disagreed with its row. The
+      table was discarded and recomputed with scalars plus two passing controls. Per rule 7 a number
+      that has never been shown able to fail is not a number, and per 1i2 its replacement is
+      **unknown**, not the second instrument. **A palette is exactly where a plausible wrong answer is
+      most expensive, because every cell looks like a colour.**
+    - **A colour a look layer derives must be derived FROM the palette, never spelled beside it.**
+      `TrailColor` reads `SchoolColor` and lerps; a hand-written ten-row trail table would be the
+      third independently spelled copy of the school identity, and `SpellLook`'s own header records
+      that the first two already drifted once (Dark was (0.70,0.55,1) in one and (0.85,0.45,1) in the
+      other). Deriving from the table makes drift structurally impossible; a second table makes it
+      merely unlikely.
+    - **A "does it still work" check must name what ELSE the edit could have broken.** The obvious
+      verification for "the trail is now the element colour" is casting a fire spell. The thing that
+      could also have changed is the projectile *body* - same `SpellLook`, adjacent member - so the
+      play-test reads **both** ends ("fire trail orange-red, fire body unchanged") or a pass is
+      ambiguous between the fix landing and the fix overreaching.
+    - **"A new visual axis needs the resolution pattern AND a way to SEE it."** 1f7 added `SkyRockStyle` because the falling rock was the last spell
       visual with no per-spell hook. Two habits, both from shipping it:
       - **Ask whether the axis is a CHOICE BETWEEN EQUALLY-VALID LOOKS or a STATEMENT ABOUT THE
         SPELL.** Impact and cast families jitter between looks that are all fine, so they get a school

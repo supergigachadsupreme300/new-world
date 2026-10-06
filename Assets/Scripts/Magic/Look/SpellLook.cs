@@ -147,6 +147,17 @@ public readonly struct SpellLook
     /// "Secondary", which no declaration ever matched - a reader grepping the word "trails" found a
     /// member that did not exist. It is <c>Edge</c>.</summary>
     public readonly Color Edge;
+    /// <summary>Colour for a long, thin, partially-transparent ribbon behind a flying projectile —
+    /// the exhaust trail. Derived from <see cref="SchoolColor"/> by <c>TrailColor</c>, so it cannot
+    /// drift from the school palette, and <b>not</b> from <see cref="Edge"/>: <c>EdgeFor</c> drops
+    /// saturation to 55%, which is right for a rim highlight but reads as washed grey on a wide soft
+    /// shape, and the trail is read by a player as "what element is this".
+    /// <para><b>Physical resolves to WHITE</b> (1js, at the user's request). Its school colour is the
+    /// legacy gold that 1ib deliberately left alone, and a gold exhaust behind an arrow reads as a fire
+    /// spell. Overriding it here rather than in <see cref="SchoolColor"/> is deliberate: changing the
+    /// school colour would have recoloured every physical projectile BODY and impact too.</para>
+    /// </summary>
+    public readonly Color Trail;
     /// <summary>Multiplier on impact/cast/projectile visual size. ~0.88..1.12 deterministically.</summary>
     public readonly float Scale;
     /// <summary>Multiplier on flicker/pulse rate. ~0.88..1.14 deterministically.</summary>
@@ -165,12 +176,13 @@ public readonly struct SpellLook
     /// <summary>True when an authored <see cref="SpellLookProfile"/> supplied at least one field.</summary>
     public readonly bool Authored;
 
-    private SpellLook(Color core, Color edge, float scale, float tempo,
+    private SpellLook(Color core, Color edge, Color trail, float scale, float tempo,
         SpellImpactStyle impact, SpellCastStyle cast, ProjectileShape displayShape,
         SkyRockStyle skyRock, bool authored)
     {
         Core = core;
         Edge = edge;
+        Trail = trail;
         Scale = scale;
         Tempo = tempo;
         Impact = impact;
@@ -287,7 +299,7 @@ public readonly struct SpellLook
         Color baseColor = SchoolColor(type);
         Color core = Tint(baseColor, hueShift, satScale, valueScale);
         Color edge = EdgeFor(core, rC);
-        return new SpellLook(core, edge, Mathf.Clamp(scale, 0.55f, 1.7f), Mathf.Clamp(tempo, 0.6f, 1.6f),
+        return new SpellLook(core, edge, TrailColor(type), Mathf.Clamp(scale, 0.55f, 1.7f), Mathf.Clamp(tempo, 0.6f, 1.6f),
             impact, cast, display, skyRock, authored);
     }
 
@@ -305,7 +317,7 @@ public readonly struct SpellLook
         Families fam = FamiliesFor(type);
         Color baseColor = SchoolColor(type);
         ProjectileShape display = shape != ProjectileShape.Auto ? shape : Pick(fam.Shapes, 0.5f);
-        return new SpellLook(baseColor, EdgeFor(baseColor, 0.5f), 1f, 1f,
+        return new SpellLook(baseColor, EdgeFor(baseColor, 0.5f), TrailColor(type), 1f, 1f,
             fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, false);
     }
 
@@ -446,6 +458,42 @@ public readonly struct SpellLook
         Color outColor = Color.HSVToRGB(h, s, v);
         outColor.a = core.a;
         return outColor;
+    }
+
+    /// <summary>How far every school's trail colour is lifted toward white. See <c>TrailColor</c> for why
+    /// this is a lerp and not an HSV saturation boost. Named because it is a look knob, not a magic
+    /// number: 0 is the raw school colour and 1 is white.</summary>
+    private const float TrailWhiten = 0.45f;
+
+    /// <summary>The <c>Trail</c> colour: the school colour lifted toward white, or WHITE for Physical.
+    /// <para>
+    /// Computed <b>from</b> <see cref="SchoolColor"/> rather than written out as a second table, which
+    /// is the whole point: a hand-written per-school trail palette would be the third independently
+    /// spelled copy of the school identity, and the first two already drifted once (see
+    /// <see cref="SchoolColor"/>'s header).
+    /// <para>
+    /// <b>A straight RGB lerp toward white, deliberately, and not an HSV saturation boost.</b> An HSV
+    /// version (hue held, saturation and value raised) is the obvious way to write "same hue, brighter",
+    /// and it is wrong: chroma is saturation x value, so raising value on a LOW-saturation school shifts
+    /// its apparent hue. Hand-checked, that formula turned <c>Earth</c> (0.78,0.62,0.42) into
+    /// (1.00,0.73,0.38) - bright orange, i.e. it read as <b>Fire</b>, which is the precise confusion this
+    /// member exists to remove - and collapsed <c>Holy</c> onto white, colliding with the Physical
+    /// override below. <c>Color.Lerp</c> toward white is monotone and keeps every school's channel
+    /// ORDER, so Fire stays warm, Earth stays brown and Dark stays violet by construction, and each
+    /// result is checkable by hand.
+    /// <para>
+    /// Physical is the one override, and it is WHITE. Its school colour is the legacy gold that 1ib
+    /// deliberately left alone, and gold exhaust behind an arrow is indistinguishable from a fire
+    /// spell. Overriding HERE rather than in <see cref="SchoolColor"/> is what keeps physical projectile
+    /// bodies gold while the trail is white - the trail is a different read of the identity, the way
+    /// <see cref="Edge"/> is, and a member that means drawn must not be merged with one that means
+    /// "what this spell is". (<c>Holy</c> lerps to (1.00,0.97,0.84), close to white by design: it is the
+    /// light/divine school. It stays distinguishable from Physical by that blue channel.)
+    /// </para></summary>
+    private static Color TrailColor(DamageType type)
+    {
+        if (type == DamageType.Physical) return new Color(1f, 1f, 1f, 1f);
+        return Color.Lerp(SchoolColor(type), Color.white, TrailWhiten);
     }
 
     /// <summary>The <c>Edge</c> colour: the core hue pushed brighter and cooler, for two-tone FX.</summary>

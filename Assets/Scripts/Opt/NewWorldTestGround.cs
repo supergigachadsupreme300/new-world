@@ -1616,10 +1616,20 @@ public sealed class NewWorldTestGround : MonoBehaviour
              | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
     }
 
-    private static string Describe(in SpellLook look)
-        => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/" + look.SkyRock + "/"
-           + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")
-           + (look.Authored ? " AUTHORED)" : ")");
+private static string Describe(in SpellLook look)
+    // 1js: the trailing "trail r,g,b" is the resolved exhaust-trail colour. The matrix band cannot
+    // SHOW a trail - it draws every spell on a motionless pedestal and TrailStrip only spawns for a
+    // LAUNCHED projectile (SpellEffect.Update returns early on !_launched) - so this text readout is
+    // the only way to confirm the resolution rule itself (each school keeps its own hue, Physical is
+    // white) without firing one projectile per school. In-flight appearance stays a play-test item.
+    // LookKey is deliberately NOT extended: the key is bit-full at 34 bits and TrailColor is a pure
+    // function of DamageType, so this axis is strictly COARSER than the Core RGB already packed -
+    // it can only split a group in the coincidence where two schools Tint to the same Core, which is
+    // not a collision the 1ic audit is measuring. See AGENTS.md rule 13's corollary.
+    => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/" + look.SkyRock + "/"
+    + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")
+    + " trail " + look.Trail.r.ToString("F2") + "," + look.Trail.g.ToString("F2") + "," + look.Trail.b.ToString("F2")
+    + (look.Authored ? " AUTHORED)" : ")");
 
     private static void Bump<TKey>(Dictionary<TKey, int> map, TKey key) where TKey : notnull
     {

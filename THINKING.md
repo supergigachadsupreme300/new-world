@@ -1,3 +1,64 @@
+## 1js. Trail colour: the formula was the bug, and my own instrument lied twice about it
+
+OPEN until the user play-tests the in-flight look.
+
+**H1 (rejected) - "the trail has no element colour, so give it one."** Rejected by reading the code
+before writing any: `SpellEffect.Initialize` resolves the look once and `SpellEffect.Update` passes
+that same `_look` to `TrailStrip.Spawn`, so the trail was *already* per-spell and per-element in
+provenance. The report "the trail does not match the element" was therefore not a missing-data
+finding, it was a **wrong-member** finding: `Edge` is the two-tone *rim* colour and `EdgeFor` drops
+saturation to 55%. For a one-quad rim that is a highlight; for a wide soft ribbon at partial alpha it
+is grey. Confirmed by reading `EdgeFor`'s body (`s = Clamp01(s * 0.55f)`).
+
+**H2 (rejected) - "change `SchoolColor`'s Physical entry to white."** This is the smallest diff and it
+is wrong twice over. It would recolour every physical projectile *body* and every physical impact
+(SpellImpactFx and the model builder both read the school palette), so a request about a ribbon would
+restyle six other surfaces; and `SchoolColor`'s own comment records that 1ib left Physical gold on
+purpose, pending a visual task with a stated before/after. So: a NEW member on the look struct,
+`Trail`, with Physical overridden inside `TrailColor`. This is rule 13's "a field that means gameplay
+and a field that means drawn must not be merged", and it is also why the override is one line in a
+trail resolver rather than one line in a palette.
+
+**H3 (rejected, and this is the one worth keeping) - "same hue, brighter" as an HSV saturation boost.**
+First implementation held `h` and raised `s` and `v`. That is the textbook way to write it and it was
+still wrong: chroma is `s * v`, so raising `v` on a LOW-saturation school increases its apparent
+chroma and the perceived hue drifts even though `h` is untouched. Hand-checked against
+`Earth (0.78,0.62,0.42)`: the HSV version returns `(1.00,0.73,0.38)` with r-g = 0.27 and g-b = 0.35 -
+a saturated **orange**, i.e. the Earth trail would have read as *Fire*. The exact confusion this task
+was filed to remove, introduced by the fix. Replaced with `Color.Lerp(school, white, 0.45f)`, which is
+monotone and preserves each school's channel ORDER: Earth lands `(0.88,0.79,0.68)`, r-g = 0.09, a
+brown. **A held hue is not a held perceived hue; prefer an operation whose output you can check by
+hand.**
+
+**H4 (rejected as an instrument) - my PowerShell HSV helper.** It produced a full, plausible,
+ten-school table. Its round-trip self-test (`RGB->HSV->RGB` over the same ten colours) reported a
+worst-case error of **0.70**, and hand calculation of `Holy` disagreed with its own row. So the table
+was discarded and replaced by scalar arithmetic with two passing controls
+(`Lerp(black,white,0.45)=0.45`, `Lerp(white,white,0.45)=1`). Worth stating plainly because the first
+table looked exactly like evidence: per rule 7 a count that has never been shown able to fail is not a
+count, and per 1i2 the replacement for a retracted number is **unknown**, not the second instrument.
+The surviving numbers come from arithmetic a reader can redo in their head.
+
+**H5 (open) - does a lerp-toward-white trail read as "its element" on screen?** The numbers say each
+school keeps a distinct tint and Physical is the only pure white. The numbers cannot say whether the
+result looks like fire or like Earth *in motion*, at partial alpha, additively blended, over varied
+terrain. This is the play-test item, and it is the same shape as 1jr's: a derived value being right is
+not the same claim as a derived value being legible.
+
+**Deliberate non-changes, stated rather than left implicit**
+- `LookKey` (1ic's 34-bit packed audit key) does NOT gain the new colour. `TrailColor` is a pure
+  function of `DamageType`, so the axis is strictly coarser than the `Core` RGB already in the key, and
+  the key has no spare bits. Rule 13's corollary requires saying this out loud: the distinct-count
+  numbers should not move, and "should not have moved" is otherwise indistinguishable from "never
+  re-ran".
+- `SpellImpactFx`'s `look.Edge` reader is untouched - the rim is still the rim.
+- The QA matrix school header swatch stays a separate palette (1ij). It is a QA swatch, not a readout.
+
+**Readout (rule 13's "a new visual axis needs a way to SEE it").** `Describe` now prints
+`trail r,g,b`. This is the only readout that can show the *resolution*, because the matrix draws
+motionless pedestals and `TrailStrip` only spawns after `SpellEffect.Update`'s `if (!_launched) return`
+- so no matrix row has a trail in it. In-flight appearance stays a play-test item; the text readout is
+what proves the rule, not the look.
 ### CONFIRMED (then broken): the mesh update compiled green and did not compile
 The user came back with `CS0246: MeshUpdateFlags could not be found`. Hypothesis when I wrote it -
 "the type exists in Unity 6000.5.1f1, the `(array, start, count, flags)` overloads are documented, so
