@@ -113,13 +113,19 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     [Tooltip("QA (1in): press CraterAuditKey for a read-only measurement of a terrain dent - what the crater is actually made of, asked premise-first. A fingerprint: if the resident world was built by two versions of the generator, the sections below describe a world that is not on screen. B resolution: for the deepest dished corner near you, how deep it is, how many 1 m corners it spans, and the render path's worst-case node gap (rule 12) - this is the number that decides whether the dent exists at all on screen. C profile: the radial depth profile ring by ring, so a monotone cone and a bowl-with-rim are distinguishable as numbers rather than by eye. D expressibility: the largest corner spread against the adaptive-refinement trigger, how many corners rose ABOVE pristine (a rim), and whether any whole-metre discontinuity exists (side walls) - i.e. whether the shape could exist in the data model at all. Search band and its radius are printed; corners with no loaded tile are excluded, so a zero means 'not measured here', never 'no crater'. Read-only by rule 7: no rebuild, no re-stamp, no forced poll. Needs EnableFpsStats on to display.")]
     public bool EnableCraterAudit = true;
-    [Tooltip("QA (1io): key that runs the crater/deform audit. F13, and the choice is CHECKED rather than grep-inherited. 1in shipped this lane on F1 after grepping for 'Key.F1' and 'KeyCode.F1', found nothing, and concluded the key was free. It was not: the combat-mode toggle binds it as 'Keyboard.current.f1Key' (Player\\PlayerController.Interactions.cs:521), which is the property-name spelling and matches neither pattern. So pressing F1 ran the audit AND toggled fighting mode - weapons drew and ToolManager reset selection mid-measurement. The 'F1 is a skill hotkey' claim in the F3/F4/F2 tooltips was simply wrong; F1 is the combat toggle. F13 has zero bindings in either spelling (see tools\\StaticChecks.ps1 check 8, which now enforces this for every lane key). F2 is the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch camera toggle, F6-F12 the editor cutscene shortcuts; Numpad0-9 are free apart from numpadEnter.")]
+    [Tooltip("QA (1io): key that runs the crater/deform audit. F13, and the choice is CHECKED rather than grep-inherited. 1in shipped this lane on F1 after grepping for 'Key.F1' and 'KeyCode.F1', found nothing, and concluded the key was free. It was not: the combat-mode toggle binds it as 'Keyboard.current.f1Key' (Player\\PlayerController.Interactions.cs:521), which is the property-name spelling and matches neither pattern. So pressing F1 ran the audit AND toggled fighting mode - weapons drew and ToolManager reset selection mid-measurement. The 'F1 is a skill hotkey' claim in the F3/F4/F2 tooltips was simply wrong; F1 is the combat toggle. F13 has zero bindings in either spelling (see tools\\StaticChecks.ps1 check 8, which now enforces this for every lane key). F2 is the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch camera toggle, F6-F12 the editor cutscene shortcuts; 1jq CORRECTED this tooltip's 'Numpad0-9 are free apart from numpadEnter' claim: it had silently stopped being true when 1je took Numpad1 for the summon-model lane, so it was asserting a free key that was already bound. The measured map as of 1jq: Numpad1 is 1je's summon-model lane, numpadEnter is the ending cutscene (CutsceneManager.EndingHappy.cs), and the free Numpads are 0 and 2-9, of which 1jq took Numpad8.")]
     public Key CraterAuditKey = Key.F13;
     private string _craterAuditText;
 
-    [Tooltip("QA (1je): key that spawns the summon-model lane. Numpad1, and the choice is CHECKED the same way F13's was: 'Key.Numpad1', '.numpad1Key' and '[Key.Numpad1]' all read 0 in Assets\\Scripts, with F1 as the positive control proving the property-name spelling is actually being searched. The F13 tooltip's 'Numpad0-9 are free apart from numpadEnter' is now a measured claim rather than a remembered one.")]
+    [Tooltip("QA (1jq): key that spawns the summon-model lane. Numpad1, and the choice is CHECKED the same way F13's was: 'Key.Numpad1', '.numpad1Key' and '[Key.Numpad1]' all read 0 in Assets\\Scripts, with F1 as the positive control proving the property-name spelling is actually being searched. Note this lane then TOOK Numpad1, so the F13 tooltip's 'Numpad0-9 are free' below is stale - 1jq corrected it in place.")]
     public Key SummonModelKey = Key.Numpad1;
     private readonly List<GameObject> _summonModelCells = new List<GameObject>();
+
+    [Tooltip("QA/perf (1jq): press TrailAuditKey for a read-only count of the in-flight projectile trail strips - how many exist, how many of those were actually RENDERED, and their segment/vertex/triangle totals. This is the acceptance readout for the voxel -> strip change: the proposal was 'this costs less', and no other lane in this file reports component or draw counts (1ik's F2 reports CPU/GPU milliseconds, not counts). Strips-1-with-visible-0 names the mechanism - a strip that built but did not draw is a mesh-bounds or missing-camera fault, not a colour problem. Prints a known-zero control beside every count, because a count never shown able to report 0 is not a count. Read-only by rule 7: counts what is in the scene on the frame the key was pressed, spawns nothing and changes nothing. It CANNOT prove the strip is flush with the ground or how the tail looks - drawn and flush are separate properties, so the tail read is a play-test item, not a number. Needs EnableFpsStats on to display.")]
+    public bool EnableTrailAudit = true;
+    [Tooltip("QA/perf (1jq): key that snapshots the trail-strip counts. Numpad8, chosen the way F13's and Numpad1's were - by grepping all three Input System spellings ('Key.Numpad8', '.numpad8Key', '[Key.Numpad8]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jq: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 is this file's frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, numpadEnter the ending cutscene. Numpad0 and Numpad2-Numpad9 are free. See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
+    public Key TrailAuditKey = Key.Numpad8;
+    private string _trailAuditText;
 
     // ---------------------------------------------------------------------------------------------
     // (1ik) Frame-budget attribution lane: a continuous passive sampler plus one snapshot key.
@@ -1372,6 +1378,17 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 SpawnSummonModels();
         }
 
+        // 1jq: the trail-strip count lane. Polled with the others, above the early returns, for the
+        // same reason - a lane after them could report nothing. Goes through RunSafely like every
+        // other lane so a fault in the audit surfaces as a named failure instead of a dead frame.
+        if (EnableTrailAudit)
+        {
+            Keyboard kbTrail = Keyboard.current;
+            if (kbTrail != null && kbTrail[TrailAuditKey] != null
+                && kbTrail[TrailAuditKey].wasPressedThisFrame)
+                RunSafely("trail audit", SnapshotTrailAudit);
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -1869,6 +1886,82 @@ public sealed class NewWorldTestGround : MonoBehaviour
             + " (ally colour #" + ColorUtility.ToHtmlStringRGB(tint) + ").");
     }
 
+    /// <summary>1jq: read-only snapshot of the in-flight projectile trail strips. This is the
+    /// acceptance readout for the voxel -> strip rewrite: the proposal was entirely about COST, and no
+    /// other lane in this file reports component or draw COUNTS (1ik's frame-budget lane reports
+    /// milliseconds, which under vsync is quantised by the present interval and cannot separate
+    /// "cheaper" from "slightly cheaper").
+    /// <para>
+    /// <b>Scoping, which is the whole difficulty (rule 7).</b> "Live strips that were not drawn" is the
+    /// finding this lane exists to catch — bad mesh bounds or a missing camera are invisible to a pure
+    /// component count. But it is only a POSITIVE result where a draw is possible at all: a bolt's first
+    /// 0.3 m of flight has a strip with zero segments and therefore nothing to draw, and counting that
+    /// as a fault would train the reader to ignore the verdict. So the not-drawn count is split into
+    /// <c>drawn</c> / <c>undrawn</c> over strips that HAVE geometry, and strips with no geometry are
+    /// reported separately as <c>young</c>. Only <c>undrawn-with-geometry</c> is a fault, and it is the
+    /// number the headline names.
+    /// </para>
+    /// <para>
+    /// The collider count is the deliberate known-zero control. It is zero BY DESIGN (a trail is
+    /// cosmetic), so a run that reports strips-with-colliders &gt; 0 means the count is lying, and a
+    /// count never shown able to report non-zero is not a count. It is also a real invariant rather than
+    /// a filler number: a strip that acquired a Collider would cost physics time it never should.
+    /// </para>
+    /// </summary>
+    private void SnapshotTrailAudit()
+    {
+        TrailStrip[] strips = Object.FindObjectsByType<TrailStrip>(FindObjectsSortMode.None);
+
+        int live = 0, drawn = 0, young = 0, undrawnWithGeometry = 0;
+        int segs = 0, verts = 0, tris = 0;
+        int minSegs = int.MaxValue, maxSegs = 0, withCollider = 0;
+
+        for (int i = 0; i < strips.Length; i++)
+        {
+            TrailStrip s = strips[i];
+            if (s == null) continue;
+            live++;
+            segs += s.SegmentCount;
+            verts += s.VertexCount;
+            tris += s.TriangleCount;
+            if (s.SegmentCount < minSegs) minSegs = s.SegmentCount;
+            if (s.SegmentCount > maxSegs) maxSegs = s.SegmentCount;
+            if (s.GetComponent<Collider>() != null) withCollider++;
+
+            if (s.WasDrawn) { drawn++; continue; }
+            if (s.SegmentCount == 0) young++; else undrawnWithGeometry++;
+        }
+
+        if (minSegs == int.MaxValue) minSegs = 0;
+
+        var sb = new System.Text.StringBuilder(256);
+        sb.Append("trail audit: ");
+        if (live == 0)
+        {
+            // A zero here is ambiguous on its own — no bolt in flight, or the trail is gone. Say so
+            // rather than printing a clean 0 that reads as "the trail costs nothing".
+            sb.Append("0 strips live - no projectile in flight (cast one and press again)");
+            _trailAuditText = sb.ToString();
+            Debug.Log("[NewWorldTestGround] " + _trailAuditText);
+            return;
+        }
+
+        sb.Append(live).Append(" live, ").Append(drawn).Append(" drawn, ").Append(young)
+            .Append(" young (no geometry yet)");
+        sb.Append("\nundrawn WITH geometry: ").Append(undrawnWithGeometry)
+            .Append(undrawnWithGeometry == 0 ? "  <- clean" : "  <- FAULT: bounds or camera");
+        sb.Append("\ntotals: ").Append(segs).Append(" segments / ").Append(verts)
+            .Append(" verts / ").Append(tris).Append(" tris");
+        if (segs > 0) sb.Append("  (per strip ").Append(minSegs).Append('-').Append(maxSegs).Append(')');
+        sb.Append("\ncontrol: ").Append(withCollider).Append(" strips with a Collider (expect 0)");
+        sb.Append("\ncaps: ").Append(TrailStrip.MaxPoints).Append(" points = ")
+            .Append(TrailStrip.MaxPoints - 1).Append(" segments max, step ").Append(TrailStrip.Step)
+            .Append(" m, life ").Append(TrailStrip.Life).Append(" s");
+
+        _trailAuditText = sb.ToString();
+        Debug.Log("[NewWorldTestGround] " + _trailAuditText.Replace("\n", " | "));
+    }
+
     /// <summary>One pedestal + one mounted summon body + one label, parented to the lane root.
     /// <paramref name="mount"/> takes the mount point and runs the real builder, so the bench cannot
     /// drift from the live model (1ij/1jd's "mount the builder, not a proxy" rule).</summary>
@@ -2127,6 +2220,13 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 // is 90 frames or 12.
                 if (!string.IsNullOrEmpty(_frameBudgetText))
                     stats += "\n" + _frameBudgetText;
+
+                // 1jq: the trail-strip snapshot. Same persistence rule as the other audits - it stays
+                // up until the next press replaces it - because a strip count is only meaningful next
+                // to the frame it was taken on (a bolt's life is 0.35s, so a later frame reads 0 and
+                // would read as "the trail is broken" rather than "the bolt already finished").
+                if (EnableTrailAudit && !string.IsNullOrEmpty(_trailAuditText))
+                    stats += "\n" + _trailAuditText;
 
                 _fpsText.text = stats;
             }

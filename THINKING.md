@@ -1,3 +1,155 @@
+## 1jq. "Make the projectile trail more efficient" - the cost was never the cubes, it was the pooler
+
+**Shipped.** `TrailStrip.cs` (new), `SpellEffect.cs`, `NewWorldTestGround.cs`; `ProjectileTrail.cs`
+deleted. OPEN until the user play-tests.
+
+### Rejected: keep the voxels and just pool them better
+The obvious reading of "more efficient" is "fewer allocations from the trail". That would have meant
+tuning the existing pool, and it would have addressed almost none of the cost. So I measured the cost
+before choosing a shape, because the proposal is *entirely* about cost and the user cannot see any of it
+from the game - rule 7 says measure first and let the readout name the mechanism.
+
+Per flying projectile at the default 20 m/s, with `Step` 0.3 m and `Life` 0.35 s:
+
+| item | voxels (1jg) | strip (1jq) |
+| --- | --- | --- |
+| live GameObjects | ~23 | 1 |
+| `MeshRenderer`s / draws | ~23 | 1 |
+| `MonoBehaviour`s ticking `Update` | ~23 | 1 |
+| native component create + deferred destroy per life | **1 each, per voxel** | 0 |
+| per-frame allocation | none, but ~23 `AddComponent` + `Destroy` pairs per 0.35 s | none |
+
+**The mechanism is not "many cubes", it is that the pooler is not free at this call site.** I had assumed
+`ObjectPooler` was cheap because it is a pool. Reading it: `ObjectPooler.Return(go, delay)` does
+`go.AddComponent<ReturnTimer>()` on **every** emit, and `ReturnTimer.Update` calls
+`Destroy(gameObject)` when it expires. `Destroy` is deferred to end of frame, so each voxel paid a native
+component create **plus** a deferred destroy, per life - at ~3.3 emits/sec/projectile that is ~67 native
+component create/destroy pairs per second per projectile, from a system whose entire purpose was to avoid
+that. Hypothesis "the pool is the fast path here" - **rejected**, by reading `Return`. This is why the
+rewrite is a *deletion of the pool dependency* rather than a tuning pass, and why `game-design.md`'s
+pooler list had to change: the trail is no longer one of its consumers.
+
+### Rejected: build the strip inside the projectile model builder
+The obvious home is `MagicProjectileModelBuilder.AttachDefaultProjectileVisual`, where every projectile
+body is born. It has **three** callers and only one is a projectile in flight - the other two are
+`NewWorldTestGround`'s static spell band (every castable spell on a motionless pedestal) and
+`SpellCaster.DecorateProjectile` (a turret bolt that never flies). Confirmed by reading the callers, not
+by taste. Emission therefore stayed in `SpellEffect.Update` behind its existing `if (!_launched) return;`
+gate, which is 1jg's rule 19 and the reason this rewrite was a drop-in rather than a re-architecture:
+**the "only what genuinely flies trails" property was preserved by construction, with no new flag to
+remember.**
+
+### Open question I resolved by derivation, not taste: `MaxPoints`
+`Step` and `Life` are the user's to change, so the buffer size must be *derived* from them or it becomes a
+fourth number that rots. Fastest authored magic projectile is **22 m/s** (`SkillCatalog.Magic.cs`,
+Continuous Fireball), so `22 x 0.35 / 0.3 = 25.7` segments are live simultaneously; `MaxPoints` = 29 is
+that plus headroom. On overflow the **oldest** point is dropped rather than the newest rejected, so the
+tail shortens instead of the head stuttering. OPEN until fired: if the fastest spell visibly clips its
+tail, this number is what to raise, and the play-test item says so.
+
+### The measurement I nearly got wrong, and did not
+My first `Spawn` pushed the position **twice**, with a comment asserting it "guarantees a legal segment
+on the first `Update`" because the too-few-points early-out "would destroy the trail 0.3 m after it was
+born". I wrote that comment and then reread the guard, which is the habit, and **both halves were false**:
+`Update` destroys on `_count == 0` and returns harmlessly on `_count < 2`. So the duplicate bought
+nothing - and it was worse than nothing, because it made the acceptance lane report `1` segment / `2`
+triangles for a strip with zero visible geometry. **A defensive duplicate that exists only to satisfy a
+misread guard is not free; it is a cost plus a corrupted readout.** The same reread caught `VertexCount`
+returning `_count * 2` for a mesh nothing had been written into. Both are now in `AGENTS.md` rule 8,
+because the shape generalises: check a "guarantee" comment against the guard's *actual exit conditions*,
+and make a geometry count report 0 for degenerate input.
+
+### The lane's own premise: what makes "not drawn" a finding at all
+Rule 7 says an audit must scope itself to the band where a positive result is possible, or it reports
+absences it should never have looked for. The tempting verdict here is "live strips that were not
+rendered" - that is what catches hand-set mesh bounds going wrong or a missing camera. But a bolt's first
+`Step` of flight has a strip with **no segments and therefore nothing to draw**, so that verdict would
+fire on the one frame where nothing is wrong. So the lane splits not-drawn into `young (no geometry yet)`
+and `undrawn WITH geometry`, and **only the latter can read FAULT**. Confirmed against the property that
+makes it trustworthy: `undrawnWithGeometry` counts strips where `SegmentCount > 0`, i.e. the band where a
+draw is possible, while `young` is reported beside it rather than folded in.
+
+Corollary, and the reason the collider count is there: the lane prints **strips-with-a-Collider** as its
+known-zero control, and it is zero *by design*, so a non-zero run proves the count is lying rather than
+proving something about the trail. A count never shown able to report non-zero is not a count. It is
+also a real invariant, not a filler number - a trail that acquired a collider would cost physics it never
+needs, and rule 1ik's "0 means no sample in a time column, but 0 is a real observation in a count column"
+is exactly why this control belongs on the count side.
+
+What the lane **cannot** do, and I wrote that into the docs rather than leaving it implied: it counts
+components and geometry, so it cannot say whether the strip sits flush with the ground or how the taper
+reads. "Drawn" and "flush" are separate properties - the 1hy/1f2 lesson. Those are play-test items, and
+the numbers are not a substitute for them. The cost argument is also still an *estimate* from arithmetic
+(~23 -> 1), not a measured frame time: under vsync a frame is a whole number of present intervals, which
+is why 1ik's lane reports CPU/GPU milliseconds rather than counts and why this one deliberately does not
+try to convert objects into milliseconds.
+
+## 1jp. "slowdown the moving animation more also" - the second "slower" ask is evidence the first number missed
+
+**Shipped.** `PlayerAnimator.cs`. OPEN until the user play-tests.
+
+### The same request twice is the measurement
+1jn asked for a slower moving animation and got `StrideLength` 4.3 (2.4x / 1.7x slower). The user came
+back and asked for it again. That is the finding, not a nuisance: it means **the first number did not land
+where the user wanted**, and the tempting response - nudge 4.3 to 4.6 and ship - is the one move the
+second request gives no evidence for. So the useful question is not "how much more" but **"which knob is
+the user actually pointing at, and what does turning it cost?"** That question has a real answer here,
+because there are two rate knobs and they trade against each other.
+
+### There are two rate knobs and they pull opposite ways
+- `StrideLength` -> `cadence = speed / StrideLength`. Raising it lowers the rate. **This is the knob that
+  reads as "slower animation".**
+- `MaxCadence` -> a hard ceiling on the rate. Raising it allows a faster rate. This is a legibility
+  guard, not a speed knob, and 1jn already recorded that above it the feet slide.
+
+So "make it slower" is `StrideLength` up, full stop. Confirmed before editing rather than assumed: the
+cadence line is `Mathf.Clamp(speedH / Mathf.Max(StrideLength, 0.1f), 0f, MaxCadence)`, and only
+`StrideLength` appears in the numerator's denominator.
+
+### The cost of the knob the user pointed at (this is the part worth saying out loud)
+The invariant 1jn introduced is *"one cycle advances the body by exactly one stride, so the planted foot
+travels with the body"*. Raise `StrideLength` and the **rate** falls correctly - but a cycle that takes
+longer must also cover **more ground** to match the same `speed`, because `cadence = speed / stride` is
+a division. So the ground a single cycle has to depict grows exactly as fast as the rate falls, and with
+the leg swing amplitude unchanged **a slower gait skates more**. The two knobs are not two settings of one
+thing: `StrideLength` trades skate for legibility, `MaxCadence` trades legibility for skate, and there is
+no setting of either that is free. That is why 1jp did **not** also raise the amplitude - `wLegAmp` /
+`rLegAmp` are pose authoring and changing them changes the silhouette, which is a different request from
+"slow it down". Recording the trade in the tooltip is the part that matters: the tooltip is what the next
+person reads while dragging the slider, and without it the field looks like a pure speed dial.
+
+### Picked 5.6 rather than 4.6, and said why
+Hypothesis: a small increment (4.3 -> 4.6) is the conservative choice. **Rejected** - the user has now
+asked twice, so a 7% cadence reduction is likely to re-open the same conversation, and the honest response
+to "more" is a change big enough to see. 5.6 is a **1.23x** further cadence reduction, landing walk at
+0.89 Hz (1.8 steps/s) and sprint at 1.79 Hz (3.6 steps/s) - a sprint at a realistic run cadence rather than
+a shuffle. It is still a single field, so a third request is one drag away, and the number is written down
+so the next turn starts from a figure rather than a guess.
+
+### Checked the value is not shadowed by a scene override
+1jf's lesson: a `[Tooltip]` field initializer is a **default**, and a default loses to whatever the scene
+stored. `PlayerAnimator` is `AddComponent`'d in `PlayerController.Animation.cs` (`_playerModelInstance
+.AddComponent<PlayerAnimator>()`), and `Select-String` on the live scene files returns **0** hits for
+`PlayerAnimator`. So there is no serialized copy anywhere and the initializer *is* the effective value -
+"the field says 5.6" and "the game runs at 5.6" are the same claim here, which is not true of most
+serialized fields in this project.
+
+### Verified the clamp that is NOT binding, so nobody hunts it later
+`MaxCadence x StrideLength` is where the ceiling first binds: at 1jn's 4.3 that was 13.8 m/s, at 5.6 it is
+**17.9 m/s**, against a 10 m/s sprint and 12.5 m/s for a +25% stacked-MoveSpeed build. So the ceiling has
+**7.9 m/s** of headroom at the sprint and is not the reason the animation looks however it looks. Anyone
+who later reads "the gait is too slow" and reaches for `MaxCadence` is about to make it *faster* - which
+is the opposite of the request. That is recorded in the tooltip as well as the docs, and the stale 13.8
+figure was corrected in `AGENTS.md` in the same pass (rule 8: changing a value invalidates every doc that
+quotes it).
+
+### Open
+- The three play-test items in `PROGRESS.md` 1jp-status. The one that decides whether this task is done is
+  the first: if the new rate still reads too fast, the next turn has a number to move from (0.89 / 1.79 Hz)
+  rather than a blank slider.
+- Whether the feet visibly skate at a sprint. If they do, that is the *documented cost of this edit*, and
+  the fix is amplitude, not stride.
+
 ## 1jo. "remove the endlag of the path predict ray" - the lag was an execution ORDER, not a smoothing curve
 
 **Shipped.** `CameraModeSwitch.cs` (framing), `SpellCaster.Cast.cs` + `PlayerController.Combat.cs` (aim

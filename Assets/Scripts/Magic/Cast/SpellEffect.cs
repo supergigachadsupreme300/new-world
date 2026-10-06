@@ -51,10 +51,28 @@ public class SpellEffect : MonoBehaviour
     /// </summary>
     private SpellLook _look;
 
-    /// <summary>1jg: flight distance accumulated since the last trail voxel was emitted. Reset
+    /// <summary>1jg/1jq: flight distance accumulated since the last trail point was laid. Reset
     /// whenever the step threshold is crossed, so a slow projectile lays the same spacing as a
     /// fast one.</summary>
     private float _trailAccum;
+
+    /// <summary>1jq: the in-flight exhaust strip. Created lazily on the first point, so nothing is
+    /// spawned for a cast that never gets a metre into the air.
+    /// <para>
+    /// The strip is <b>unparented and world-space</b> on purpose, exactly as 1jg's voxels were: it must
+    /// stay where the bolt WAS, which is the entire point of a trail. That is also why the
+    /// <c>Destroy(gameObject)</c> on impact below needs no hand-off at all — the strip is not a child,
+    /// so it survives the projectile and fades itself out on its own schedule.
+    /// </para>
+    /// <para>
+    /// Safe to leave null-checked with no reset: this component is never pooled. Both spawn paths
+    /// <c>AddComponent</c> it onto a freshly created GameObject
+    /// (<c>SpellCaster.Projectiles.cs</c>), so every projectile starts with a null trail. If it is ever
+    /// pooled, this field must be cleared in <c>Initialize</c> or a reused component would keep writing
+    /// into the previous cast's still-fading strip.
+    /// </para>
+    /// </summary>
+    private TrailStrip _trail;
 
     /// <summary>Configure the effect with spell + resolved power. Returns this for chaining.
     /// <paramref name="radiusMult"/> scales the splash/zone radius (charged casts).</summary>
@@ -158,15 +176,19 @@ public class SpellEffect : MonoBehaviour
 
         transform.position += _dir * step;
 
-        // 1jg: trail. Gated on distance travelled (not time) so spacing is identical at any
+        // 1jg/1jq: trail. Gated on distance travelled (not time) so spacing is identical at any
         // speed, and emitted here - after the move, inside the flight loop - so only a genuinely
         // flying projectile trails: a zone resolves and dies in Launch, and the static model bench
-        // and the turret's DecorateProjectile path never reach this Update at all.
+        // and the turret's DecorateProjectile path never reach this Update at all. 1jq replaced the
+        // per-step pooled CUBE with one camera-facing quad strip; the gate above it is unchanged, so
+        // the "only what genuinely flies trails" property is preserved by construction rather than by
+        // a new flag. Colour is the already-resolved _look, so the strip adds no second colour lookup.
         _trailAccum += step;
-        if (_trailAccum >= ProjectileTrail.Step)
+        if (_trailAccum >= TrailStrip.Step)
         {
             _trailAccum = 0f;
-            ProjectileTrail.Emit(transform.position, _look.Edge);
+            if (_trail == null) _trail = TrailStrip.Spawn(transform.position, _look);
+            else _trail.Push(transform.position);
         }
     }
 

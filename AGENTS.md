@@ -172,6 +172,19 @@
     so treat any imbalance you did not cause as a *finding to locate*, not a defect to fix** - and do not
     "balance" the file to make the tool green, which would edit pre-existing content to satisfy an
     instrument that was never measuring it. Locate it (`git show HEAD:` first), record it, move on.
+  - **Once the instrument strips strings and comments, the raw character count is not a baseline for it
+    - it is a DIFFERENT measurement, and quoting one as the other is a wrong number wearing a real one's
+    name.** 1jq measured its baseline the crude way (regex over the raw file: `201/201` braces,
+    `1277/1276` parens) and then ran `StaticChecks.ps1`, which reported `178/178` and `1112/1112` for the
+    *same file it had just edited*. Both were true and they disagreed, because check 1 runs the source
+    through `StripNonCode` and the crutch does not. The crutch's baseline is therefore useless as the
+    script's baseline, and the script's numbers are the only ones that can carry a pass/fail. The habit is
+    cheap: **to baseline a stripping instrument, run its own stripper over both versions** - extract
+    `StripNonCode` from the script, `Invoke-Expression` it, and count `HEAD` and `HEAD+edit` identically.
+    That returned `173/173` and `1051/1051` for the true baseline and matched the script's own `NOW` line
+    exactly, which is also the proof the extraction was aimed at the right function. So **when a crutch and
+    the real instrument disagree, the crutch is not a second opinion - it is a second, uncalibrated
+    instrument**, and the honest move is to throw away its number rather than average the two.
 - **The mirror of a qualified-reference sweep has THREE false-positive classes, and only one of them is
       a real defect.** 1jk swept every `Owner.Member` reference in the tree against the members its owner
       declares, to check whether 1jj's CS0117 had any siblings - and got 9 "unresolved" hits, of which
@@ -325,15 +338,31 @@
      - **A clamp that exists to protect legibility breaks the invariant it protects - say so where the
        knob is.** `MaxCadence` stops a fast build from becoming a blur, and above it the feet *do* slide,
        because the animation can no longer express the real speed. Compute where the clamp first binds
-       (1jn: `4.3 x 3.2 = 13.8 m/s` vs 10 m/s sprint, 12.5 m/s for a +25% perk build) and record the
-       consequence in the field's own tooltip, not only in the design doc - the tooltip is what the next
-       person reads while dragging the slider.
-     - Corollary for "too fast" reports: **ask whether the art parameter or the character speed is the
-       lever before touching either.** 1jn's base speeds were already `MoveSpeed 5f` x
-       `SprintMultiplier 2f` = a 5 m/s walk and a 10 m/s sprint, so at 10 m/s *no* honest cadence is
-       slow. Slowing the character is a gameplay change and not the one that was asked for; lengthening
-       the stride buys fewer, bigger steps and leaves the feel alone. Two halves of one report being one
-       lever is worth establishing before asking the user to choose.
+(1jn: `4.3 x 3.2 = 13.8 m/s`; after 1jp: `5.6 x 3.2 = 17.9 m/s`, vs 10 m/s sprint, 12.5 m/s for a
+        +25% perk build) and record the
+        consequence in the field's own tooltip, not only in the design doc - the tooltip is what the next
+        person reads while dragging the slider.
+      - Corollary for "too fast" reports: **ask whether the art parameter or the character speed is the
+        lever before touching either.** 1jn's base speeds were already `MoveSpeed 5f` x
+        `SprintMultiplier 2f` = a 5 m/s walk and a 10 m/s sprint, so at 10 m/s *no* honest cadence is
+        slow. Slowing the character is a gameplay change and not the one that was asked for; lengthening
+        the stride buys fewer, bigger steps and leaves the feel alone. Two halves of one report being one
+        lever is worth establishing before asking the user to choose.
+      - **The knob a user calls "the animation speed" is the one whose side effects they have NOT seen,
+        so say what the second knob does before you turn it again.** 1jp asked for the same slowdown 1jn
+        had just shipped, and the naive answer was to raise `StrideLength` again - which *is* the rate knob,
+        and which quietly trades against foot skate, because a slower cycle must cover *more* ground to keep
+        up with the same speed. The two levers are: **slow the rate** (`StrideLength` up, more skate) or
+        **cap it** (`MaxCadence` up, less skate, but then it stops reading as slow). 1jp shipped the rate
+        change the user asked for and recorded the trade in both the tooltip and the design doc rather than
+        silently pairing it with an amplitude bump. Three habits: **a tuning knob usually has a partner
+        knob, and the pair moves in opposite directions** - find it by asking what invariant the first one
+        is protecting (`StrideLength` protects foot planting; `MaxCadence` protects legibility); **quantify
+        where a clamp first binds** so you can tell whether it is even live
+        (`MaxCadence x StrideLength` vs the character's top speed - 17.9 vs 10 m/s, so it is not); and
+        **never answer a second "also slow it" with the same edit and no new number**, because the user's
+        second ask is evidence the first did not land far enough - re-read what the first number actually
+        produced rather than incrementing blind.
    - **A one-frame lag is a WRITE ORDER, and the file that reads the value is not the file that writes
      it.** 1jo's "endlag of the path predict ray" was a phase mismatch, not a smoothing curve: the aim
      preview is built in `PlayerController.Update`, while `CameraModeSwitch` writes the camera transform in
@@ -507,8 +536,26 @@
      `Ã‚Â§2.2`. None of these can fail a compile or a static check - they are the *narrative* around a
      change, which is precisely what no tool in this repo reads. So when an edit introduces or renames
      a symbol, **grep the new comment for the symbol it names and confirm the declaration exists**, and
-     when it cites a doc section, confirm the heading is still where it was. A comment that documents
-     a path that is not taken is worse than no comment: the next reader sizes a decision on it.
+when it cites a doc section, confirm the heading is still where it was. A comment that documents
+      a path that is not taken is worse than no comment: the next reader sizes a decision on it.
+    - **A "guarantee" comment that asserts a MECHANISM must be checked against the guard's actual exit
+      conditions, and code that exists only to satisfy a wrong mechanism is worse than no code.**
+      1jq's `TrailStrip.Spawn` pushed the spawn position **twice**, with a comment claiming this
+      "guarantees a legal segment on the first `Update`" because "letting it take the too-few-points
+      early-out would destroy the trail 0.3 m after it was born". Both halves were false: `Update`
+      destroys only on `_count == 0`, and returns harmlessly on `_count < 2`, so a one-point strip
+      survives on its own. The duplicate therefore bought nothing - and it actively *corrupted a
+      measurement*, because a strip with a zero-length first segment reported `1` segment / `2` triangles
+      while having no visible geometry. That is rule 8's stale-comment failure with extra confidence
+      (the comment asserted a control-flow fact, which is exactly the kind of claim no compiler or grep
+      checks) plus 1ik's "an absent measurement and a measurement of zero are different": `VertexCount`
+      was returning `_count * 2` for a mesh nothing had been written into. Three habits:
+      - **Re-read the guard, not the comment, before trusting what an early return does.** The claim was
+        about one line (`_count == 0` vs `_count < 2`) and one read settled it.
+      - **A defensive duplicate is a cost, so it has to be justified in the present tense.** "The first
+        frame would break without it" is a claim about the code as it now stands, re-verifiable on demand.
+      - **A count of geometry must count only geometry that exists.** Any `*Count`/`*Count` readback
+        should ask what a degenerate input makes it report, and the answer should be 0.
    - **A task id is a copy of a fact about the repo's history, and the copy is written LAST â€” so
      "grep before you edit" cannot cover it.** 1ip wrote `1io` into four places (the code comment, the
      `game-design.md` bullet, the `PROGRESS.md` and `THINKING.md` headings) and `1io` is a **real
@@ -1173,7 +1220,8 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
 
 19. **A per-frame effect belongs in the loop that runs while it MOVES, not in the shape factory - and
     the reason is the factory's other callers, which are all static.** 1jg added an in-flight voxel trail
-    (`ProjectileTrail`, in `Assets\Scripts\Magic\Fx\`) and the obvious home was
+    (**1jq replaced it** with `TrailStrip`, still in `Assets\Scripts\Magic\Fx\`, a single camera-facing
+    quad strip; the placement rule below is unchanged and is what made the rewrite a drop-in) and the obvious home was
     `MagicProjectileModelBuilder.AttachDefaultProjectileVisual`, where every projectile body is born. It has **three** callers and only one is a projectile in flight: the other
     two are `NewWorldTestGround`'s spell band (every castable spell drawn as a **motionless pedestal**)
     and `SpellCaster.DecorateProjectile` (a summoned turret's bolt, which never flies). A trail emitted

@@ -84,12 +84,17 @@ public sealed class PlayerAnimator : MonoBehaviour
     [Tooltip("Metres the body travels per FULL gait cycle (two steps: left forward, right forward). "
         + "The cadence is speed / stride, so one cycle advancing the body by exactly this much is what "
         + "keeps the feet planted instead of sliding. Bigger stride = fewer, longer steps. "
-        + "The default 4.3 puts a 5 m/s walk at ~1.15 Hz and a 10 m/s sprint at ~2.33 Hz.")]
-    public float StrideLength = 4.3f;
+        + "The default 5.6 puts a 5 m/s walk at ~0.89 Hz and a 10 m/s sprint at ~1.79 Hz.")]
+    public float StrideLength = 5.6f;
 
     [Tooltip("Hard ceiling on the gait cycle rate (Hz), so a very fast build cannot turn the run "
         + "into a blur. Above the ceiling the feet DO slide, because the animation can no longer "
-        + "express the real speed - raise this before raising StrideLength if the legs skate.")]
+        + "express the real speed - raise this before raising StrideLength if the legs skate. "
+        + "1jp: the two knobs trade against each other, and StrideLength is the one that reads as "
+        + "'slower animation'. Raising it lowers the rate but lengthens the ground covered per cycle, "
+        + "so a slower gait skates more unless the leg swing amplitude goes up with it. At the 5.6 "
+        + "default this ceiling first binds at ~17.9 m/s, far above the 10 m/s sprint, so it is not "
+        + "what is setting the on-screen rate.")]
     public float MaxCadence = 3.2f;
 
     /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>

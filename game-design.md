@@ -621,17 +621,18 @@ in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the f
   live on the boot root and backs the high-churn cosmetic spawns — spell **impact VFX** (the
   direct-hit `ImpactEffectPrefab` path), the **excavation debris** burst from `SpawnCraterDebris`
   (tool digs and zone/storm/summon strikes; magic projectile impacts pass `emitDebris:false` and
-  instead play the script-built exploding sphere below, §3.7), and **1jg's in-flight projectile trail
-  voxels** (emitted from the flight loop, recycled after `ProjectileTrail.Life`).
+  instead play the script-built exploding sphere below, §3.7). **1jq removed 1jg's projectile trail
+  from the pooler entirely**: the trail is no longer a stream of pooled cubes but a single
+  camera-facing quad strip that owns one pre-sized mesh and fades itself, so it has nothing to pool
+  and no longer appears in this list.
   `ObjectPooler.SpawnTransient` uses the pool when present and falls back to plain
   `Instantiate`+`Destroy` otherwise; pooled particle effects replay from frame 0 on reuse (`Clear`+
   `Play`). Debris cubes and impact effects are fully rewritten on every use (position/scale/material/
   velocity), so pooling is invisible apart from the allocation drop. **1jh's projectile-impact rock
   chips share `SpawnCraterDebris`'s cube template and therefore its pool**, so the two burst kinds
-  recycle through one queue rather than doubling the pool's object count. A trail voxel's colour is
-  likewise
-  rewritten per emit, and `Renderer.material` caches its per-renderer instance **on the pooled object**,
-  so the tint costs one allocation per pooled voxel over its whole lifetime rather than one per emit.
+  recycle through one queue rather than doubling the pool's object count. (The per-emit
+  `Renderer.material` allocation note below applied to the trail voxels 1jq deleted and no longer
+  describes anything live.)
   Enemy death debris (the model
   parts themselves) and loot drops are deliberately **not** pooled — they are structural/persistent,
   not transient clones.
@@ -1451,16 +1452,21 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
     planar speed**, not a fixed ladder. The old rule was `cadence = 1.8 + norm * 2.0` Hz, whose large constant
     floor made even a slow walk cycle at ~2.8 Hz and put a sprint at **3.8 Hz = 7.6 steps a second** - far
     past the point where the cycle can be read. It is now `cadence = speed / StrideLength` (`StrideLength`
-    4.3 m per **full** cycle, i.e. two steps), which is the physically honest relationship: one cycle advances
-    the body by exactly one stride, so the feet plant instead of skating, and the rate rises and falls with
-    real speed for free. Walk 5 m/s lands at **1.16 Hz (2.3 steps/s)**, sprint 10 m/s at **2.33 Hz
-    (4.65 steps/s)** - a 2.4x / 1.7x slowdown from the same character speed. The reason a *longer* stride is
-    the lever, rather than a slower character, is that the base speeds are already a jog and a sprint
-    (`MoveSpeed 5f` x `SprintMultiplier 2f`), so any honest cadence at 10 m/s is fast; 4.3 m buys fewer,
-    bigger steps. Two honest caveats: `MaxCadence` (3.2 Hz) is a hard ceiling, and **above it the feet do
-    slide**, because the animation can no longer express the real speed - it first binds at 13.8 m/s, clear of
-    sprint and of a +25% stacked-MoveSpeed build, and it is the knob to raise before raising `StrideLength`
-    if the legs skate. And `norm` (which drives the **pose** blend - arm/knee swing, the forward lean) still
+    **5.6 m** per **full** cycle, i.e. two steps, raised from 4.3 by 1jp), which is the physically honest
+    relationship: one cycle advances the body by exactly one stride, so the feet plant instead of skating,
+    and the rate rises and falls with real speed for free. Walk 5 m/s lands at **0.89 Hz (1.8 steps/s)**,
+    sprint 10 m/s at **1.79 Hz (3.6 steps/s)**. The reason a *longer* stride is the lever, rather than a
+    slower character, is that the base speeds are already a jog and a sprint
+    (`MoveSpeed 5f` x `SprintMultiplier 2f`), so any honest cadence at 10 m/s is fast; 5.6 m buys fewer,
+    bigger steps. **The two rate knobs trade against each other**, and this is worth stating plainly because
+    1jp had to choose between them: `StrideLength` is the one that reads as "slower animation", and raising
+    it lowers the cycle rate but also lengthens the ground a single cycle has to cover, so **a slower gait
+    skates more** unless the leg swing amplitude is raised with it. `MaxCadence` (3.2 Hz) is the opposite
+    lever - above it the feet **do** slide, because the animation can no longer express the real speed, and
+    it is the knob to raise if the legs skate at a rate you are happy with. At the 5.6 m default it first
+    binds at ~17.9 m/s, clear of sprint and of a +25% stacked-MoveSpeed build (12.5 m/s), so it is **not**
+    what sets the on-screen rate. And `norm` (which drives the **pose** blend - arm/knee swing, the forward
+    lean) still
     normalises against the raw `MoveSpeed`/`SprintMultiplier` fields, so it does not see the perk or water
     multipliers the measured speed does; a stacked build therefore poses slightly short of a full run while
     its legs keep the correct rate.
@@ -1966,36 +1972,94 @@ else→Sphere. Builders live in `MagicProjectileModelBuilder.BuildProjectileBody
 (cube primitives only, via the `Cluster` / `AddTrailingFlecks` helpers), colored per damage type;
 **since `1eb` the body is fully static — no exhaust particles and no in-flight pulse** (the old `OrbFx`
 scale-pulse/spin modes and the `AttachProjectileParticles` exhaust `ParticleSystem` were removed): the body
-is one static shape that only moves. What a *flying* projectile additionally costs is **1jg's world-space
-voxel trail** (below) plus its `SpellEffect`; turret summons render the projectile through the same call
+is one static shape that only moves. What a *flying* projectile additionally costs is **1jq's world-space
+trail strip** (below) plus its `SpellEffect`; turret summons render the projectile through the same call
 (`SpellSummon` passes the turret spell's shape). Translucency (Wind/Ice) is set via
 `material.color.a` and relies on the `"Sprites/Default"` shader blending (the `"Unlit/Color"`
 fallback would render opaque).
 
-**In-flight voxel trail (1jg):** every flying projectile leaves a short exhaust of small cubes at the
-positions it has already passed through. `ProjectileTrail.Emit` is driven from `SpellEffect.Update` and
-gated on **distance travelled** (one voxel per `Step` = 0.3 m, never per frame, so a fast bolt and a slow
-one lay the same spacing instead of one drawing a dotted line and the other a ribbon); each voxel is
-5-9 cm with a random rotation and is recycled after `Life` = 0.35 s by the 1e6 pooler. The taper is
-**age, not alpha** — older voxels are simply closer to being recycled, which reads as comet exhaust with
-no per-voxel fade, no alpha ramp, and no `Update` of its own. Colour is `SpellLook.Edge`, the two-tone
-member documented for "rim, trails, shards", already resolved once on the projectile by
-`SpellEffect.Initialize`, so the trail adds no second colour lookup and derives nothing.
+**In-flight trail strip (1jq, replacing 1jg's voxel trail):** every flying projectile leaves a short
+exhaust behind it, as **one camera-facing quad strip** — one GameObject, one `MeshRenderer`, one draw
+call, one pre-sized vertex buffer rewritten in place. `TrailStrip.Push` is driven from
+`SpellEffect.Update` and gated on **distance travelled** (one point per `Step` = 0.3 m, never per
+frame, so a fast bolt and a slow one lay the same spacing instead of one drawing a dotted line and
+the other a solid ribbon). Each point's cross-section is offset perpendicular to both the local tangent
+and the camera forward, and the tangent is the **average of the adjacent segments** so the shared
+boundary vertices of neighbouring quads get the same offset and the strip cannot tear at a joint. The
+strip is **0.10 m wide at the head and 0 at the oldest point**, and its alpha ramps from 0 at the
+tail to the spell colour's alpha at the head, so it reads as exhaust. `Life` = 0.35 s and `Step` =
+0.3 m are **carried over unchanged** from 1jg, and `MaxPoints` = 29 is *derived* from them rather
+than chosen: the fastest authored magic projectile is 22 m/s, so `22 × 0.35 / 0.3 = 25.7` segments
+live at once, and 29 gives headroom. When it fills, the **oldest** point is dropped — the tail
+shortens, the arrays never grow and nothing is allocated per frame.
 
-Two placement rules, which are why it is **not** in the model builder: `MagicProjectileModelBuilder` is a
-one-shot shape factory with no per-frame behaviour, and it is shared by the **static** model bench
-(`NewWorldTestGround`'s spell band draws every castable spell as a motionless pedestal) and by
-`SpellCaster.DecorateProjectile` (a turret's bolt, which never flies) — a trail emitted there would hang a
-row of cubes on a pedestal that never moves. So emission lives in the flight loop, which only runs while a
-projectile is genuinely travelling: a Zone resolves and destroys itself in `Launch` *before* `_launched`
-is set, so it never trails, and neither the bench nor a turret bolt ever reaches `Update`. Trail voxels
-are cosmetic and carry **no collider**, so the projectile's own raycasts, the ground probe and the
-player's controller cannot hit them, and they are world-space and unparented — staying where the bolt
-was is the entire point.
+**What this replaced, and why it was worth replacing.** 1jg emitted one pooled cube per `Step`, each
+living `Life` seconds, which at the default 20 m/s is **~23 live cubes per flying projectile** — 23
+GameObjects, 23 `MeshRenderer`s (so 23 draws) and 23 `MonoBehaviour`s ticking `Update` every frame.
+The pooling did not actually make that cheap: `ObjectPooler.Return(go, delay)` does
+`AddComponent<ReturnTimer>()` on **every** emit, and `ReturnTimer.Update` then calls
+`Destroy(gameObject)` when it expires, so each voxel cost a fresh native component create plus a
+deferred destroy per life. The strip replaces all of that with 1 GameObject, 1 renderer, 1 `Update`
+and no per-frame allocation.
+
+Two properties that changed shape rather than merely persisting:
+
+- **The gradient is now authored, not borrowed.** 1jg got its taper for free from voxels expiring —
+  "age, not alpha". A single strip cannot borrow that, so the width ramp and the alpha ramp are both
+  explicit (`TailHalfWidth`/`HeadHalfWidth` and a per-vertex alpha from 0 at the oldest point).
+- **Nothing needs a hand-off at impact.** The strip is world-space and **unparented**, exactly as the
+  voxels were, so `SpellEffect`'s `Destroy(gameObject)` on impact needs no work at all — the strip is
+  not a child, it keeps lying where the bolt *was*, and it destroys itself when its last point ages
+  out. The visible cost of that is that the last ≤`Step` of approach is not drawn; the bolt's own
+  body covers it.
+- **A missing camera is handled, not crashed on.** `Update` re-reads `Camera.main` while it is null
+  and, if there is still none, keeps the last good shape for a frame rather than building the strip
+  from a fabricated forward vector — a strip frozen for a frame is invisible, and a strip built from
+  a guessed forward is wrong on screen. A sighting straight down the strip makes tangent and camera
+  forward parallel and the cross product degenerate; that reuses the previous frame's side vector
+  before falling back to world-up, which is why the side vector is carried on the component.
+
+Colour is `SpellLook.Edge`, the two-tone member documented for "rim, trails, shards", already
+resolved once on the projectile by `SpellEffect.Initialize`, so the trail adds no second colour lookup
+and derives nothing. It travels in the **mesh's vertex colours**, not in a material, which is why a
+single shared material serves every strip of every school: the strips differ per cast, the material
+does not. Strip colliders are absent **by design** — the Numpad8 lane counts them as its known-zero
+control, precisely because a trail that acquired a collider would cost physics it never needs.
+
+Two placement rules, which are why the trail is **not** in the model builder, and which 1jq kept
+unchanged: `MagicProjectileModelBuilder` is a one-shot shape factory with no per-frame behaviour, and
+it is shared by the **static** model bench (`NewWorldTestGround`'s spell band draws every castable
+spell as a motionless pedestal) and by `SpellCaster.DecorateProjectile` (a turret's bolt, which never
+flies) — a trail emitted there would hang a strip in mid-air on a pedestal that never moves. So
+emission lives in the flight loop, which only runs while a projectile is genuinely travelling: a Zone
+resolves and destroys itself in `Launch` *before* `_launched` is set, so it never trails, and neither
+the bench nor a turret bolt ever reaches `Update`.
+
+**Acceptance readout (1jq) — bench key Numpad8.** The proposal behind this rewrite was entirely about
+cost, so the lane that can judge it counts **components and geometry**, not milliseconds:
+`NewWorldTestGround.EnableTrailAudit` + `SnapshotTrailAudit` reports live strips, how many were
+actually **rendered** (`Renderer.isVisible`, which is the difference between "exists" and "drawn"),
+per-strip and total segments / vertices / triangles, and prints `MaxPoints`-derived caps beside them.
+Two deliberate details:
+
+- **The verdict is scoped to where a positive result is *possible*.** A bolt's first `Step` of flight
+  has a strip with **no segments** and therefore nothing to draw, so the lane splits not-drawn strips
+  into `young (no geometry yet)` and `undrawn WITH geometry`, and only the latter can read `FAULT`.
+  Counting the young ones as faults would have buried the one real signal.
+- **The collider count is a known-zero control**, zero by design, so a run reporting strips-with-colliders
+  > 0 proves the count is lying. A trail that acquired a Collider would cost physics it never needs.
+
+It is read-only (rule 7): it counts what is in the scene on the frame the key was pressed, and spawns
+and changes nothing. What it **cannot** report is whether the strip sits flush with the ground or how
+the taper reads on screen — "drawn" and "flush" are separate properties, so the look is a play-test
+item and the numbers are not a substitute for it. Numpad8 was verified free across all three Input
+System spellings before use, and `tools\StaticChecks.ps1` check 8 enforces the no-double-binding half
+mechanically; 1jq also corrected the crater lane's stale "Numpad0-9 are free" tooltip, which had
+stopped being true when 1je took Numpad1.
 
 Do not confuse this with the **model's** "trailing flecks" (`AddTrailingFlecks`, and the flecks named in
 the table rows above): those are parented to the bolt body and travel *with* it, so they are part of the
-silhouette and they show up on the static bench. The 1jg trail is left behind in the world and shows up
+silhouette and they show up on the static bench. The 1jq trail is left behind in the world and shows up
 only in flight.
 
 #### Casting Flow

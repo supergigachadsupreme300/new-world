@@ -1,3 +1,102 @@
+## 1jq. The projectile trail is one camera-facing strip, not ~23 pooled cubes
+
+**Status: SHIPPED, unverified.** `Assets/Scripts/Magic/Fx/TrailStrip.cs` (new),
+`Assets/Scripts/Magic/Cast/SpellEffect.cs`; `ProjectileTrail.cs` + `.meta` **deleted**;
+`Assets/Scripts/Opt/NewWorldTestGround.cs` (+ `game-design.md`, `AGENTS.md`, `PROGRESS.md`,
+`THINKING.md`). **Verified by grep + reread; no Unity build** (rule 3).
+`tools\StaticChecks.ps1` -> **0 candidates**, and check 8 now lists **6** lane keys including
+`Numpad8` with no second binding anywhere in `Assets\Scripts`. `NewWorldTestGround.cs` balance delta
+vs a `StripNonCode`-calibrated `git show HEAD:` baseline: braces **+5/+5**, parens **+61/+61**.
+**skills: `scenario-unity-vfx` loaded** - informative only, not authoritative (rule 15): it supplied the
+trail/camera-facing conventions and the per-frame-allocation reasoning, and it cannot verify anything
+here because rule 3 forbids driving a Unity build.
+
+**What changed.** `ProjectileTrail` emitted one pooled 5-9 cm cube every `Step` = 0.3 m, each living
+`Life` = 0.35 s. At the default 20 m/s that is **~23 live cubes per flying projectile**: 23 GameObjects,
+23 `MeshRenderer`s (23 draws), 23 `MonoBehaviour`s ticking every frame - and the pooling did not make it
+cheap, because `ObjectPooler.Return(go, delay)` does `AddComponent<ReturnTimer>()` on **every** emit and
+`ReturnTimer.Update` then calls `Destroy(gameObject)`, so each voxel cost a native component create plus
+a deferred destroy per life. `TrailStrip` is **one** GameObject, one `MeshRenderer`, one `Update`, one
+pre-sized vertex buffer rewritten in place with **no per-frame allocation**. It is camera-facing
+(each cross-section offset perpendicular to both the local tangent and `Camera.main.forward`), tapered
+**0.10 m at the head to 0 at the oldest point**, with a matching alpha ramp, and it self-destructs when
+its last point ages out.
+
+`Step` (0.3 m) and `Life` (0.35 s) are **carried over unchanged**, and `MaxPoints` = 29 is derived from
+them rather than chosen: the fastest authored magic projectile is 22 m/s, so `22 x 0.35 / 0.3 = 25.7`
+segments are live at once and 29 gives headroom. On overflow the **oldest** point is dropped, so the tail
+shortens and the arrays never grow. Colour is the already-resolved `SpellLook.Edge` carried in the
+**mesh's vertex colours**, which is why one shared material serves every strip of every school - so the
+strip adds no second `SpellLook.Resolve` and derives no colour of its own (rule 13). Emission stayed in
+`SpellEffect.Update` behind its existing `if (!_launched) return;` gate, which is 1jg's placement rule
+and is what keeps the static spell bench and the turret's `DecorateProjectile` bolt from hanging a
+strip on a pedestal that never moves.
+
+**Two things the rewrite did not inherit for free.** The old taper was **age, not alpha** - voxels got
+their gradient for free from expiring, so a single strip must author both ramps explicitly. And because
+the strip is world-space and **unparented** (as the voxels were), `SpellEffect`'s `Destroy(gameObject)`
+on impact needs no hand-off at all: the strip simply keeps lying where the bolt *was* and deletes
+itself. The visible cost is that the last <= `Step` of approach is not drawn; the bolt's body covers it.
+
+**Two defects found by rereading my own new file, both fixed here** (neither could have been caught by a
+grep or by `StaticChecks.ps1`):
+- `Spawn` pushed the spawn point **twice**, with a comment claiming this "guarantees a legal segment on
+  the first `Update`" because the too-few-points early-out "would destroy the trail 0.3 m after it was
+  born". **Both halves were false** - `Update` destroys only on `_count == 0` and returns harmlessly on
+  `_count < 2`, so a one-point strip survives on its own. The duplicate bought nothing *and corrupted the
+  measurement*, since a zero-length first segment reported `1` segment / `2` triangles with no visible
+  geometry. Removed; the comment went with it (rule 8's "a comment that documents a path that is not
+  taken is worse than no comment", in its sharpest form - it asserted a control-flow fact).
+- `VertexCount` returned `_count * 2` even when `_count < 2`, i.e. it reported 2 vertices for a mesh
+  nothing had been written into. Now 0 unless there is a segment (1ik: an absent measurement and a
+  measurement of zero are different). `Spawn` also seeds the mesh bounds at the spawn point now that a
+  one-point strip lives for its first 0.3 m with an empty mesh.
+
+### 1jq-status
+- [ ] **Look at a trail in flight (this is the part no check can judge)** - tapewidth, whether the tail
+      fades the way you want, and whether the colour reads as the spell's. It is `Sprites/Default`
+      alpha-blended, **not** additive, so it will read softer than the old voxels; say if you want it
+      hotter and that becomes one shader/material change, not a rewrite.
+- [ ] **Press Numpad8 mid-flight** - expect `1 live, 1 drawn`, `0 undrawn WITH geometry` after the first
+      0.3 m, and `0 strips with a Collider`. `undrawn WITH geometry` > 0 means the hand-set mesh bounds
+      or a missing camera, and that is the number the headline is built around.
+- [ ] **Confirm the trail does not linger after impact** - it should fade out on its own within ~0.35 s.
+- [ ] **Fire the fastest spell (Continuous Fireball, 22 m/s)** - this is the one that fills the buffer,
+      so it is where `MaxPoints` = 29 is either enough headroom or visibly truncating the tail.
+- [ ] **Check a Zone, the static spell bench and a turret bolt** - all three must show **no** trail.
+
+## 1jp. The moving animation, slower again (StrideLength 4.3 -> 5.6 m)
+
+**Status: SHIPPED, unverified.** `Assets/Scripts/Animation/PlayerAnimator.cs` (+ `game-design.md`,
+`AGENTS.md`, `PROGRESS.md`, `THINKING.md`). **Verified by grep + reread; no Unity build** (rule 3).
+`tools\StaticChecks.ps1` -> 0 candidates; brace/paren deltas 0 on all five files against `git show HEAD:`
+baselines. **skills: none applied** - same call as 1jn/1jo, the Unity skills target the editor/CLI and
+Animator/import pipelines, and neither can verify a procedural pose.
+
+One field: `StrideLength` 4.3 -> **5.6 m** per full cycle. `cadence = speed / StrideLength` is unchanged,
+so the rate moves by the inverse - walk 5 m/s **1.16 -> 0.89 Hz (2.33 -> 1.79 steps/s)**, sprint 10 m/s
+**2.33 -> 1.79 Hz (4.65 -> 3.57 steps/s)**. A further 1.23x slower than 1jn, from the same character
+speeds. `MaxCadence` (3.2 Hz) left alone: at 5.6 m it first binds at ~17.9 m/s, still clear of the 10 m/s
+sprint and the 12.5 m/s +25% build, so it is not what sets the on-screen rate.
+
+**The honest part, which is in the field's own tooltip:** the knob that reads as "slower animation" is
+`StrideLength`, and it is *also* the knob that lengthens the ground a single cycle must cover. A slower
+cycle has to travel further per cycle to keep up with the same speed, so **slowing the gait increases foot
+skate** unless the leg swing amplitude rises with it. The partner knob moves the other way: `MaxCadence`
+trades skate for legibility, which is exactly why it is the one you do **not** raise to slow things down.
+I shipped the rate change that was asked for and did not silently pair it with an amplitude bump - the
+amplitude (`wLegAmp` / `rLegAmp`) is pose authoring, and changing it changes the silhouette, which is a
+different request.
+
+### 1jp-status
+- [ ] **Walk and sprint and confirm the new rate** - walk 1.8 steps/s, sprint 3.6 steps/s. If it still
+      reads too fast, tell me and I will move `StrideLength` again; do not assume another nudge lands.
+- [ ] **Watch the feet at a sprint** - this is the trade 1jp makes explicit. Slower cycle, more ground per
+      cycle, so any skate you see is the cost of the slower rate, not a new bug. If it bothers you, the
+      honest fix is a larger leg swing, not a faster cycle.
+- [ ] **Re-check the walk->sprint transition** - two rates that are now closer together in feel
+      (0.89 vs 1.79 Hz rather than 1.16 vs 2.33) can make the blend read differently.
+
 ## 1jo. Camera further right (0.6 -> 0.9 m) + the path-preview ray no longer trails the camera
 
 **Status: SHIPPED, both unverified.** `CameraModeSwitch.cs`, `SpellCaster.Cast.cs`, `PlayerController.Combat.cs`
