@@ -52,6 +52,19 @@ public sealed class CameraModeSwitch : MonoBehaviour
     private CameraFollow _follow;
     private Vector3 _velocity;
 
+    /// <summary>1jv (QA, read-only): the boom's length BEFORE the collision clamp, in metres.
+    /// Published by UpdateThirdPerson from its own `targetDist` local rather than recomputed by the
+    /// audit lane, so the lane cannot hold a second spelling of the boom vector that rots when this
+    /// file's geometry changes (rule 7's "never re-derive a private formula"). 0 until the first
+    /// UpdateThirdPerson runs, which is why the lane gates on the mode check first.</summary>
+    public float BoomRestLength { get; private set; }
+
+    /// <summary>1jv (QA, read-only): the boom length actually APPLIED, after the collision clamp.
+    /// Equal to <see cref="BoomRestLength"/> whenever nothing is obstructing the boom. Comparing
+    /// this against the measured camera-to-pivot distance separates "the boom got shorter" (this
+    /// moved) from "the camera is trailing past the boom's end" (this held).</summary>
+    public float BoomAppliedLength { get; private set; }
+
     // Perf (§OPT): terrain-collision SphereCast every frame in third person; re-run at ~10 Hz
     // and reuse the cached clamp distance between casts.
     private const float CollisionCheckInterval = 0.1f;
@@ -175,6 +188,8 @@ public sealed class CameraModeSwitch : MonoBehaviour
         Vector3 toCam = (desired - pivotPos).normalized;
         float targetDist = Vector3.Distance(pivotPos, desired);
         float finalDist = targetDist;
+        // 1jv: publish the unclamped length from the local that produced it (see BoomRestLength).
+        BoomRestLength = targetDist;
         _collisionTimer -= Time.deltaTime;
 
         // A cached DISTANCE is only meaningful along the direction it was measured on, and `toCam`
@@ -201,6 +216,9 @@ public sealed class CameraModeSwitch : MonoBehaviour
         }
         if (_cachedFinalDist >= 0f)
             finalDist = Mathf.Min(finalDist, _cachedFinalDist);
+        // 1jv: publish the clamped length alongside it, so the QA lane can tell a shorter boom
+        // apart from a camera trailing past a full-length one.
+        BoomAppliedLength = finalDist;
         desired = pivotPos + toCam * finalDist;
 
         _camera.transform.position = Vector3.SmoothDamp(

@@ -128,6 +128,46 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private string _trailAuditText;
 
     // ---------------------------------------------------------------------------------------------
+    // (1jv) Camera-boom audit: is the camera's distance from the player changing, and what drives it.
+    //
+    // WHY A LANE AND NOT A FIX: the report was "the camera is continuously bugging when moving" plus
+    // "snaps in and out / zooms, everywhere even on flat open ground". Two mechanisms were derivable
+    // from the code and they need different fixes, and the first hypothesis (the collision clamp)
+    // was FALSIFIED by the answer - the boom rises 1.1 m over 6.65 m, so it cannot hit flat ground.
+    // The survivors are the position smoother changing the boom's EFFECTIVE length with movement
+    // direction, and the boom swinging with mouse yaw. Both make the distance move, so the number
+    // alone cannot tell them apart - the CONTROLS do. Hence rule 7's measure-first.
+    //
+    // WHAT MAKES THE VERDICT TRUSTWORTHY: the sections are ordered by whether their PREMISE holds.
+    // In first person this camera snaps to the pivot and cannot zoom at all, so every distance below
+    // would be describing a camera that is not the boom - the mode check runs FIRST and the rest of
+    // the report is void without it. The window and its length are printed beside every number, so a
+    // zero means "not measured over these frames", never "did not happen".
+    //
+    // READ-ONLY (rule 7): it samples transforms and two numbers CameraModeSwitch publishes. It does
+    // not rebuild, re-stamp, force a poll, teleport the player, or write anything the camera reads.
+    [Tooltip("QA (1jv): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Read-only by rule 7: samples transforms and reads two published floats, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
+    public bool EnableBoomAudit = true;
+    [Tooltip("QA (1jv): key that reports the third-person camera boom readout. Numpad2, chosen the way F13's / Numpad1's / Numpad8's were - by grepping all three Input System spellings ('Key.Numpad2', '.numpad2Key', '[Key.Numpad2]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jv: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 is this lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene. Numpad0 and Numpad3-Numpad9 are now free - the 'Numpad2-Numpad9 are free' sentence in the three tooltips above is STALE, this lane took Numpad2. See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
+    public Key BoomAuditKey = Key.Numpad2;
+    private string _boomAuditText;
+
+    // Trailing window for the boom readout. A single frame cannot catch a transient, and 'snaps in
+    // and out' IS a transient, so the trackers are fed every frame and the key only READS the
+    // trailing window - the report describes the frames that ran UP TO the press (same convention
+    // as the 1ik frame-budget lane). 120 frames is ~2 s at 60 fps: long enough to contain a couple of
+    // direction changes while running, short enough that the player need not keep running.
+    private const int BoomWindow = 120;
+    private readonly float[] _boomDist = new float[BoomWindow];
+    private readonly float[] _boomSpeed = new float[BoomWindow];
+    private readonly float[] _boomRest = new float[BoomWindow];
+    private readonly float[] _boomApplied = new float[BoomWindow];
+    private readonly bool[] _boomClamped = new bool[BoomWindow];
+    private int _boomHead;
+    private int _boomFilled;
+    private bool _boomTrackable;
+
+    // ---------------------------------------------------------------------------------------------
     // (1ik) Frame-budget attribution lane: a continuous passive sampler plus one snapshot key.
     //
     // WHY A WINDOW AND NOT THE SINGLE FRAME: a frame time over one frame is noise, and a CPU/GPU
@@ -1389,6 +1429,18 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunSafely("trail audit", SnapshotTrailAudit);
         }
 
+        // 1jv: the camera-boom lane. The TRACKER runs every frame (the key only reads its window) and
+        // both sit above the early returns, with the other lanes, for the same reason - a lane below
+        // them could report nothing. RunSafely, like every other lane here.
+        if (EnableBoomAudit)
+        {
+            TrackBoomFrame();
+            Keyboard kbBoom = Keyboard.current;
+            if (kbBoom != null && kbBoom[BoomAuditKey] != null
+                && kbBoom[BoomAuditKey].wasPressedThisFrame)
+                RunSafely("boom audit", SnapshotBoomAudit);
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -1945,7 +1997,174 @@ private static string Describe(in SpellLook look)
     /// a filler number: a strip that acquired a Collider would cost physics time it never should.
     /// </para>
     /// </summary>
-    private void SnapshotTrailAudit()
+    /// <summary>1jv: feed the boom lane's trailing window. Runs EVERY frame - the key only reads the
+/// window, because "snaps in and out" is a transient and a single frame cannot catch one. Strictly
+/// read-only: reads two transforms and two published floats, writes only its own arrays.</summary>
+      private void TrackBoomFrame()
+      {
+          var gm = GameManager.Instance;
+          var player = gm != null ? gm.Player : null;
+          PlayerController ctrl = player != null ? PlayerControllerCached(player) : null;
+          Camera cam = Camera.main;
+          Transform pivot = ctrl != null ? ctrl.PlayerCameraPivot : null;
+          CameraModeSwitch mode = ctrl != null ? ctrl.GetComponent<CameraModeSwitch>() : null;
+
+          // PREMISE gate. In first person this camera snaps to the pivot every frame and cannot zoom
+          // at all, so a distance sampled then describes a camera that is not the boom. Reset the
+          // window instead of recording a number that cannot mean anything - a lane that reports a
+          // confident figure about the wrong camera is worse than one that reports nothing.
+          _boomTrackable = ctrl != null && cam != null && pivot != null && mode != null
+                           && !mode.IsFirstPerson;
+          if (!_boomTrackable)
+          {
+              _boomHead = 0;
+              _boomFilled = 0;
+              return;
+          }
+
+          Vector3 pp = pivot.position;
+          // Speed from the pivot's own motion rather than CharacterController.velocity: one less
+          // component to resolve, and it measures what the CAMERA is actually being asked to follow.
+          float speed = _boomSeen ? Vector3.Distance(pp, _boomLastPivot) / Mathf.Max(Time.deltaTime, 1e-5f) : 0f;
+          _boomLastPivot = pp;
+          _boomSeen = true;
+
+          _boomDist[_boomHead] = Vector3.Distance(cam.transform.position, pp);
+          _boomSpeed[_boomHead] = speed;
+          _boomYaw[_boomHead] = pp.eulerAngles.y;
+          _boomRest[_boomHead] = mode.BoomRestLength;
+          _boomApplied[_boomHead] = mode.BoomAppliedLength;
+          // Clamped = the boom itself was shortened by the collision SphereCast, by more than float
+          // noise. Compared against the boom's OWN published rest length, not a magic constant.
+          _boomClamped[_boomHead] = mode.BoomAppliedLength < mode.BoomRestLength - 0.01f;
+          _boomHead = (_boomHead + 1) % BoomWindow;
+          if (_boomFilled < BoomWindow) _boomFilled++;
+      }
+
+      /// <summary>1jv: report the boom readout for the window that ended on this frame. Sections are
+      /// ordered by whether their PREMISE holds (A first), the window and its length are printed so a
+      /// zero reads as "not measured", and the verdict names a MECHANISM off the controls rather than
+      /// off the size of the movement.</summary>
+      private void SnapshotBoomAudit()
+      {
+          var sb = new System.Text.StringBuilder(384);
+          var gm = GameManager.Instance;
+          var player = gm != null ? gm.Player : null;
+          PlayerController ctrl = player != null ? PlayerControllerCached(player) : null;
+          CameraModeSwitch mode = ctrl != null ? ctrl.GetComponent<CameraModeSwitch>() : null;
+          bool third = mode != null && !mode.IsFirstPerson;
+
+          sb.Append("boom audit: ");
+          sb.Append("A premise: ").Append(third ? "THIRD person" : "FIRST person / switch absent");
+          sb.Append(", window=").Append(_boomFilled).Append('/').Append(BoomWindow).Append(" frames");
+
+          if (!third)
+          {
+              sb.Append("\n  D verdict: VOID - in first person this camera snaps to the pivot and has no");
+              sb.Append("\n    boom, so no distance here can answer the report. Switch to third person (F5)");
+              sb.Append("\n    and press the key while moving.");
+              _boomAuditText = sb.ToString();
+              Debug.Log("[NewWorldTestGround] " + _boomAuditText.Replace("\n", " | "));
+              return;
+          }
+          if (_boomFilled == 0)
+          {
+              sb.Append("\n  D verdict: NOT MEASURED - the window is empty, so this says nothing about");
+              sb.Append("\n    the camera. Move around in third person first, then press the key.");
+              _boomAuditText = sb.ToString();
+              Debug.Log("[NewWorldTestGround] " + _boomAuditText.Replace("\n", " | "));
+              return;
+          }
+
+          // Walk the ring in chronological order (oldest first) so the yaw sum is a real total.
+          int start = (_boomHead - _boomFilled + BoomWindow * 2) % BoomWindow;
+          float dMin = float.MaxValue, dMax = 0f, peakStep = 0f;
+          float restMin = float.MaxValue, restMax = 0f;
+          float appMin = float.MaxValue, appMax = 0f;
+          float peakSpeed = 0f, movingFrames = 0f;
+          int clampedFrames = 0, restMoving = 0;
+          float prevD = 0f, prevYaw = 0f, yawTotal = 0f;
+          bool havePrev = false;
+
+          for (int n = 0; n < _boomFilled; n++)
+          {
+              int i = (start + n) % BoomWindow;
+              float d = _boomDist[i], r = _boomRest[i], a = _boomApplied[i];
+              if (d < dMin) dMin = d;
+              if (d > dMax) dMax = d;
+              if (r < restMin) restMin = r;
+              if (r > restMax) restMax = r;
+              if (a < appMin) appMin = a;
+              if (a > appMax) appMax = a;
+              if (_boomClamped[i]) clampedFrames++;
+              // A frame counts as "moving" on a threshold well above transform noise, so a standing
+              // player cannot manufacture a finding (rule 7: gate the classifier on its own width).
+              if (_boomSpeed[i] > 0.5f) { movingFrames++; if (_boomSpeed[i] > peakSpeed) peakSpeed = _boomSpeed[i]; }
+              if (havePrev)
+              {
+                  float step = Mathf.Abs(d - prevD);
+                  if (step > peakStep) peakStep = step;
+                  float dy = Mathf.Abs(Mathf.DeltaAngle(prevYaw, _boomYaw[i]));
+                  yawTotal += dy;
+                  if (dy < 0.5f) restMoving++;
+              }
+              prevD = d; prevYaw = _boomYaw[i]; havePrev = true;
+          }
+
+          float distRange = dMax - dMin;
+          sb.Append("\n  B controls: peak speed ").Append(peakSpeed.ToString("0.0")).Append(" m/s, ")
+            .Append(movingFrames.ToString("0")).Append('/').Append(_boomFilled).Append(" frames above 0.5 m/s")
+            .Append(", mouse yaw total ").Append(yawTotal.ToString("0")).Append(" deg (")
+            .Append(restMoving.ToString("0")).Append(" frames under 0.5 deg)");
+          sb.Append("\n  C measure: camera-to-pivot ").Append(dMin.ToString("0.00")).Append(" .. ")
+            .Append(dMax.ToString("0.00")).Append(" m (range ").Append(distRange.ToString("0.00"))
+            .Append(", peak frame step ").Append(peakStep.ToString("0.000")).Append(" m)");
+          sb.Append("\n            boom rest ").Append(restMin.ToString("0.00")).Append(" .. ")
+            .Append(restMax.ToString("0.00")).Append(" m, applied ").Append(appMin.ToString("0.00"))
+            .Append(" .. ").Append(appMax.ToString("0.00")).Append(" m, clamped on ")
+            .Append(clampedFrames).Append('/').Append(_boomFilled).Append(" frames");
+
+          // The verdict. Each branch states the EVIDENCE it fired on, not a vibe about the numbers.
+          if (movingFrames < _boomFilled * 0.25f)
+          {
+              sb.Append("\n  D verdict: NOT REPRODUCED - under a quarter of the window had the player");
+              sb.Append("\n    moving, so a distance that held proves nothing. Run and turn, then re-press.");
+          }
+          else if (clampedFrames > _boomFilled * 0.10f)
+          {
+              sb.Append("\n  D verdict: COLLISION CLAMP. The boom was shortened by the SphereCast on ")
+                .Append(clampedFrames).Append(" frames, so the camera really is being pulled in and");
+              sb.Append("\n    pushed out by terrain or props - not the smoother. 1ju makes this visible in the");
+              sb.Append("\n    AIM on the same frame, because the aim now reads the unclamped boom position.");
+          }
+          else if (distRange > 0.35f && yawTotal < 5f)
+          {
+              sb.Append("\n  D verdict: POSITION SMOOTHER. The boom held at ").Append(restMax.ToString("0.00"))
+                .Append(" m and was never clamped, yet the measured distance moved ").Append(distRange.ToString("0.00"));
+              sb.Append("\n    m while the player turned only ").Append(yawTotal.ToString("0")).Append(" deg. So it is neither");
+              sb.Append("\n    the boom swinging nor the clamp: the camera is trailing PAST the boom's end, and");
+              sb.Append("\n    that lag is being added to the effective boom length. Speed-dependent by");
+              sb.Append("\n    construction - lag is v * SmoothTime (0.15 s).");
+          }
+          else if (yawTotal >= 5f)
+          {
+              sb.Append("\n  D verdict: INCONCLUSIVE - the player turned ").Append(yawTotal.ToString("0"))
+                .Append(" deg in this window, so the");
+              sb.Append("\n    boom swung and a distance change is expected. Hold the mouse still while moving");
+              sb.Append("\n    and press again; the next window will separate the two.");
+          }
+          else
+          {
+              sb.Append("\n  D verdict: STEADY. Distance held within ").Append(distRange.ToString("0.00"))
+                .Append(" m, boom never clamped, player");
+              sb.Append("\n    turning under 5 deg - this window does not reproduce the report.");
+          }
+
+          _boomAuditText = sb.ToString();
+          Debug.Log("[NewWorldTestGround] " + _boomAuditText.Replace("\n", " | "));
+      }
+
+      private void SnapshotTrailAudit()
     {
         TrailStrip[] strips = Object.FindObjectsByType<TrailStrip>(FindObjectsSortMode.None);
 
