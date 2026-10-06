@@ -871,6 +871,26 @@ when it cites a doc section, confirm the heading is still where it was. A commen
           the direction it sweeps and a wall beside the player now pulls the camera in. That is a
           play-test item, and the honest move was to record it in the play-test list rather than leave it
           as an unremarked side effect of "a cosmetic offset".
+        - **A cached VALUE is only valid along the AXIS it was measured on, and a rotation is what
+          makes that false.** 1jr: the user reported "the camera sometime bug and zoomin if player turn
+          while moving". `UpdateThirdPerson` runs its `SphereCast` at ~10 Hz and reused the clamped
+          distance in between - but a distance is only meaningful *along the ray that produced it*, and
+          `toCam` changes on every turn and strafe. So a clamp measured "straight back" was applied to
+          "back and to the left", and the error was largest exactly when the direction changed fastest:
+          **turning**. Three habits:
+          - **When a cache exists to save a *query*, its validity is tied to the frame of reference the
+            query was made in, so cache the query's INPUTS too - or invalidate on the delta.** Here that
+            is one extra `Vector3` (`_cachedDir`) plus an `Angle` comparison. The cheap-looking version
+            ("just cache the number") silently assumes the world is stationary, and a 3D boom is not.
+          - **A time-based cache that is only correct when nothing moves is a rate-vs-correctness
+            trade dressed as a perf win.** Widening `CollisionCheckInterval` would have made the symptom
+            rarer and the bug larger. If a report says "sometimes, when I turn", suspect the axis the
+            cache dropped, not the interval - and **write down the trigger word**, because "while moving"
+            and "while turning" name different mechanisms and the user used both.
+          - **Gate the extra query on the cache being non-trivial, so the fix costs nothing when it
+            cannot matter.** `_cachedFinalDist < 0` (no obstruction) skips the `Angle` test entirely, so
+            a clean frame is still one query per 0.1 s. A correctness fix that runs a physics query every
+            frame has usually moved the bug rather than fixed it.
         - **An aim derived from a POINT in front of the camera is silently coupled to where the camera
           IS, so any camera edit re-aims it.** 1jm's projectile aim was
           `normalize((camera.position + camera.forward * Range) - castOrigin)`. Read it as a direction and

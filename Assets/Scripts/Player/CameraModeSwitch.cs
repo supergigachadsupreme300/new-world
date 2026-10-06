@@ -55,8 +55,20 @@ public sealed class CameraModeSwitch : MonoBehaviour
     // Perf (§OPT): terrain-collision SphereCast every frame in third person; re-run at ~10 Hz
     // and reuse the cached clamp distance between casts.
     private const float CollisionCheckInterval = 0.1f;
+
+    // How far the boom is allowed to turn before the cached clamp distance stops being trustworthy.
+    // Small enough that a real obstruction is caught early, large enough that ordinary aiming jitter
+    // does not spend a physics query every frame.
+    private const float RecastOnTurnDegrees = 8f;
+
     private float _collisionTimer;
     private float _cachedFinalDist = -1f;
+
+    // The direction _cachedFinalDist was measured ALONG - a bare distance carries no record of which
+    // ray produced it. Seeded to zero deliberately: the angle against it is ~90 degrees, which forces a
+    // real cast on the first frame rather than letting an unseeded value authorise a reuse
+    // (rule 8: a tracker with no seed has a fictional first sample).
+    private Vector3 _cachedDir = Vector3.zero;
 
     public Mode CurrentMode { get; private set; }
 
@@ -164,9 +176,19 @@ public sealed class CameraModeSwitch : MonoBehaviour
         float targetDist = Vector3.Distance(pivotPos, desired);
         float finalDist = targetDist;
         _collisionTimer -= Time.deltaTime;
-        if (_collisionTimer <= 0f)
+
+        // A cached DISTANCE is only meaningful along the direction it was measured on, but `toCam`
+        // changes every time the player turns or strafes. Re-measure whenever the boom has swung more
+        // than RecastOnTurnDegrees since the last cast: otherwise a clamp taken "straight back" gets
+        // applied to "back and to the left", which reads as the camera randomly zooming in precisely
+        // while the player is turning. Only worth doing while a clamp is ACTIVE - with no obstruction
+        // cached there is no clamp to misapply, and the 10 Hz timer still catches new ones.
+        bool turnedSinceCast =
+            _cachedFinalDist >= 0f && Vector3.Angle(toCam, _cachedDir) > RecastOnTurnDegrees;
+        if (_collisionTimer <= 0f || turnedSinceCast)
         {
             _collisionTimer = CollisionCheckInterval;
+            _cachedDir = toCam;
             if (Physics.SphereCast(pivotPos, CollisionRadius, toCam,
                     out RaycastHit hit, targetDist, CollisionMask, QueryTriggerInteraction.Ignore))
                 _cachedFinalDist = Mathf.Max(hit.distance - CollisionRadius, 0.1f);

@@ -99,6 +99,52 @@ by my own repair of the second. What would actually have caught them is a single
 lists every Unity API call in a new file next to a precedent - which is cheap to write, and is the same
 thing the third sweep did by hand.
 
+## 1jr. "the camera sometime bug and zoomin if player turn while moving" - the cache dropped the axis it was measured on
+
+**OPEN until the user play-tests.** Two claims in one report, and they are worth separating before
+anything is changed, because they do not name the same mechanism: *"sometime bug"* is a general jerk,
+*"zooms in if player turn while moving"* is a specific, directional trigger. The second one is the
+informative half - it is a **conditional**, and conditions are usually a cache or a threshold.
+
+Hypothesis 1 - **a collision clamp cached on a timer and reused against a direction that has since
+changed**. `UpdateThirdPerson` casts a `SphereCast` every 0.1 s and reuses the clamped distance in
+between. A *distance* is only meaningful **along the ray that produced it**. But `toCam` is
+`normalize(desired - pivotPos)` where `desired` is built from `_pivot.forward`, so it changes on every
+turn and every strafe. **CONFIRMED by reading the code**: a clamp measured "straight back" is applied to
+"back and to the left", and the error scales with how far the direction moved - which is exactly the
+axis the report names. Worst when turning. Fixed by caching the direction alongside the distance and
+re-casting past 8 degrees.
+
+Hypothesis 2 - **the cast starts inside the player's own collider** (`CollisionMask = ~0`, origin at the
+pivot 1.5 m up, inside the `CharacterController`). 1jf recorded this trap when it flipped the default
+view: if Unity reports the overlap, the clamp collapses to 0.1 m and third person renders as first
+person - a symptom close to "zooms in". **Rejected as the cause, but not by experiment**: `SphereCast`
+does not report colliders the sphere already overlaps at the *origin* of the sweep, and the sphere sits
+entirely inside the player's own capsule. So this stays a **play-test item, not a change** - I did not
+touch `CollisionMask`, because a mask change would be a guess about which layers matter and could break
+terrain collision. Recorded in `PROGRESS.md` as the thing to re-check if the camera ever slams in with
+nothing in the way.
+
+Hypothesis 3 - **an uninitialised cache**. **Rejected**: `_cachedFinalDist` is a field initialiser set
+to `-1f`, so the first frames do not clamp. Worth checking because "sometime" often means "at startup",
+and a bare `_cachedDir` would have been exactly that bug - which is why the new field is seeded to
+`Vector3.zero` on purpose, so its angle against any real boom direction is ~90 degrees and the first
+frame is forced to cast.
+
+What makes this instance worth writing down rather than just fixing is the word the user chose. *"While
+moving"* would have pointed at the pivot translating. *"While turning"* points at the **direction**
+rotating. Both were in the same sentence, and they name different mechanisms - so the fix was chosen
+from the half that discriminates. And the counterfactual is the useful part: the tempting "fix" for a
+camera that jerks is to **widen `CollisionCheckInterval`**, which makes the symptom rarer and the bug
+larger. Rate is not correctness, and a cache that is only correct when nothing moves is a rate-for-
+correctness trade wearing a perf fix's clothing.
+
+One thing deliberately NOT done: the clamp is applied through `Mathf.Min`, which only ever pulls **in**,
+and the release waits up to 0.1 s for a clean cast. So a genuine pull-in near a wall still pops out
+abruptly, and `SmoothDamp` then has to absorb it. That is a real rough edge, but it is a *behaviour*
+change rather than a defect I can see, and rule 7 says measure before changing a thing you cannot see.
+It is the first item in 1jr's play-test list, with the measurement named in advance.
+
 ## 1jq. "Make the projectile trail more efficient" - the cost was never the cubes, it was the pooler
 
 **Shipped.** `TrailStrip.cs` (new), `SpellEffect.cs`, `NewWorldTestGround.cs`; `ProjectileTrail.cs`

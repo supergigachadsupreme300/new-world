@@ -3104,6 +3104,16 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   The collision `SphereCast` still starts at the pivot, so the lateral term is now inside the direction it
   sweeps — a wall beside the player pulls the camera in, which it did not before.
 
+  - **The boom's collision clamp is re-measured when the player turns (1jr).** `CollisionCheckInterval`
+    is **0.1 s** (≈10 Hz, for the `SphereCast`), and between casts the clamp distance was being reused
+    *unconditionally*. A cached distance is only meaningful **along the direction it was measured on**,
+    but that direction (`toCam`) changes on every turn and strafe — so a clamp taken "straight back"
+    was being applied to "back and to the left", and the camera read as randomly zooming in **while the
+    player turned**. `RecastOnTurnDegrees` = **8°** re-measures as soon as the boom has swung further
+    than that since the last cast. The check only runs while a clamp is **active**: with no obstruction
+    cached there is no clamp to misapply, and the 10 Hz timer still catches new ones. Reported by the
+    user as "camera sometimes bug and zooms in if player turn while moving".
+
   The dividing line is **shape vs. lifetime**: everything that only builds transforms moved; everything
   that decides *when a piece moves next frame* stayed, because that is behaviour. `SkillFx`'s
   `SlashFlash`/`RingFlash` keep their public signatures — 22 and 8 call sites, mostly non-spell — so the

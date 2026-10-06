@@ -1,3 +1,27 @@
+## 1jr. The third-person camera zoomed in when the player turned while moving - a cached distance applied to the wrong ray
+
+Reported by the user as "camera sometime bug and zoomin if player turn while moving". The cause is in
+`CameraModeSwitch.UpdateThirdPerson`: the collision `SphereCast` runs at ~10 Hz
+(`CollisionCheckInterval` = 0.1 s) and the clamped distance was reused in between **unconditionally**. A
+distance is only meaningful along the ray that produced it, and `toCam` changes on every turn and
+strafe - so a clamp taken "straight back" was applied to "back and to the left", worst exactly when the
+direction changed fastest, which is turning. Fixed by caching the direction too (`_cachedDir`) and
+re-measuring when the boom has swung more than `RecastOnTurnDegrees` = 8° since the last cast. Gated on a
+clamp being active, so a clean frame still costs one query per 0.1 s.
+
+### 1jr-status
+- [ ] **Turn while moving** — the report itself. Camera should not pull in unless something is actually
+      behind the player along the CURRENT boom direction.
+- [ ] **Turn while backing into a wall** — a real pull-in should still happen, and releasing should not
+      pop. If a jerk remains, the next candidate is the one-sided ratchet: `Mathf.Min` only ever pulls
+      in, and release waits up to 0.1 s for a clean cast. That is a behaviour change, so it gets a
+      measurement first (rule 7) rather than a guess.
+- [ ] **Pivot-inside-own-collider trap** — `CollisionMask = ~0` with the cast starting at the pivot,
+      which sits inside the player's `CharacterController`. Left unchanged on purpose: `SphereCast` does
+      not report colliders the sphere already overlaps at the origin, so the player's own capsule is
+      suppressed. Not verified by measurement — if the camera ever slams to 0.1 m with nothing in the
+      way, that assumption is the thing to re-check, and the fix would be a mask change, not a cast change.
+
 ## 1jq. The projectile trail is one camera-facing strip, not ~23 pooled cubes
 
 **Status: SHIPPED, unverified.** `Assets/Scripts/Magic/Fx/TrailStrip.cs` (new),
