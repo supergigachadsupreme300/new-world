@@ -47,6 +47,7 @@ public static class SummonModelBuilder
         disc.transform.SetParent(parent, false);
         disc.transform.localPosition = new Vector3(0f, 0.05f, 0f);
         disc.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
+        disc.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
         SetMaterial(disc.transform, shader, color);
 
         Transform head = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;

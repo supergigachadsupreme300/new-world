@@ -205,18 +205,19 @@ internal static class MagicProjectileModelBuilder
     {
         var root = new GameObject(name).transform;
         var lead = Primitive(PrimitiveType.Cube, "Lead", root);
-        lead.localScale = new Vector3(0.12f, 0.38f, 0.12f);
-        lead.localRotation = Quaternion.Euler(0f, 45f, 0f);
+        lead.localScale = new Vector3(0.28f, 0.28f, 0.12f);
+        lead.localRotation = Quaternion.Euler(0f, 0, 0f);
         // Translucent glassy frost chip: "Sprites/Default" blends via the material color alpha.
         Color glass = new Color(color.r, color.g, color.b, 0.5f);
         Materialize(lead, shader, glass);
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 3; i++)
         {
             var chip = Primitive(PrimitiveType.Cube, "Chip" + i, root);
-            float ss = Mathf.Lerp(0.1f, 0.06f, i);
-            chip.localScale = new Vector3(ss, ss * 2.4f, ss);
-            chip.localRotation = Quaternion.Euler(0f, 45f - i * 14f, 0f);
-            chip.localPosition = new Vector3(0f, 0f, -0.16f - i * 0.11f);
+            float t = i/(float)(3 - 1);
+            float ss = Mathf.Lerp(0.1f, 0.06f, t);
+            chip.localScale = new Vector3(ss * 3.4f, ss * 3.4f, ss);
+            chip.localRotation = Quaternion.Euler(0f, 0f, 0f);
+            chip.localPosition = new Vector3(0f, 0f, -0.14f - i * 0.11f);
             float dim = 0.85f - i * 0.2f;
             Materialize(chip, shader, new Color(color.r * dim, color.g * dim, color.b * dim, 0.45f));
         }

@@ -13,19 +13,20 @@ public static class SpellZoneModelBuilder
     /// zone's own tick never queries a piece, so this is body-only by construction.</summary>
     public static void BuildFunnel(Transform parent, float radius, Material sharedMat)
     {
-        const float height = 4.8f;
+        const float height = 2.8f;
         const int rings = 7;
         for (int i = 0; i < rings; i++)
         {
             float t = i / (float)(rings - 1);
-            float r = Mathf.Lerp(radius * 0.85f, 0.12f, t);
+            float r = Mathf.Lerp(0.12f, radius * 0.85f, t);
 
-            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ring.name = "SpellRing_" + i;
             DestroyCollider(ring);
             ring.transform.SetParent(parent, false);
-            ring.transform.localPosition = new Vector3(0f, t * height, 0f);
-            ring.transform.localScale = new Vector3(r, 0.015f, r);
+            ring.transform.localPosition = new Vector3(0f, r * height, 0f);
+            ring.transform.localScale = new Vector3(r, 1f, r);
+            ring.transform.localRotation = Quaternion.Euler(0f, 45f - i * 14f, 0f);
             ApplyShared(ring, sharedMat);
         }
 
