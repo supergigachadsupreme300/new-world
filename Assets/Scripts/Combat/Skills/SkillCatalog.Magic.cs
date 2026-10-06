@@ -26,10 +26,17 @@ public static partial class SkillCatalog
             S("magic_arcane_bind", "Arcane Bind", Spell("magic_arcane_bind_spell", "Arcane Bind", DamageType.Arcane, 24f, 12f, SpellDelivery.Zone, 5f, deliveryRadius: 2f), "A binding wave of pure arcane force.", Focus(12f), DamageType.Arcane, true),
         };
 
-        // Root: magic_fireball (active, Focus 15, projectile fire)
-        bank.L1["magic_fireball"] = new BranchSlot[]
-        {
-            S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2f, summonFallingRock: true), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
+            // Root: magic_fireball (active, Focus 15, projectile fire)
+            bank.L1["magic_fireball"] = new BranchSlot[]
+            {
+                // 1jt: the halo draws at the player's FEET (castAnchor, not delivery — Zone stays Zone
+                // because ResolveZone is the only branch that spawns the falling rock). Impact/Cast are
+                // left Inherit on purpose, so this profile is anchor-only and the deterministic Fire
+                // picks still apply exactly as before; the only visible change is where the halo is.
+                // Side effect to expect in the F4 readout: this spell now counts as an AUTHORED profile
+                // (21 -> 22), because Authored is "a profile exists", not "a profile overrides". That
+                // cannot move a collision verdict - LookKey does not pack Authored.
+                S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2f, summonFallingRock: true, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, castAnchor: SpellCastAnchor.Feet)), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
             S("magic_fireball_inferno", "Inferno", Spell("magic_fireball_inferno_spell", "Inferno", DamageType.Fire, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, duration: 3.5f, statusEffect: StatusEffectType.Burn), "An expanding ring of fire that lingers, scorching all it touches.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_ember", "Embermind", Perk(PassivePerkType.SpellDamagePercent, 3f), "Embers simmer in your thoughts — spell damage +3%.", passive: true),
             S("magic_fireball_scorch", "Scorch", Spell("magic_fireball_scorch_spell", "Scorch", DamageType.Fire, 26f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Burn, projectileShape: ProjectileShape.Comet), "A narrow, searing jet of fire that leaves nothing unburnt.", Focus(16f), DamageType.Fire, true),

@@ -52,6 +52,36 @@ public enum SpellCastStyle
 }
 
 /// <summary>
+/// Where a spell's casting halo is DRAWN — what it hangs from (1jt). <b>This is a drawn axis and
+/// deliberately not <c>SpellDelivery</c>.</b>
+/// <para>Delivery is the gameplay resolver dispatch (<c>SpellCaster.ResolveZone</c> /
+/// <c>ResolveSummon</c> / …), so re-purposing it as a presentation label means moving a spell
+/// between resolvers and inheriting every behaviour the new one owns. The two Meteors are the case
+/// that proves it: both are <c>SummonFallingRock</c> <c>Zone</c> spells, and the falling rock
+/// spawns ONLY inside <c>ResolveZone</c> — <c>ResolveSummon</c> has no such branch, and it applies
+/// <c>TerrainShape.Crater</c> at the SUMMON's centre, which for a caster-anchored summon is
+/// <see cref="SpellSummon.BackOffset"/> <i>behind</i> the player. Reclassifying either Meteor as
+/// <c>SpellDelivery.Summon</c> would silently delete its falling rock and its zone damage, and would
+/// relocate the Earth crater behind the caster. So "list Meteor as a summoning spell" is authored
+/// here as <see cref="Feet"/> on its profile, and no spell changes delivery.</para>
+/// <para><b>Resolution is exactly two steps, and there is no school family and no deterministic
+/// pick</b> — unlike <see cref="SpellImpactStyle"/> and <see cref="SpellCastStyle"/>, which are
+/// per-spell style jitters. Where a thing is cast is a fact about the spell, not a style to jitter:
+/// a jitter would have put half the Zone spells' haloes on the ground at the player's feet for no
+/// reason. Authored value wins; otherwise <c>Delivery == Summon</c> → <see cref="Feet"/>, and
+/// everything else → <see cref="Front"/>.</para>
+/// </summary>
+public enum SpellCastAnchor
+{
+    /// <summary>No authored opinion — <c>Summon</c> draws at the feet, everything else in front.</summary>
+    Inherit = 0,
+    /// <summary>On the ground <see cref="SpellLook.CastFrontOffset"/> ahead of the player's feet.</summary>
+    Front = 1,
+    /// <summary>On the ground directly under the player's feet.</summary>
+    Feet = 2
+}
+
+/// <summary>
 /// Falling-body family for a sky spell (1f7) — what shape the rock that drops from above is built
 /// as by <see cref="SkillFx.FallRock"/>. This is the one spell visual that had **no** per-spell hook
 /// until 1f7 (<see cref="SpellImpactStyle"/>, <see cref="SpellCastStyle"/> and the display shape all
@@ -102,6 +132,8 @@ public sealed class SpellLookProfile
     public SpellImpactStyle Impact = SpellImpactStyle.Inherit;
     [Tooltip("Casting halo family. Inherit = deterministic pick.")]
     public SpellCastStyle Cast = SpellCastStyle.Inherit;
+    [Tooltip("Where the casting halo is drawn (1jt). Inherit = feet for Summon spells, in front for everything else.")]
+    public SpellCastAnchor CastAnchor = SpellCastAnchor.Inherit;
     [Tooltip("Projectile body shape. Auto = inherit (never Missile — see SpellLook.DisplayShape).")]
     public ProjectileShape DisplayShape = ProjectileShape.Auto;
     [Tooltip("Falling-body shape for a sky spell (SummonFallingRock). Inherit = the 1cy boulder.")]
@@ -120,7 +152,12 @@ public sealed class SpellLookProfile
 /// drifting DamageType palettes.</para>
 ///
 /// <para><b>Precedence, and it is exactly three steps.</b> Authored <see cref="SpellLookProfile"/>
-/// → deterministic derivation from <c>spell.id</c> → school default. Nothing else.</para>
+/// → deterministic derivation from <c>spell.id</c> → school default. Nothing else.
+/// <para><b>1jt: with one documented exception to the middle step.</b> <see cref="CastAnchor"/> is
+/// not id-hashed and has no school family — it is derived from <c>spell.Delivery</c> (Summon →
+/// feet, else in front) and then overridden by the profile. So the honest statement is: three steps
+/// for every axis that jitters, and two steps for the one that does not. See
+/// <see cref="SpellCastAnchor"/>.</para>
 ///
 /// <para><b>Family resemblance is the point.</b> Determinism varies value, saturation, scale, tempo
 /// and the impact/cast family — but hue only within a tight band around the school hue, and the
@@ -166,6 +203,10 @@ public readonly struct SpellLook
     public readonly SpellImpactStyle Impact;
     /// <summary>Which casting halo this spell draws.</summary>
     public readonly SpellCastStyle Cast;
+    /// <summary>Where that halo is drawn (1jt). Never <see cref="SpellCastAnchor.Inherit"/> on a
+    /// resolved look — this axis has no <c>Inherit</c> state once resolved, because the delivery
+    /// default is a real answer and there is no family to pick from (see the enum's remarks).</summary>
+    public readonly SpellCastAnchor CastAnchor;
     /// <summary>Projectile body shape. Authored shapes always win; deterministic picks exclude
     /// <see cref="ProjectileShape.Missile"/> because that value means "homing" (see type remarks).</summary>
     public readonly ProjectileShape DisplayShape;
@@ -178,7 +219,7 @@ public readonly struct SpellLook
 
     private SpellLook(Color core, Color edge, Color trail, float scale, float tempo,
         SpellImpactStyle impact, SpellCastStyle cast, ProjectileShape displayShape,
-        SkyRockStyle skyRock, bool authored)
+        SkyRockStyle skyRock, SpellCastAnchor castAnchor, bool authored)
     {
         Core = core;
         Edge = edge;
@@ -189,8 +230,27 @@ public readonly struct SpellLook
         Cast = cast;
         DisplayShape = displayShape;
         SkyRock = skyRock;
+        CastAnchor = castAnchor;
         Authored = authored;
     }
+
+    /// <summary>1jt: how far AHEAD of the player's feet a <see cref="SpellCastAnchor.Front"/> halo
+    /// sits, in metres. One number for the charge halo and the release burst (rule 10: a metric two
+    /// code paths must agree on is one named constant — <c>PlayerController.Combat</c> uses it for
+    /// both).
+    /// <para><b>It is <see cref="SpellSummon.BackOffset"/> by design, and that is the whole reason
+    /// it is named here:</b> the front halo and the rear-mounted familiar are meant to sit
+    /// symmetrically about the player, so changing one without the other would break the symmetry
+    /// silently. <see cref="SpellSummon.BackOffset"/> therefore aliases this constant rather than
+    /// repeating the literal.</para>
+    /// <para><b>Clearance arithmetic, so the number is not arbitrary:</b> the halo grows to
+    /// <c>CastingCircle.FullRadius</c> (0.75 m) times <c>look.Scale</c>, which
+    /// <c>SpellLook.Resolve</c> clamps to at most 1.7 — so the widest halo is 1.275 m. The player's
+    /// capsule radius is at least <c>PlayerController</c>'s enforced 0.3 m and 0.5 m in practice.
+    /// 1.8 - 1.275 - 0.5 = 0.025 m of clearance at absolute worst-case scale, and ~0.55 m at a
+    /// typical 1.0 scale. Raising this past ~2.0 m starts detaching the halo from the cast, and
+    /// lowering it past ~1.6 m lets a max-scale halo clip the player's feet.</para></summary>
+    public const float CastFrontOffset = 1.8f;
 
     /// <summary>
     /// The canonical DamageType palette — the ONE place a school's base colour is spelled (1ib).
@@ -280,6 +340,15 @@ public readonly struct SpellLook
         // SkyRockStyle's remarks for why this one axis does not jitter.
         SkyRockStyle skyRock = SkyRockStyle.Boulder;
 
+        // 1jt: the cast anchor is derived from DELIVERY, not picked. A Summon is cast on yourself
+        // (something appears where you stand); everything else is cast at something in front of you.
+        // The authored profile below is the only thing that may override it, which is how the two
+        // Meteors get `Feet` while staying `SpellDelivery.Zone` — see SpellCastAnchor's remarks for
+        // why moving them to `Summon` instead would delete their falling rock and zone damage.
+        SpellCastAnchor castAnchor = spell.Delivery == SpellDelivery.Summon
+            ? SpellCastAnchor.Feet
+            : SpellCastAnchor.Front;
+
         if (p != null)
         {
             if (p.HueShift != 0f) hueShift += p.HueShift;
@@ -289,6 +358,7 @@ public readonly struct SpellLook
             if (p.Tempo != 1f) tempo *= p.Tempo;
             if (p.Impact != SpellImpactStyle.Inherit) impact = p.Impact;
             if (p.Cast != SpellCastStyle.Inherit) cast = p.Cast;
+            if (p.CastAnchor != SpellCastAnchor.Inherit) castAnchor = p.CastAnchor;
             // Missile is honoured here but ONLY here: by 1ii the profile is hand-authored per
             // headline spell, so an author asking for Missile means it. The deterministic path
             // above may never pick it, because a look layer must not grant homing on its own.
@@ -300,7 +370,7 @@ public readonly struct SpellLook
         Color core = Tint(baseColor, hueShift, satScale, valueScale);
         Color edge = EdgeFor(core, rC);
         return new SpellLook(core, edge, TrailColor(type), Mathf.Clamp(scale, 0.55f, 1.7f), Mathf.Clamp(tempo, 0.6f, 1.6f),
-            impact, cast, display, skyRock, authored);
+            impact, cast, display, skyRock, castAnchor, authored);
     }
 
     /// <summary>
@@ -318,7 +388,7 @@ public readonly struct SpellLook
         Color baseColor = SchoolColor(type);
         ProjectileShape display = shape != ProjectileShape.Auto ? shape : Pick(fam.Shapes, 0.5f);
         return new SpellLook(baseColor, EdgeFor(baseColor, 0.5f), TrailColor(type), 1f, 1f,
-            fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, false);
+            fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, SpellCastAnchor.Front, false);
     }
 
     // (1ig: `Fingerprint` was deleted here. 1ib built it as the 1ic audit's measuring instrument

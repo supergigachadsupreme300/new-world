@@ -336,8 +336,16 @@ public partial class PlayerController
     }
 
     /// <summary>
-    /// Show/refresh the halo casting circle around the held magic weapon each aim frame. Only
-    /// armed magic gets the halo — ranged draws show their own weapon accent instead.
+    /// Show/refresh the halo casting circle each aim frame. Only armed magic gets the halo — ranged
+    /// draws show their own weapon accent instead.
+    /// <para><b>1jt: a spell's halo is on the GROUND, not under the weapon.</b> It used to be handed
+    /// <c>MagicHand(combat).transform</c>, which parked it at the staff — the thing the player was
+    /// already looking at, so it read as part of the weapon rather than as the cast. Where it goes is
+    /// now <see cref="SpellLook.CastAnchor"/>: <c>Summon</c> spells draw at the player's feet
+    /// (something appears where you stand), and everything else draws <see cref="SpellLook.CastFrontOffset"/>
+    /// ahead of them (you are aiming at something out there). The no-spell paths — the cast preview
+    /// and the ranged-draw accent — keep the weapon anchor, because with no spell there is no delivery
+    /// to classify and the old read was correct.</para>
     /// </summary>
     private void UpdateCastingCircle(float charge)
     {
@@ -360,13 +368,51 @@ public partial class PlayerController
         if (spell != null)
         {
             var look = SpellLook.Resolve(spell);
-            Casting().Show(hand.transform, charge, look);
+            Casting().ShowGround(GroundCastPoint(look), charge, look);
             return;
         }
         var skill = SkillCatalog.Find(MagicWheelUI.ArmedSkillId);
         Color color = skill != null ? DamageNumber.ColorFor(skill.DamageKind) : Color.white;
         Casting().Show(hand.transform, charge, color);
     }
+
+    /// <summary>1jt: the world point a spell's casting halo is drawn on — the player's feet, or
+    /// <see cref="SpellLook.CastFrontOffset"/> ahead of them, ground-snapped.
+    /// <para><b>The front direction is <c>transform.forward</c>, and that choice is load-bearing.</b>
+    /// <c>PlayerController</c>'s yaw is written as <c>Quaternion.Euler(0f, _yaw, 0f)</c>, so the
+    /// player's own forward IS the aim and carries no pitch. It is deliberately NOT
+    /// <c>CameraModeSwitch</c>'s <c>lookTarget</c>, which adds <c>ThirdPersonSideOffset</c> (1jl's
+    /// shoulder offset — keying off it would slide the halo sideways with the camera) and NOT a
+    /// camera-derived ray, which makes the halo depend on where the camera IS rather than which way
+    /// the player looks (1jm's coupling — moving the camera 0.6 m sideways would have skewed it).</para>
+    /// <para><b>Why the offset is applied BEFORE the probe</b>, not after: probing under the player
+    /// and then moving the result forward would leave the halo at the player's own floor height while
+    /// it sits over a step or the lip of a slope. <see cref="SpellCaster.GroundUnder"/> also skips
+    /// this player's own colliders, so a standing cast does not park the halo at chest height.</para>
+    /// </summary>
+    private Vector3 GroundCastPoint(in SpellLook look)
+    {
+        Vector3 at = transform.position;
+        if (look.CastAnchor == SpellCastAnchor.Front)
+        {
+            Vector3 fwd = transform.forward;
+            // Yaw-only rotation means forward is already horizontal, but flattening it here makes the
+            // ground halo immune to any future pitch being written onto the player's own transform —
+            // a halo is a flat ground mark, and pitch must never lift or bury it.
+            fwd.y = 0f;
+            // Degenerate only if forward is exactly vertical, which yaw-only rotation cannot produce.
+            // The guard is here so a pitch regression shows up as "halo at the feet", not as NaN.
+            if (fwd.sqrMagnitude > 0.0001f)
+                at += fwd.normalized * SpellLook.CastFrontOffset;
+        }
+        return SpellCaster.GroundUnder(at, transform.root, _castGroundBuffer);
+    }
+
+    /// <summary>1jt: 1jt's ground probe buffer. Per-instance because
+    /// <see cref="SpellCaster.GroundUnder"/> takes it as an argument — a shared static buffer would
+    /// be mutable state with two owners, which is a reentrancy bug waiting for the first nested
+    /// call.</summary>
+    private readonly RaycastHit[] _castGroundBuffer = new RaycastHit[8];
 
     /// <summary>One-shot expansion ring at the magic weapon on cast release.</summary>
     private void BurstCastingCircle(float charge)
@@ -381,7 +427,12 @@ public partial class PlayerController
             // spell's own colour and size.
             var look = SpellLook.Resolve(spell);
             float r = spell.Radius * (0.6f + charge * 0.5f);
-            Casting().Burst(r, look.Core, hand.transform.up, look.Scale);
+            // 1jt: on the GROUND point the halo was charging on, not at the staff. Both call
+            // GroundCastPoint so the release ring cannot land somewhere the charge circle was not —
+            // two derivations of one point is rule 8's second spelling, and the symptom would be a
+            // ring that appears in a different place than the circle that announced it.
+            Vector3 at = GroundCastPoint(look);
+            Casting().Burst(r, look.Core, Vector3.up, look.Scale, at);
             HideCastingCircle();
             return;
         }

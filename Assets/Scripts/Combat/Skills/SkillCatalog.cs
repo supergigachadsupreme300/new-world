@@ -125,11 +125,23 @@ public static partial class SkillCatalog
     /// 1ii: the one hand-authored look profile factory. Every field is a *multiplier or a
     /// sentinel*, so a profile can only move a spell inside its school's family — it can never
     /// repaint a Fire spell purple, and it can never grant a delivery the spell does not have.
-    /// 1f7 adds <paramref name="skyRock"/>, the falling-body shape for a sky spell.
+    /// 1f7 adds <paramref name="skyrock"/>, the falling-body shape for a sky spell.
+    /// <para><b>1jt adds <paramref name="castAnchor"/></b> — where the casting halo is drawn. Same
+    /// sentinel contract: <c>Inherit</c> means "let the delivery decide", and setting it changes only
+    /// where the halo is, never what the spell does. That is what lets a <c>SpellDelivery.Zone</c>
+    /// Meteor carry <c>Feet</c> without touching its delivery (see <see cref="SpellCastAnchor"/>).</para>
+    /// <para><b>There is a second, near-identical <c>Look</c> factory in
+    /// <c>ClassSkillCatalog.cs</c> for class spells.</b> Two overloads in the same partial class, and
+    /// this one is the one that substitutes an extra optional default — so a call that does NOT name
+    /// <c>skyrock</c> or <c>castAnchor</c> binds to the OTHER one by C#'s better-function-member rule.
+    /// Both now carry every profile field, which keeps that trap from also being a
+    /// "this factory silently cannot express that" trap. Verify with a named argument whenever it
+    /// matters: a named argument that only one overload declares forces the binding.</para>
     /// </summary>
     private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
-        ProjectileShape shape = ProjectileShape.Auto, SkyRockStyle skyRock = SkyRockStyle.Inherit)
+        ProjectileShape shape = ProjectileShape.Auto, SkyRockStyle skyrock = SkyRockStyle.Inherit,
+        SpellCastAnchor castAnchor = SpellCastAnchor.Inherit)
         => new SpellLookProfile
         {
             Impact = impact,
@@ -140,7 +152,8 @@ public static partial class SkillCatalog
             ValueScale = value,
             SaturationScale = sat,
             DisplayShape = shape,
-            SkyRock = skyRock
+            SkyRock = skyrock,
+            CastAnchor = castAnchor
         };
 
     private static SpellCastEffect Spell(string spellId, string spellName, DamageType type,
@@ -354,11 +367,17 @@ public static partial class SkillCatalog
         // craters there (a smooth shallow dish — always a solid walkable floor, never a void). Zone
         // delivery so the crater
         // resolves on the ground at impact; the heavy knockback reads like a meteor landing.
+        // 1jt: the halo draws at the player's FEET, which is a castAnchor override and NOT a delivery
+        // change. Delivery stays Zone because Zone is the only resolver that spawns the falling rock
+        // (ResolveZone) and the only one that applies this Crater at the aim point — ResolveSummon
+        // has neither branch, and would apply the crater at the summon, behind the player. See
+        // SpellCastAnchor's remarks for the whole argument.
         Add(list, "magic_earth_meteor", "Meteor", SkillType.Magic, false, Focus(28f), true, DamageType.Earth,
             Spell("magic_earth_meteor_spell", "Meteor", DamageType.Earth, 40f, 28f, SpellDelivery.Zone, 9f,
                 deliveryRange: 12f, deliveryRadius: 4f, knockback: 4f, terrainShape: TerrainShape.Crater,
                 summonFallingRock: true,
-                look: Look(SpellImpactStyle.Pillar, SpellCastStyle.Rune, scale: 1.25f, value: 1.05f)),
+                look: Look(SpellImpactStyle.Pillar, SpellCastStyle.Rune, scale: 1.25f, value: 1.05f,
+                    castAnchor: SpellCastAnchor.Feet)),
             P("magic_earth_boulder"), "A meteor plunges from the sky, carving a crater into the ground.");
 
         // Earth Wall — the wall-line's deep skill, gated behind Landslide (the Wall-shape branch

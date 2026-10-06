@@ -2096,17 +2096,29 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   builds a **charge level** (0–100%, ~2 s, no auto-fire). **Releasing LMB** fires at the frozen level.
   Charge scales the cast: FP cost (up to ×1.6), damage (up to ×2.0), and AoE radius (up to ×1.8), so
   a deeper charge is always a gamble for more FP — never a dud.
-- While aiming/charging, the held **magic weapon shows a "casting circle" halo** tinted by the armed
-  spell's **resolved look** (§3.8.3). It is no longer one ring: the halo picks one of **seven cast
-  families** from the spell's look, and the *parts* that family enables differ — Disc / outer Halo /
+- While aiming/charging, the **spell's casting circle halo** is drawn **on the ground** — at the
+  player's feet, or `SpellLook.CastFrontOffset` (**1.8 m**) in front of them — tinted by the armed
+  spell's **resolved look** (§3.8.3). (1jt: it used to hang off the held magic weapon, which read as
+  part of the weapon rather than as the cast.) It is no longer one ring: the halo picks one of **seven
+  cast families** from the spell's look, and the *parts* that family enables differ — Disc / outer Halo /
   spinning Rune (8 radial tick marks) / HexRing / inner segments. So the same Wind spell and the same
   Earth spell no longer wear the same halo, and the family is visible before the cast resolves. Radius,
   brightness and spin still ramp with charge level; `Scale`/`Tempo` from the look scale it.
-  Releasing the cast pops a one-shot expanding ring **in the spell's own colour and size**. (`CastingCircle.cs`,
-  driven by `PlayerController`; split aim → charge → release is used by both magic and ranged.)
-  **Unarmed / no-spell-armed casts still play a plain white hand glow** — a weapon release with no
-  spell behind it keeps the neutral colour rather than borrowing a school's, because a white burst
-  reads as "released the weapon" and an Arcane-pink one would read as "cast an Arcane spell".
+  Releasing the cast pops a one-shot expanding ring **in the spell's own colour and size**, **at the
+  same ground point the halo was charging on**. (`CastingCircle.cs`, driven by `PlayerController`;
+  split aim → charge → release is used by both magic and ranged.)
+  **Unarmed / no-spell-armed casts still play a plain white hand glow on the weapon** — a weapon
+  release with no spell behind it keeps the neutral colour *and* the weapon anchor, because a white
+  burst reads as "released the weapon" and an Arcane-pink one would read as "cast an Arcane spell",
+  and because with no spell there is no delivery to classify.
+- The halo is **ground-snapped by one shared probe** (`SpellCaster.GroundUnder`, a downward
+  `RaycastNonAlloc` taking the *nearest* hit and skipping the player's own hierarchy), so it lies on a
+  slope instead of floating at the caster's feet height. The same probe places the rear-mounted
+  familiar, so the halo and the summon cannot disagree about where "the ground" is. The front offset is
+  applied **before** the probe; the front direction is the **player's** `transform.forward`
+  (yaw-only, pitch-flattened) — not the camera's, so moving the camera cannot skew where a spell casts.
+  (`CastingCircle` keeps a `_grounded` mode flag because `Update` re-derives the transform every frame
+  from `_anchor`; a position handed to `Show` would simply be overwritten.)
 - Projectile spells launch **from the casting circle's center**: the spawn point sits on the aim line
   at the rig/hand origin (a small forward muzzle offset only, no vertical lift), so the flight
   trajectory passes through the circle's heart. The pre-cast **path preview** mirrors the exact launch
@@ -2155,13 +2167,16 @@ but **delegates** to `SpellLook.SchoolColor`.
 
 **Precedence is exactly three steps** (1ib):
 
-1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — **25 spells** carry one (23 after
-   1f7 added Comet and Asteroid, whose slots 1ir replaced). Both replacements are authored rather than
-   left on a deterministic pick, for two separate reasons: Flamethrower is the only spell whose
-   delivery draws a **cone** (a swept wedge opens outward from the caster, and nothing in the Fire
-   family looks like that by accident), and Continuous Fireball is a steady 44-bolt stream where a
-   deterministic per-cast jitter would read as a different spell. An axis only takes an authored
-   profile when it is a *statement about the spell* — 1f7's rule.
+1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — **25 spells** carry one, counted as
+   the `look: Look(` call sites across `SkillCatalog.Magic.cs` (4), `SkillCatalog.cs` (16) and
+   `ClassSkillCatalog.cs` (5) = 25 (regex `Matches`, not `String.Split`; a bogus `look: Zzz(` control
+   reads 0). It was **24** through 1js — the older "25" here was stale by one — and 1jt added exactly
+   one more, Fire Meteor's, which is **anchor-only** (`Impact`/`Cast` left `Inherit`, so its
+   deterministic Fire picks are untouched). An axis only takes an authored profile when it is a
+   *statement about the spell* — 1f7's rule. Continuous Fireball and
+   Flamethrower are authored for two separate reasons: the former is a steady 44-bolt stream where a
+   deterministic per-cast jitter would read as a different spell, the latter the only spell whose
+   delivery draws a **cone**.
 2. **School family** with a per-spell deterministic pick from that family's member list — this is what
    makes 151 spells differ without 151 hand-authored profiles.
 3. **`SpellLook.Resolve(DamageType, ProjectileShape)`** — the named identity-less fallback for callers
@@ -2169,7 +2184,8 @@ but **delegates** to `SpellLook.SchoolColor`.
    *not* a fourth precedence step: it is what you get by falling off the end of the rule on purpose.
 
 **What one look carries:** `Impact` family, `Cast` family, `DisplayShape` (the body actually drawn),
-`SkyRock` (the falling formation, §3.8.4), `Core` + `Edge` colours, `Scale`, `Tempo`.
+`SkyRock` (the falling formation, §3.8.4), `CastAnchor` (where the halo is drawn, 1jt), `Core` + `Edge`
+colours, `Trail`, `Scale`, `Tempo`.
 
 - **Impact families** (`SpellImpactStyle`, 1id) drive `SpellImpactFx`'s pooled flash: Burst, Ring,
   Sphere, Cross, Shards, Bloom, Pillar. `Inherit` means "no authored opinion — take the school
@@ -2178,6 +2194,17 @@ but **delegates** to `SpellLook.SchoolColor`.
   look are unchanged, so nothing about a spell's impact appearance moved in this split.
 - **Cast families** (`SpellCastStyle`, 1if) drive which parts the `CastingCircle` halo builds and
   shows: Circle, Rune, HexRing, Cross, Arc, Wave, Halo.
+- **Cast anchors** (`SpellCastAnchor`, 1jt) drive **where** the halo is drawn, not what it looks like:
+  `Summon` deliveries draw at the player's feet (something appears where you stand) and everything else
+  draws `CastFrontOffset` ahead (you are aiming at something out there). Unlike `SkyRockStyle` this
+  axis **is** derived from a property of the spell rather than picked, so it has no family array and no
+  `Inherit` state once resolved. The two **Meteors** are the exception that proves the axis is worth
+  having: both are `SpellDelivery.Zone` spells that should still read as "summoning from me", and they
+  carry an authored `Feet`. They could not be made to do that by changing delivery —
+  `SpellCaster.ResolveZone` is the **only** resolver that spawns `SummonFallingRock` and the only one
+  that applies a Zone `TerrainShape`, so a `Summon` Meteor would lose its falling rock and carve its
+  crater behind the player. This is rule 13's drawn-vs-gameplay split: `CastAnchor` changes the halo's
+  position and nothing else.
 - **`Shape` vs `DisplayShape`** — `spell.Shape` is a *gameplay* flag (`Missile` = homing, see
   §3.8.1); `DisplayShape` is what gets drawn. They are separate fields because a spell can be a
   homing missile and still want its school's family body.
@@ -2194,14 +2221,23 @@ task with its own measurement.
 
 **How this is judged (1ic):** the test ground's **F4** lane resolves every reachable spell and reports
 `N spells / M distinct identities / C colliding groups`, where identical means impact + cast + shape +
-sky rock + core RGB at 8 bits. `Scale`/`Tempo` are excluded — counting them would let a number read "unique"
-while two spells look identical on screen. **`M` must equal `N` (172: 167 magic + 5 class).** A session
-has now read that number (`172 / 172 / 0`, `(worst none)`), so the identity tables are collision-free
-and no jitter retune is needed — but `M == N` is a **static** result: the audit resolves looks into a
-dictionary and spawns nothing, so 1id–1ii stay **play-test-open** until one spell per school is fired
-and the halo, impact family and body shape are confirmed on screen. 1f7 added SkyRock to that key
-and did **not** re-run the lane: the change is argued inert in §3.8.4, so treat the figure as
-covering 1ib–1ii only and re-press F4 to confirm it.
+sky rock + **cast anchor** + core RGB at 8 bits. `Scale`/`Tempo` are excluded — counting them would let a
+number read "unique" while two spells look identical on screen. **`M` must equal `N` (172: 167 magic +
+5 class).** A session has now read that number (`172 / 172 / 0`, `(worst none)`), so the identity tables
+are collision-free and no jitter retune is needed — but `M == N` is a **static** result: the audit
+resolves looks into a dictionary and spawns nothing, so 1id–1ii stay **play-test-open** until one spell
+per school is fired and the halo, impact family and body shape are confirmed on screen. 1f7 added
+SkyRock to that key and did **not** re-run the lane: the change is argued inert in §3.8.4, so treat the
+figure as covering 1ib–1ii only and re-press F4 to confirm it.
+
+**Adding an axis to that key is a one-way ratchet, so say which way it moved (1jt).** 1f7's SkyRock
+axis was inert because determinism resolves it to a single value for every spell; `CastAnchor` is
+genuinely two-valued among otherwise-identical spells, so it is *expected* to split groups — distinct
+identities can only **rise**, and `C`/`worst` can only **fall**. Because `M` was already `== N == 172`
+(every spell already unique), the verdict is **unchanged by construction** rather than by
+measurement — a derivation, not a lane run, so re-press F4 to confirm it and to read the new
+`cast anchors:` line. `Authored` is deliberately **not** in the key: it means "a profile exists", not
+"the spell looks different", so packing it would split groups that are genuinely identical.
 
 **Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
 main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render

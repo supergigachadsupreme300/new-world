@@ -1,3 +1,59 @@
+## 1jt. Casting circles drew on the held weapon - and the fix that deleted two Meteors was a one-word enum change
+
+Requested by the user: summon casting circles belong under the player, every other delivery's belongs
+in front of them. `PlayerController.UpdateCastingCircle` hung the halo off `MagicHand(combat).transform`,
+which parked it at the staff - a mark that read as part of the weapon rather than as the cast. Added a
+drawn-only look axis, `SpellLookProfile.CastAnchor` / `SpellCastAnchor` (`Inherit`/`Front`/`Feet`),
+resolved in `SpellLook.Resolve` from `spell.Delivery == SpellDelivery.Summon ? Feet : Front` with the
+authored profile overriding, so all 172 spells classify with **zero unclassified cases** (a total
+predicate over a field that already exists, not a hand-listed set). Placement moves to the ground via one
+shared probe, `SpellCaster.GroundUnder`, extracted from `SpellSummon.FollowCaster` so the halo and the
+rear-mounted familiar cannot disagree about where "the ground" is. Front offset is
+`SpellLook.CastFrontOffset` (1.8 m), and `SpellSummon.BackOffset` now **aliases** it so the halo and the
+familiar stay symmetric about the player.
+
+### 1jt-status
+- [ ] **Fire Meteor and Earth Meteor** - both must draw the halo at the player's feet while keeping
+      `SpellDelivery.Zone`, the falling rock, and (Earth) the Crater at the aim point. This is the whole
+      read: the two spells that must look summoned and behave zone-delivered at the same time.
+- [ ] **Any non-summon spell** (e.g. Fireball) - the halo and the release ring must both sit ~1.8 m in
+      front, on the ground, and must sit on a **slope** rather than floating at the caster's feet height.
+- [ ] **Continuous Fireball** (`SpellDelivery.Summon`, `casterAnchored`) - halo at the feet, while its
+      summoned familiar keeps its own circle **behind** the player. Two circles, two places, on purpose.
+- [ ] **Ranged / no-spell-armed paths** - cast preview, ranged-draw accent and the plain white release
+      burst must still hang on the weapon with no ground halo and no colour change.
+- [ ] **Third person** - the halo follows the *player's* forward, not the camera's, so the 1jl shoulder
+      offset must not shift it sideways.
+- [ ] **F4 lane** - expect the new `cast anchors:` line, `distinct identities` unchanged at 172/172/0
+      (the key was already all-distinct, so an added axis is inert *by construction* - a derivation, not
+      a measurement), and `authored profiles` **21 -> 22** because Fire Meteor gained a profile.
+- [x] `SpellDelivery` is **unchanged** for both Meteors - confirmed by grep, `SpellDelivery.Zone` still
+      present on both definitions.
+- [x] `ResolveZone` retains its `SummonFallingRock` branch and its Zone `TerrainShape` application;
+      `ResolveSummon` was not given either.
+- [x] Front direction is `PlayerController.transform.forward` with `y` flattened, not
+      `CameraModeSwitch.lookTarget` (which carries `ThirdPersonSideOffset`) and not a camera-position ray
+      (1jm's coupling).
+- [x] The offset is applied **before** the ground probe, and the probe skips the player's own hierarchy.
+- [x] The release burst and the charge halo both call the one `GroundCastPoint` function, and the halo is
+      re-placed every frame, so the two cannot drift apart mid-charge.
+- [x] Fire Meteor's profile is **anchor-only**: `Impact`/`Cast` left `Inherit`, so its deterministic Fire
+      picks are untouched and only the halo position changes.
+- [x] `castAnchor` added to **both** `Look(...)` factories (`SkillCatalog.cs`, `ClassSkillCatalog.cs`) so
+      the two same-named overloads in one partial class cannot express different subsets of a profile.
+- Verification: grep + reread + `tools\StaticChecks.ps1` -> **0 candidates** (`NewWorldTestGround.cs`
+      braces 178/178, parens 1126/1126). No Unity build (rule 3).
+      `skills: none applied` - no installed skill governs a cast-placement edit reviewed by grep, and the
+      Unity skills cannot run in this project anyway.
+
+### Follow-ups filed, not done
+- **Behind-player placement for the other caster-anchored summons is a separate task, deliberately not
+  bundled here.** It is not a one-line flip: setting `casterAnchored` changes the model
+  (`BuildTotem` -> `BuildFamiliarCircle`), whether the summon follows the player, and a charge-scaled
+  lifetime. Nine non-healing summons are candidates; Healing Shrine is an aura and must stay excluded.
+- **`CastAnchor` is in the F4 identity key, `Authored` is not.** `Authored` means "a profile exists", not
+  "looks different", so packing it would split groups that are genuinely identical. Recorded because the
+  two read similarly and only one belongs.
 ## 1js. The projectile trail did not read as its element - a trail colour that is computed, not a table
 
 Requested by the user: "make the magic projectile trail match with the element, with physical type make
@@ -20,7 +76,7 @@ third per-school palette, with `Physical` overridden to pure white.
       not in `SchoolColor`, which would have recoloured every physical projectile and impact as a side
       effect of a trail request.
 - [x] Resolved values confirmed by hand, all ten schools, with two passing controls
-      (`Lerp(black,white,0.45)=0.45`, `Lerp(white,white,0.45)=1`): see the `game-design.md` �3.8.3 list.
+      (`Lerp(black,white,0.45)=0.45`, `Lerp(white,white,0.45)=1`): see the `game-design.md` �3.8.3 list.
 - [x] `SpellLook.SchoolColor` and `SpellImpactFx`'s `look.Edge` reader deliberately **not** changed -
       confirmed still gold and still reading `Edge` respectively.
 - Verification: grep + reread + `tools\StaticChecks.ps1` -> 0 candidates; balance delta vs HEAD
@@ -2609,13 +2665,15 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-05. Read this first in a new session; then continue with the
+Last updated: 2026-10-06 (1jt). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded.
+for the reasoning it recorded. **1jt is the newest task and is not yet play-tested**; its open
+follow-ups are the behind-player summon extension (deliberately not bundled) and the F4
+`authored profiles` count moving 21 -> 22, which is a profile existing, not a changed look.
 
 ## 1ik. Frame-budget attribution lane (F2) â€” shipped, NOT verified
 

@@ -1374,3 +1374,49 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
     And the reuse check: **gate on DISTANCE, never on frames, for anything drawn along a path.** A
     frame-gated emitter makes density a function of speed *and* framerate; accumulating distance and
     emitting every N metres makes the look a property of the spell instead of of the machine.
+
+20. **A request about where something is DRAWN is a request about the look, not the delivery - and the
+    cheapest way to lose a feature is to answer it by moving an enum.** 1jt was "summon circles should be
+    under the player, everything else in front", and the two Meteors were the awkward case: they summon
+    from the sky but are `SpellDelivery.Zone` spells. The obvious implementation - switch them to
+    `SpellDelivery.Summon` so they classify as summons - **silently deletes both of their rocks and
+    moves the Earth crater behind the player**, because `SpellCaster.ResolveZone` is the *only* resolver
+    that has a `SummonFallingRock` branch and the only one that applies a Zone `TerrainShape`. Nothing
+    errors; the spell just stops being the spell. Three habits, all from that:
+    - **Before you move a gameplay field to achieve a visual result, grep every reader of the field and
+      ask which of them you are about to take a branch away from.** This is rule 13's drawn-vs-gameplay
+      split one level up, and the enumeration is the same work: `ResolveZone` / `ResolveSummon` /
+      `ResolveStorm` were each read, not assumed. The answer was a new **drawn-only** axis
+      (`SpellCastAnchor`) on the look profile, which is strictly smaller than the fix it avoided.
+    - **Prefer a total predicate over an enumerated list, because only the predicate has a coverage
+      claim.** The user's rule was "Summon draws at the feet, everything else in front" - a predicate
+      over a field that already exists, so all 172 spells classify with zero unclassified cases. Had 1jt
+      shipped a hand-listed set of "summon-like" spells, the set would have been *right* and still
+      carried no statement about the spell nobody remembered to add. Ask which of the two you were given;
+      when in doubt the total predicate is the one to implement, and the exceptions become authored
+      overrides **where the exceptions are visible** (both Meteors are named in one comment each).
+    - **An authored-only profile on a spell that had none flips a QA counter even when it changes no
+      pixel.** Fire Meteor had to gain a profile to carry `CastAnchor`, and `SpellLook.Authored` is
+      `p != null`, not "a profile overrides something" - so the F4 lane's `authored profiles` count moves
+      21 -> 22 while Fire Meteor looks exactly as it did (`Impact`/`Cast` left `Inherit`). **A
+      data-only catalog edit can move a readout that a reader will compare against a remembered value.**
+      State the predicted delta and let the lane confirm it; do not "fix" the readout to match a guess.
+    - **A second same-named factory in the same partial class is reachable only through a named argument,
+      and that is a latent divergence.** `Look(...)` exists twice - `SkillCatalog.cs` (with `skyrock`) and
+      `ClassSkillCatalog.cs` (without) - and C#'s better-function-member rule makes the *skyrock* one
+      unreachable unless the call names `skyrock`. So 1jt had to add `castAnchor` to **both** or the two
+      would silently express different subsets of a profile. When you find two overloads that differ only
+      by optional parameters, the honest question is "can a reader tell which one any given call reached?"
+      - and the answer here was no. Record it at both declarations, and prefer a named argument when the
+      distinction matters.
+    - **A component that re-derives its own transform every frame DISCARDS a position handed to it.** That
+      is why `CastingCircle` needs a `_grounded` *mode flag* holding `_groundPos`, not just a new `Show`
+      overload taking a point: `Update` rewrites `transform.position` from `_anchor` before the next
+      repaint, so a parameter would live exactly one frame. **If a placement has to survive a frame, it
+      has to be state, and the flag is the thing that says which placement is authoritative.**
+    - **A per-frame placement and the one-shot event that ends it must derive their point through ONE
+      function**, or the halo and the ring that announces it can disagree. `GroundCastPoint` is called
+      from both the per-frame `UpdateCastingCircle` and the release `BurstCastingCircle`; because the
+      halo is also re-placed per frame, a fresh point at release is *the same* point - had the halo been
+      placed once at cast start, the "same" derivation would have drifted by the player's whole walk-up
+      and still read as two derivations of one point.

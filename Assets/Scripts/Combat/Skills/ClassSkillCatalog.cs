@@ -124,9 +124,19 @@ public static class ClassSkillCatalog
     private static ClassMod M(ClassModType kind, float amount) => new ClassMod { kind = kind, amount = amount };
 
     /// <summary>1ii: class-spell look profiles, same all-multiplier contract as SkillCatalog.Look.</summary>
+    /// <para><b>1jt adds <paramref name="castAnchor"/></b> so this factory can express the same
+    /// profile as the one in <c>SkillCatalog.cs</c>. It has no <c>skyrock</c> parameter and still did
+    /// not need one — no class spell is a <c>SummonFallingRock</c> sky spell — but a factory that
+    /// silently cannot express a field is the kind of gap that gets rediscovered as a bug.</para>
+    /// <para><b>Overload trap, stated because it is real:</b> this and
+    /// <c>SkillCatalog.Look</c> are two overloads in the same partial class, and THIS one substitutes
+    /// fewer optional defaults — so a call that does not name <c>skyrock</c> or <c>castAnchor</c>
+    /// binds here, not there. That is harmless while both factories produce the same profile for the
+    /// fields they share, and it is exactly why <c>castAnchor</c> was added to both rather than one.</para>
+    /// </summary>
     private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
-        ProjectileShape shape = ProjectileShape.Auto)
+        ProjectileShape shape = ProjectileShape.Auto, SpellCastAnchor castAnchor = SpellCastAnchor.Inherit)
         => new SpellLookProfile
         {
             Impact = impact,
@@ -136,7 +146,8 @@ public static class ClassSkillCatalog
             HueShift = hueShift,
             ValueScale = value,
             SaturationScale = sat,
-            DisplayShape = shape
+            DisplayShape = shape,
+            CastAnchor = castAnchor
         };
 
     private static SpellData MakeSpell(string classId, string name, DamageType type, float power,

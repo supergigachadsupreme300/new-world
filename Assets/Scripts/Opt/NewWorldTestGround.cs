@@ -1520,6 +1520,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         // because SkyRock still occupies 2 bits of the fingerprint below, and an axis that is packed
         // into the key but not reported is one you cannot tell you moved.
         var bySkyRock = new Dictionary<SkyRockStyle, int>();
+        // 1jt adds this alongside the 2 key bits. Unlike SkyRock (constant under determinism), the
+        // anchor really is two-valued - Summon deliveries plus the two authored Meteors resolve to
+        // Feet and everything else to Front - so this count is the visible proof the axis moved.
+        var byAnchor = new Dictionary<SpellCastAnchor, int>();
         int total = 0;
         int authored = 0;
         var seen = new HashSet<string>();
@@ -1537,6 +1541,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             Bump(byCast, look.Cast);
             Bump(byShape, look.DisplayShape);
             Bump(bySkyRock, look.SkyRock);
+            Bump(byAnchor, look.CastAnchor);
             ulong key = LookKey(look);
             if (!groups.TryGetValue(key, out var list))
             {
@@ -1580,7 +1585,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append("look audit: ").Append(total).Append(" spells, ").Append(groups.Count)
           .Append(" distinct identities, ").Append(colliding).Append(" colliding groups")
           .Append(" (worst ").Append(worstText).Append("), ").Append(authored)
-          .Append(" authored profiles. axes = impact+cast+shape+skyrock+coreRGB@8bit (scale/tempo excluded)");
+          .Append(" authored profiles. axes = impact+cast+shape+skyrock+anchor+coreRGB@8bit (scale/tempo excluded)");
         _lookAuditText = sb.ToString();
         _lookAuditRun = true;
         Debug.Log("[NewWorldTestGround] " + _lookAuditText);
@@ -1590,6 +1595,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append('\n').Append("  body shapes:     ").Append(CountLine(byShape));
         sb.Append('\n').Append("  sky rocks:       ").Append(CountLine(bySkyRock))
           .Append("   (only SummonFallingRock spells draw one; the rest resolve to Boulder)");
+        sb.Append('\n').Append("  cast anchors:   ").Append(CountLine(byAnchor))
+          .Append("   (1jt: Feet = Summon deliveries + the two authored Meteors; front = everything else)");
         foreach (var kv in groups)
         {
             if (kv.Value.Count < 2) continue;
@@ -1599,22 +1606,33 @@ public sealed class NewWorldTestGround : MonoBehaviour
         Debug.Log("[NewWorldTestGround] " + sb.ToString());
     }
 
-    /// <summary>Packs the perceptual axes into one key. 36 bits: 3+3+4+2 for the enums, 8 per channel.
+    /// <summary>Packs the perceptual axes into one key. 38 bits: 3+3+4+2+2 for the enums, 8 per channel.
     /// 1f7 added SkyRock's 2 bits. Because determinism always resolves that axis to
     /// <see cref="SkyRockStyle.Boulder"/> (see the enum remarks), every non-authored spell gets the
     /// SAME two bits, so no existing collision verdict moved - the axis only separates the spells
-    /// that actually wear a different falling body, which is exactly the pair 1f7 authored.</summary>
+    /// that actually wear a different falling body, which is exactly the pair 1f7 authored.
+    /// <para><b>1jt adds CastAnchor's 2 bits at 36</b>, for a different reason than 1f7's: 1f7's axis
+    /// was resolved to a constant by determinism, whereas the anchor is genuinely two-valued among
+    /// spells that are otherwise identical - a halo at the feet and a halo 1.8 m in front are two
+    /// different pictures of the same fireball. So this axis is not a no-op like SkyRock was: expect
+    /// the distinct count to RISE and `colliding`/`worst` to FALL. That direction is the point, and it
+    /// is a one-way ratchet - a new axis can only split a group, never merge two, so these three
+    /// numbers moving the wrong way would mean the key is broken rather than the world improved.
+    /// <c>Authored</c> is deliberately NOT packed: it means "a profile exists", not "the spell looks
+    /// different", so packing it would split groups that are genuinely identical.</para>
+    /// </summary>
     private static ulong LookKey(in SpellLook look)
-    {
-        int r = Mathf.Clamp(Mathf.RoundToInt(look.Core.r * 255f), 0, 255);
-        int g = Mathf.Clamp(Mathf.RoundToInt(look.Core.g * 255f), 0, 255);
-        int b = Mathf.Clamp(Mathf.RoundToInt(look.Core.b * 255f), 0, 255);
-        return ((ulong)(int)look.Impact << 33)
-             | ((ulong)(int)look.Cast << 30)
-             | ((ulong)(int)look.DisplayShape << 26)
-             | ((ulong)(int)look.SkyRock << 24)
-             | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
-    }
+        {
+            int r = Mathf.Clamp(Mathf.RoundToInt(look.Core.r * 255f), 0, 255);
+            int g = Mathf.Clamp(Mathf.RoundToInt(look.Core.g * 255f), 0, 255);
+            int b = Mathf.Clamp(Mathf.RoundToInt(look.Core.b * 255f), 0, 255);
+            return ((ulong)(int)look.Impact << 33)
+                 | ((ulong)(int)look.Cast << 30)
+                 | ((ulong)(int)look.DisplayShape << 26)
+                 | ((ulong)(int)look.SkyRock << 24)
+                 | ((ulong)(int)look.CastAnchor << 36)
+                 | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
+        }
 
 private static string Describe(in SpellLook look)
     // 1js: the trailing "trail r,g,b" is the resolved exhaust-trail colour. The matrix band cannot
@@ -1622,11 +1640,20 @@ private static string Describe(in SpellLook look)
     // LAUNCHED projectile (SpellEffect.Update returns early on !_launched) - so this text readout is
     // the only way to confirm the resolution rule itself (each school keeps its own hue, Physical is
     // white) without firing one projectile per school. In-flight appearance stays a play-test item.
-    // LookKey is deliberately NOT extended: the key is bit-full at 34 bits and TrailColor is a pure
-    // function of DamageType, so this axis is strictly COARSER than the Core RGB already packed -
-    // it can only split a group in the coincidence where two schools Tint to the same Core, which is
-    // not a collision the 1ic audit is measuring. See AGENTS.md rule 13's corollary.
+    // LookKey is deliberately NOT extended for TrailColor: the trail is a pure function of DamageType,
+    // so that axis is strictly COARSER than the Core RGB already packed - it could only split a group
+    // in the coincidence where two schools Tint to the same Core, which is not a collision the 1ic
+    // audit is measuring. (The older version of this comment gave "the key is bit-full at 34 bits" as
+    // the reason; that arithmetic was wrong - it is 38 bits of a 64-bit ulong. Space was never the
+    // reason Trail is excluded. 1jt.)
+    // 1jt DOES add CastAnchor, because the anchor duplicates nothing already packed: the same
+    // fireball with its halo at the feet and 1.8 m in front is two different pictures.
+    // See AGENTS.md rule 13's corollary.
+    // 1jt: "feet"/"front" is the resolved cast anchor. The matrix band cannot SHOW it either - the band
+    // renders the CAST EFFECT, not the ground halo, over a player model with no ground beneath it - so
+    // like the trail, this text is the only readout for the rule and the placement is a play-test item.
     => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/" + look.SkyRock + "/"
+    + (look.CastAnchor == SpellCastAnchor.Feet ? "feet" : "front") + "/"
     + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")
     + " trail " + look.Trail.r.ToString("F2") + "," + look.Trail.g.ToString("F2") + "," + look.Trail.b.ToString("F2")
     + (look.Authored ? " AUTHORED)" : ")");

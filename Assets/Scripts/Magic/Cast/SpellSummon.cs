@@ -23,6 +23,10 @@ public class SpellSummon : MonoBehaviour
     private Color _color;
     private Vector3 _headBaseScale;
     private readonly Collider[] _hitBuffer = new Collider[32];
+    /// <summary>1ir: ground probe for the follow. 1jt: the constants and the probe itself moved to
+    /// <see cref="SpellCaster.GroundUnder"/> — the casting halo needs byte-identical behaviour, and
+    /// two private raycasts is rule 8's second-spelling rot (see that method's remarks). This buffer
+    /// stays here because the buffer is per-caller mutable state.</summary>
     private readonly RaycastHit[] _groundBuffer = new RaycastHit[8];
 
     /// <summary>1ir: this summon belongs to the caster — it is created at the caster and follows it
@@ -40,8 +44,12 @@ public class SpellSummon : MonoBehaviour
     /// (SpellCaster.ResolveSummon) and again every follow frame, from the same constant, or the
     /// familiar would visibly jump forward on its first tick.
     /// <para>Flattened against Y at the call site: an aim pointed at the ground must not bury the
-    /// circle, and one pointed at the sky must not launch it.</para></summary>
-    public const float BackOffset = 1.8f;
+    /// circle, and one pointed at the sky must not launch it.</para>
+    /// <para><b>1jt: this is an alias of <see cref="SpellLook.CastFrontOffset"/>, not a second
+    /// spelling of the same number.</b> The front casting halo and this rear familiar are meant to sit
+    /// symmetrically about the player, so they are one value by construction: changing one without the
+    /// other would silently break the symmetry, and nothing else in the game would notice.</para></summary>
+    public const float BackOffset = SpellLook.CastFrontOffset;
 
     /// <summary>1is: constant upward lead on a forward-sprayed bolt. The old nearest-target path
     /// computed its rise from the height DIFFERENCE to a target; with no target there is nothing to
@@ -51,12 +59,6 @@ public class SpellSummon : MonoBehaviour
     /// <summary>1is: cached camera for the shared aim derivation — this runs every frame the familiar
     /// is alive, and Camera.main is a tag lookup (same reason SpellBeam caches one).</summary>
     private Camera _mainCam;
-
-    /// <summary>1ir: ground probe for the follow. Starts high enough to clear the caster's own
-    /// capsule but must SKIP the caster's colliders outright — a ray started above a standing player
-    /// hits their capsule top before the terrain, which would park the circle at chest height.</summary>
-    private const float GroundProbeUp = 4f;
-    private const float GroundProbeDown = 40f;
 
     /// <summary>1ie: the summon's resolved look, cached at Initialize.</summary>
     private SpellLook _look;
@@ -133,7 +135,7 @@ public class SpellSummon : MonoBehaviour
 
     /// <summary>1ir/1is: keep the circle BEHIND the caster, snapped to the ground so it does not hang in
     /// the air on a slope or float when they jump. Skips the caster's own colliders — see
-    /// GroundProbeUp.
+    /// <see cref="SpellCaster.GroundProbeUp"/>.
     /// <para>1is: the offset is applied BEFORE the probe, not after. Probing at the caster and then
     /// moving the result 1.8 m back would keep the circle at the player's own floor height while it
     /// sits behind a step or the lip of a slope — the exact "circles at your feet, not where it is"
@@ -158,21 +160,9 @@ public class SpellSummon : MonoBehaviour
             back = back.normalized * -BackOffset;
 
         Vector3 p = _casterRoot.position + back;
-        int n = Physics.RaycastNonAlloc(p + Vector3.up * GroundProbeUp, Vector3.down,
-            _groundBuffer, GroundProbeDown);
-        float best = float.PositiveInfinity;
-        for (int i = 0; i < n; i++)
-        {
-            RaycastHit h = _groundBuffer[i];
-            if (h.collider == null) continue;
-            if (h.collider.transform.root == _casterRoot) continue;
-            if (h.point.y >= best) continue;
-            best = h.point.y;
-        }
-        // No ground found (mid-air, or over a gap the probe missed): keep the caster's own Y rather
-        // than snapping to the last frame's ground or to 0.
-        if (!float.IsPositiveInfinity(best)) p.y = best + 0.02f;
-        transform.position = p;
+        // 1jt: the probe itself is SpellCaster's now, so the halo under/in front of the player and
+        // this circle behind them can never disagree about what "the ground" is.
+        transform.position = SpellCaster.GroundUnder(p, _casterRoot, _groundBuffer);
     }
 
     private void Tick()

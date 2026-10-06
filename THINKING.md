@@ -1,3 +1,84 @@
+## 1jt. Casting-circle placement: the enum that would have eaten two Meteors, and a predicate vs a list
+
+OPEN until the user play-tests the placement. **The user asked twice, and the second question is the one
+that mattered** - see H4.
+
+**H1 (rejected) - "classify by `SpellDelivery`: `Summon` draws at the feet, everything else in front."**
+This is the shape I reached for first and it is *almost* the shipped answer: the predicate is right, and
+because it is a predicate over a field that already exists, all 172 spells classify with **zero
+unclassified cases** - a coverage claim an enumerated list of "summon-like spells" cannot make. What
+rejected the *literal enum edit* was reading the resolvers before writing the switch.
+`SummonFallingRock` is handled in **`ResolveZone` and nowhere else** - `ResolveSummon` has no such
+branch, and `ResolveZone` is also the only place a Zone `TerrainShape` is applied. Both Meteors are
+`Zone`. So "make the Meteors summons" would have **deleted both falling rocks and moved the Earth crater
+behind the player**, with no error anywhere. Rule 13's drawn-vs-gameplay split, one level up, and the
+cheapest possible way to lose a feature. Rejected the edit; kept the predicate and moved it onto a
+drawn-only axis.
+
+**H2 (confirmed by reading, not by testing) - the drawn axis is `SpellCastAnchor`, and it is derived, not
+picked.** Contrast with `SkyRockStyle` (1f7), which is authored-only because its members are structural
+claims about a spell. The anchor is different in kind: `Summon` means "something appears where you
+stand" and everything else means "you are aiming at something out there", so the *delivery* is already
+the fact, and there is no family to jitter between. So `Inherit` resolves from `spell.Delivery` in one
+expression and an authored profile may override. Confirmed both Meteors need the override, and each is
+named in a comment so the exceptions are visible where they are visible.
+
+**H3 (confirmed) - a second `Look(...)` in the same partial class is a trap that hides in plain sight.**
+`Look` is declared **twice**: `SkillCatalog.cs` (with `skyrock`) and `ClassSkillCatalog.cs` (without).
+C#'s better-function-member rule prefers the overload that substitutes **fewer** optional defaults, so
+the `skyrock`-bearing one is **unreachable unless a call names `skyrock`**. I nearly added `castAnchor`
+to one; adding it to both keeps them in parity, and the doc at both declarations now names the trap.
+This is a second copy of the same fact - which factory a call reached - that no compiler warns about.
+
+**H4 (open, and it is the user's correction) - I asked which non-summon deliveries to re-place; the user
+answered "the rest of them should be in front".** So the rule is a **total predicate**, and that answer
+also settled the two questions queued behind it: the front offset is a plain `1.8 m` (I had proposed
+larger values; the user did not want a longer conversation), and **distance was never the point - the
+direction was.** Worth recording because I was about to spend a round trip on a tuning number that was
+not the complaint.
+
+**H5 (rejected, and the interesting one) - reuse `SpellSummon`'s ground probe as a second copy.**
+`SpellSummon.FollowCaster` already had the exact raycast the halo needs - same constants, same "skip the
+caster", same nearest-hit rule. The tempting shape was a private copy in the player controller (three
+lines). Rejected: it is rule 8's second spelling that rots, and the failure is asymmetric - change one
+clearance and the halo floats while the familiar is fine, or the reverse, and **neither report names the
+other**. Extracted one shared `SpellCaster.GroundUnder`, which is also what let me state something true
+about the pair: the halo and the summon can no longer disagree about where the ground is. The nearest-hit
+rule travelled with the code because *the reasoning* travelled, not the literal.
+
+**H6 (confirmed by code read) - the front direction must be the player's, and the offset must be applied
+before the probe.** `PlayerController` writes its rotation as `Quaternion.Euler(0f, _yaw, 0f)`, so
+`transform.forward` **is** the aim. Both tempting sources are traps: `CameraModeSwitch.lookTarget`
+carries 1jl's `ThirdPersonSideOffset` (the halo would slide sideways with the camera) and a
+camera-position-derived ray is 1jm's coupling (moving the camera 0.6 m re-aims it). Separately, probing
+under the player and *then* offsetting forward leaves the halo at the player's own floor height when it
+sits over a step, so the order is offset-then-probe.
+
+**H7 (found by rereading, not by grep) - a placement must be state, not a parameter.**
+`CastingCircle.Update` re-derives `transform.position` from `_anchor` every single frame, so a new
+`Show(point, ...)` overload would have been **overwritten before the next repaint** - it would compile,
+run, and simply not appear. The fix is a `_grounded` **mode flag** owning `_groundPos`, which is also
+what lets `Burst` know whether it is bursting on the weapon or on the ground. Grep for the new overload
+could not have found this - the parameter would exist and do nothing.
+
+**H8 (measured, and it corrects a doc) - the F4 key had 36 free bits, not 34.** 1js recorded that
+`LookKey` was "bit-full at 34 bits" as the reason `TrailColor` was excluded. It is 3+3+4+2 enums + 8 per
+colour channel = **36 of a 64-bit `ulong**, so space was never the reason and the doc's stated mechanism
+was wrong. `TrailColor` is genuinely excluded for a better reason (a pure function of `DamageType`, hence
+strictly coarser than the `Core` RGB already packed), and `CastAnchor` is genuinely included (halo at the
+feet vs 1.8 m ahead is two different pictures). Both decisions survived the correction, but only because
+the space argument was re-checked instead of inherited.
+
+**H9 (predicted, not yet observed) - adding `CastAnchor` to the identity key cannot move the verdict, and
+that is a derivation rather than a measurement.** A new axis can only **split** a group, never merge one,
+so `distinct` can only rise and `colliding`/`worst` can only fall. Since the key was already
+`M == N == 172` (every spell unique), it is inert by construction - so the predicted `172 / 172 / 0` is
+**unchanged, not re-verified**, and re-pressing F4 is what turns it into a measurement. The readout I
+*do* predict to move is `authored profiles` **21 -> 22**, because `SpellLook.Authored` is `p != null` and
+Fire Meteor had to gain a profile to carry the anchor - while its `Impact`/`Cast` stayed `Inherit`, so the
+spell looks exactly as before. Two numbers, opposite reasons, and the one that moves is the one that is
+not about the feature.
+
 ## 1js. Trail colour: the formula was the bug, and my own instrument lied twice about it
 
 OPEN until the user play-tests the in-flight look.

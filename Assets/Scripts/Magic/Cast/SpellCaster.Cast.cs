@@ -204,9 +204,55 @@ public partial class SpellCaster
         return fallbackForward.sqrMagnitude > 0.0001f ? fallbackForward.normalized : Vector3.forward;
     }
 
-    /// <summary>Drop the forward aim onto the ground — shared ground-placement for zone/summon/storm.</summary>
-    private static Vector3 GroundTarget(Vector3 pos, Vector3 fwd, float range)
+    /// <summary>1jt: how high above the probe point the downward ray starts. Must clear the CASTER's own
+    /// capsule — a ray started at a standing player's chest hits them before the terrain and parks the
+    /// result at chest height. 1ir's value, kept exactly.</summary>
+    public const float GroundProbeUp = 4f;
+
+    /// <summary>1jt: how far below the probe point the downward ray reaches. 1ir's value.</summary>
+    public const float GroundProbeDown = 40f;
+
+    /// <summary>1jt: how far above the hit the caller is placed, so a flat ground ring is not z-fought
+    /// into the terrain it is lying on.</summary>
+    public const float GroundLift = 0.02f;
+
+    /// <summary>1jt: snap a world XZ down onto the ground beneath it, skipping <paramref name="skipRoot"/>
+    /// and its whole hierarchy. THE ONE downward ground probe for cast placement.
+    /// <para><b>Why it lives here and not in each caller.</b> <see cref="SpellSummon.FollowCaster"/>
+    /// already had exactly this — same constants, same "skip the caster", same nearest-hit rule — for
+    /// the familiar that rides behind the player. 1jt needs the identical behaviour for the casting
+    /// halo, in front of and under the same player. Two private copies of a raycast is rule 8's
+    /// "second spelling that rots": change one clearance and the halo floats while the familiar is
+    /// fine, or the reverse, and neither report names the other.</para>
+    /// <para><b>Takes the NEAREST hit, not the first.</b> <c>RaycastNonAlloc</c> returns hits in an
+    /// unspecified order, so walking past a building would otherwise park the halo on its roof some
+    /// frames and on the street others. A downward ray's nearest hit is the lowest <c>point.y</c>.
+    /// (1ir documented this for the summon; the reasoning is the reason, so it travels with it.)</para>
+    /// <para><b>No ground found keeps <paramref name="p"/>'s own Y</b> rather than snapping to the
+    /// last frame's ground or to 0 — mid-air and over-a-gap must not teleport the halo to sea level.</para>
+    /// <para>The <paramref name="buffer"/> is the caller's so this stays allocation-free per frame;
+    /// it must be non-empty. Each caller keeps its own because the buffer is mutable shared state and
+    /// two owners of one buffer is a reentrancy bug waiting for the first nested call.</para></summary>
+    public static Vector3 GroundUnder(Vector3 p, Transform skipRoot, RaycastHit[] buffer)
     {
+        if (buffer == null || buffer.Length == 0) return p;
+        int n = Physics.RaycastNonAlloc(p + Vector3.up * GroundProbeUp, Vector3.down,
+            buffer, GroundProbeDown);
+        float best = float.PositiveInfinity;
+        for (int i = 0; i < n && i < buffer.Length; i++)
+        {
+            RaycastHit h = buffer[i];
+            if (h.collider == null) continue;
+            if (skipRoot != null && h.collider.transform.root == skipRoot) continue;
+            if (h.point.y >= best) continue;
+            best = h.point.y;
+        }
+        if (!float.IsPositiveInfinity(best)) p.y = best + GroundLift;
+        return p;
+    }
+
+    /// <summary>Drop the forward aim onto the ground — shared ground-placement for zone/summon/storm.</summary>
+    private static Vector3 GroundTarget(Vector3 pos, Vector3 fwd, float range)    {
         Vector3 at = pos;
         if (Physics.Raycast(pos, fwd, out RaycastHit aimHit, Mathf.Max(range, 0.1f)))
             at = aimHit.point;
