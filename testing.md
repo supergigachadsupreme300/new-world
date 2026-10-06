@@ -9,4 +9,6 @@
 
 5.the beambody having shrink and enlarge animation , remove it, change into something else like holding 
 
-6. i setup the greatsword to be 2 hand weapon which mean it should be one animation when it was used with two hand, but now its being hold with one hand and casting animation on the other empty hand, 
+6. change the model of conflagmation to firestorm, and setup a new model for conflagmation, it would be a circle the particle around the circle edge fly up in vortex
+
+7. i setup the greatsword to be 2 hand weapon which mean it should be one animation when it was used with two hand, but now its being hold with one hand and casting animation on the other empty hand, 
