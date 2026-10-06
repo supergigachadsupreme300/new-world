@@ -231,7 +231,7 @@ public sealed class PlayerAnimator : MonoBehaviour
 
         // â”€â”€ Walk pose (natural gait) â”€â”€
         float wLegAmp = (0.32f + norm * 0.3f) * Mathf.Rad2Deg;
-        float wArmAmp = (0.3f + norm * 0.35f) * Mathf.Rad2Deg;
+        float wArmAmp = (0.5f + norm * 0.55f) * Mathf.Rad2Deg;
         float wLegL = Mathf.Sin(_phase) * wLegAmp;
         float wLegR = Mathf.Sin(_phase + Mathf.PI) * wLegAmp;
         // Contralateral swing: each arm moves OPPOSITE its same-side leg, so the left and right
