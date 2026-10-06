@@ -1049,7 +1049,31 @@ when it cites a doc section, confirm the heading is still where it was. A commen
       `CraftingStation`, `HomeChest`, `FarmPlot`), which is exactly where an unaudited removal stops
       being a sweep and starts being a rewrite. 1it therefore deleted only what it had audited and
       **reported** the `World\Housing` sub-tree as the next candidate instead of following it.
-    - **An enum or field with no reader can still be a doc's promise - deleting it orphans the
+- **A container type carries an ADDRESSING CONTRACT, and swapping it to match a signature transfers
+      that contract silently.** 1jq's runtime trail got its third console error in a row -
+      `ArgumentOutOfRangeException` on the first frame a trail drew - and it was **caused by the fix for
+      the second one**. CS1503 said `Color32` was wrong, so the colour was retyped to `Color` end to end,
+      which put `SetColors(List<Color>)` on the proven overload... by making the buffer a `List<Color>`
+      instead of an array. But `new List<Color>(58)` takes a **Capacity**: the list is born with
+      `Count == 0`, and `List<T>`'s indexer **setter** rejects any index `>= Count`. An array's `Length`
+      is simultaneously its capacity and its last valid index + 1; a `List`'s is not. So `_cols[i * 2] = c`
+      compiled cleanly - right overload, satisfied compiler, right type - and threw on the first write.
+      Three habits:
+      - **A fix can be correct as a COMPILE fix and still be wrong at RUNTIME.** CS0246 and CS1503 were
+        compile-time; this one is not, so the same edit has to be judged twice, on two axes. "The
+        compiler stopped complaining" is evidence about exactly one of them.
+      - **Sweep the NEW axis, not the one you just swept.** The sweep after CS1503 ran on *type and
+        overload existence* and found two more real problems. This error is not on that axis at all - it
+        is **index validity**, invisible to a type-focused sweep and to `StaticChecks.ps1`, which
+        reported 0 candidates on a file that throws on its first frame. When an error arrives from a
+        direction the previous sweep did not look in, that is the axis to grep next.
+      - **"Reserved" is not "present", and a slot nobody reads still has to exist.** The fill loop adds
+        58 placeholder `Color.clear` entries whose value is deliberately irrelevant - the entries past
+        the live segment count are referenced by no drawn triangle, because the index tail is zeroed to
+        degenerate triples. But they must be *there*. That is rule 7's "an absent measurement and a
+        measurement of zero are different" in a new dress: a cell that must exist, whose contents are
+        never read, and whose absence is not a no-op.
+- **An enum or field with no reader can still be a doc's promise - deleting it orphans the
       DOCUMENT, and that is a removal failure no compile reports.** 1it deleted the `HandUsage` enum
       (3 cases, no field on `WeaponData` used it) and found `game-design.md` listing "hand usage
       (single / dual / two-hand)" as a `WeaponData` shared field, with the doc's own Â§2208-2216

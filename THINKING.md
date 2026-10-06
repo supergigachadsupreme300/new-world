@@ -60,6 +60,45 @@ pooler in prose explaining what it replaced). **Two errors in a file is a prompt
 an error you find in that audit costs nothing, while a third console round-trip costs the user another
 compile.**
 
+### The third error was caused by the fix for the second - so it needed a different kind of check
+`ArgumentOutOfRangeException`, thrown on the first frame a trail drew. I want to be precise about the
+causal chain because it is the whole point: **the fix for CS1503 caused this.** Retyping the colour from
+`Color32` to `Color` was correct - it deleted the float->byte ladder and landed `SetColors` on the
+overload the project actually uses. But landing it on that overload is what made the buffer a
+`List<Color>` rather than an array, and `new List<Color>(58)` takes a **Capacity**: the list is born
+with `Count == 0` and 58 reserved slots, and `List<T>`'s indexer *setter* rejects any index `>= Count`.
+An array's `Length` is simultaneously its capacity and its last valid index + 1. A `List`'s is not. So
+`_cols[i * 2] = c` compiled cleanly - correct overload, correct type, compiler satisfied - and threw on
+the very first write.
+
+The general form, which is the part worth keeping: **an edit has to be judged twice, on two axes, and a
+green compile is evidence about only one of them.** CS0246 and CS1503 were compile-time; this is
+runtime. So "the compiler stopped complaining" cannot be the standard the fix is held to.
+
+The mechanical habit that came out of it is about **which axis to sweep**. After CS1503 I swept on
+*type and overload existence* - and that was the right sweep, it found two more real problems
+(`SetColors(List<Color32>)`, and the instance-vs-static `ObjectPooler`). But this error is not on that
+axis at all. It is **index validity**, which no type-focused sweep and no static check can see - which is
+why `StaticChecks.ps1` reported 0 candidates on a file that throws on its first frame. The rule that
+falls out: when an error arrives from a direction the previous sweep did not look in, *that* is the axis
+to grep, not the one that worked last time. Index validity is greppable in a way people forget - list
+the buffer's size, list every write, and compare the maximum index written against the container's
+valid range. Here: `MaxPoints = 29` -> needs 58, fill adds 58, max write index 57. Four numbers.
+
+And one detail that is easy to wave through as cosmetic. The 58 placeholder entries are filled with
+`Color.clear`, which is **deliberately irrelevant**: the entries past the live segment count are
+referenced by no drawn triangle, because the index tail is zeroed to degenerate triples. It is tempting
+to leave them uninitialised on the grounds that nothing reads them - and that would be the bug again,
+because "no drawn triangle references it" is not the same claim as "the slot may not exist." Reserved is
+not present. That is rule 7's absent-measurement point in a new dress: **a cell that must exist, whose
+contents are never read, and whose absence is not a no-op.**
+
+Third-order note on the file itself: three console errors in a row, each one found only by the user
+running it. Two of the three were invisible to every instrument this repo owns, and the third was caused
+by my own repair of the second. What would actually have caught them is a single pre-commit pass that
+lists every Unity API call in a new file next to a precedent - which is cheap to write, and is the same
+thing the third sweep did by hand.
+
 ## 1jq. "Make the projectile trail more efficient" - the cost was never the cubes, it was the pooler
 
 **Shipped.** `TrailStrip.cs` (new), `SpellEffect.cs`, `NewWorldTestGround.cs`; `ProjectileTrail.cs`

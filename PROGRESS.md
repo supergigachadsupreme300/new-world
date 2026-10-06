@@ -53,6 +53,12 @@ grep or by `StaticChecks.ps1`):
   one-point strip lives for its first 0.3 m with an empty mesh.
 
 ### 1jq-status
+- [x] **`ArgumentOutOfRangeException` on the first frame a trail drew** (found on the user's console,
+      fixed in the follow-up commit) - and this one was **caused by the CS1503 fix**. Retyping the colour
+      to `Color` moved the upload onto `SetColors(List<Color>)`, so the colour buffer became a
+      `List<Color>` instead of an array; `new List<Color>(58)` sets a **Capacity**, so `Count` starts at 0
+      and the indexer setter rejects every index. The buffer is now filled once at spawn. An array's
+      `Length` is both its capacity and its last valid index + 1 - a `List`'s is not.
 - [x] **CS1503 `cannot convert float to byte`** (found on the user's console, fixed in the follow-up
       commit). `SpellLook.Edge` is a `Color` (four normalised floats) and `Color32`'s *constructor* takes
       four bytes; the `Color -> Color32` conversion that does exist is an implicit **operator**, a

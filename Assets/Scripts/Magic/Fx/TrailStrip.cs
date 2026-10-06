@@ -157,13 +157,27 @@ public sealed class TrailStrip : MonoBehaviour
         strip._cols = new List<Color>(MaxPoints * 2);
         strip._tris = new int[(MaxPoints - 1) * 6];
 
+        // The `List<T>` constructor takes a CAPACITY, not a length: this list is born with Count == 0
+        // and 58 slots reserved, and the indexer setter rejects any index >= Count. So it has to be
+        // FILLED once, here - otherwise the very first per-vertex write in Rebuild throws
+        // ArgumentOutOfRangeException, on the first frame the strip draws.
+        //
+        // This is the cost of moving from `Color32[]` to `List<Color>`: an array's Length is both its
+        // capacity and its last valid index + 1, and a List's is not. Swapping the container to match
+        // `SetColors`' overload silently transferred the addressing contract with it.
+        //
+        // The placeholder value is irrelevant, deliberately: the entries past the live segment count are
+        // never referenced by any drawn triangle (the index tail is zeroed to degenerate triples), so
+        // what they hold cannot be seen. They exist only to make the full-array upload legal.
+        for (int i = 0; i < MaxPoints * 2; i++) strip._cols.Add(Color.clear);
+
         // Stays a float `Color` all the way through, deliberately. 1jq's first two versions stored a
         // `Color32` here and each was a compile error: `new Color32(look.Edge.r, ...)` is CS1503,
         // because `SpellLook.Edge` is a `Color` (four normalised FLOATS) while the Color32 CONSTRUCTOR
-        // takes four bytes - and a Color -> Color32 conversion existing (as an implicit OPERATOR, not an
-        // overload of the constructor) does not make that signature legal. Keeping one type removes the
-        // whole float->byte ladder. It also puts `SetColors(List<Color>)` on the same overload the rest
-        // of this project actually uses (FarShell, VoxelMesher, ChunkMeshGenerator all hand it a
+        // takes four bytes - and a `Color -> Color32` conversion existing (as an implicit OPERATOR, not
+        // an overload of the constructor) does not make that signature legal. Keeping one type removes
+        // the whole float->byte ladder. It also puts `SetColors(List<Color>)` on the same overload the
+        // rest of this project actually uses (FarShell, VoxelMesher, ChunkMeshGenerator all hand it a
         // `List<Color>`), where `List<Color32>` appears nowhere in the tree.
         strip._base = look.Edge;
         strip._cam = Camera.main;
