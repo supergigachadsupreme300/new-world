@@ -1,3 +1,33 @@
+### CONFIRMED (then broken): the mesh update compiled green and did not compile
+The user came back with `CS0246: MeshUpdateFlags could not be found`. Hypothesis when I wrote it -
+"the type exists in Unity 6000.5.1f1, the `(array, start, count, flags)` overloads are documented, so
+this is fine" - **rejected by the console.** The interesting part is not that it failed; it is that
+*every verification I had available went green first*: `StaticChecks.ps1` reported 0 candidates, the
+grep for the removed `ProjectileTrail` was clean, and I reread the file. None of those instruments can
+ask "does this type name resolve", because **no check in this repo looks for it** and `TrailStrip.cs`
+was the only file in the tree that ever mentioned the symbol.
+
+So the habit this produces is mechanical, not inspirational: **before writing an API call, grep for an
+existing use of it in this codebase.** There was one - `ChunkMeshGenerator`'s upload, which uses
+`SetVertices(array)` / `SetTriangles(array, 0)` / `bounds` by hand with **no flags at all** - and it was
+sitting in the file `StaticChecks.ps1` already had in its `$files` list. A zero-hit grep is not a gap in
+the sweep; a zero-hit grep on a *type name* is the finding, because it means the risk is unbounded and
+nothing local can confirm the spelling.
+
+The second half is the one that would have bitten silently even if the name had been right. My original
+calls were the **bounded** overloads `(array, start, count, flags)`. Moving to the plain
+`SetTriangles(_tris, 0)` uploads the **whole** array every rebuild - so indices left over from a frame
+with more segments still reference real vertex slots, which is garbage geometry rather than a harmless
+no-op. Fixed with an `Array.Clear` over the tail. The general form: **whenever a change trades a bounded
+write for an unbounded one, ask what the leftovers now point at.** Unused *vertices* are harmless
+because nothing indexes them; unused *indices* are not.
+
+Third-order, and worth recording because it inverts the usual instinct: dropping the flags makes the
+three calls **recalculate bounds**, which sounds like giving up the optimisation. But the hand-set
+bounds now have to come **after** the upload instead of alongside it, which is the same invariant the
+optimised version relied on - and a bounds pass over 58 vertices three times a second is not a
+measurement. So the fix that was *forced* by a compile error happened to be the simpler code.
+
 ## 1jq. "Make the projectile trail more efficient" - the cost was never the cubes, it was the pooler
 
 **Shipped.** `TrailStrip.cs` (new), `SpellEffect.cs`, `NewWorldTestGround.cs`; `ProjectileTrail.cs`

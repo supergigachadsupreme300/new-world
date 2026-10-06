@@ -70,13 +70,6 @@ public sealed class TrailStrip : MonoBehaviour
     /// <summary>Slack added to the hand-set bounds so a strip is never culled a millimetre early.</summary>
     private const float BoundsSlack = 0.1f;
 
-    /// <summary>All three flags together: we set the render bounds by hand, we know the indices are
-    /// well-formed because we built them, and we do not want the mesh marked dirty for every renderer
-    /// in the scene each frame.</summary>
-    private static readonly MeshUpdateFlags Flags =
-        MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices |
-        MeshUpdateFlags.DontNotifyMeshUsers;
-
     /// <summary>Oldest point at index 0, newest at the end. A front-shifting array rather than a ring
     /// buffer: with <see cref="MaxPoints"/> = 29 and one push every 0.3 m, the copy is 29 elements three
     /// times a second, which is free — and it means "index 0 is always the oldest" is readable, which
@@ -102,13 +95,20 @@ public sealed class TrailStrip : MonoBehaviour
     /// <summary>Live quads. Reported by the 1jq Numpad8 lane.</summary>
     public int SegmentCount { get { return _count > 1 ? _count - 1 : 0; } }
 
-    /// <summary>Vertices actually written. ZERO when there are no segments, not <c>_count * 2</c>:
-    /// a one-point strip never reaches <c>Rebuild</c>, so its mesh holds nothing and reporting 2
-    /// would be a count of geometry that does not exist (rule 7: an absent measurement and a
-    /// measurement of zero are different).</summary>
+    /// <summary>Vertices the strip's geometry actually REFERENCES, which is not the array length:
+    /// <c>Rebuild</c> uploads the whole preallocated buffer and lets the unused tail go unreferenced
+    /// (and, for indices, zeroed). Reported by the 1jq Numpad8 lane, so it has to be the number the
+    /// strip really draws.
+    /// <para>
+    /// ZERO when there are no segments, not <c>_count * 2</c>: a one-point strip never reaches
+    /// <c>Rebuild</c> at all, so its mesh holds nothing and reporting 2 would be a count of geometry
+    /// that does not exist (rule 7: an absent measurement and a measurement of zero are different).
+    /// </para></summary>
     public int VertexCount { get { return SegmentCount > 0 ? _count * 2 : 0; } }
 
-    /// <summary>Triangles actually drawn.</summary>
+    /// <summary>Triangles the strip really draws — <see cref="SegmentCount"/> * 2, one-sided counted
+    /// once. The submesh itself holds <c>MaxPoints - 1</c> * 2 entries because the full index buffer is
+    /// uploaded, and the remainder are zeroed degenerate triples that rasterise to nothing.</summary>
     public int TriangleCount { get { return SegmentCount * 2; } }
 
     /// <summary>Was this strip actually rendered? A count of components is not a visibility proof —
@@ -233,7 +233,6 @@ public sealed class TrailStrip : MonoBehaviour
     private void Rebuild(Vector3 camForward)
     {
         int segs = _count - 1;
-        int vcount = _count * 2;
         int tcount = segs * 6;
         var bounds = new Bounds(_pts[0], Vector3.zero);
 
@@ -278,13 +277,27 @@ public sealed class TrailStrip : MonoBehaviour
             _tris[w++] = v2; _tris[w++] = v3; _tris[w++] = v1;
         }
 
-        _mesh.SetVertices(_verts, 0, vcount, Flags);
-        _mesh.SetColors(_cols, 0, vcount, Flags);
-        _mesh.SetIndices(_tris, 0, false, 0, tcount, Flags);
+        // The whole index array is uploaded every rebuild (see the note below), so the entries past
+        // this frame's segment count are leftovers from a LONGER strip and would still reference real
+        // vertex slots — that is garbage geometry, not a degenerate no-op. Zeroing them collapses each
+        // to three copies of vertex 0, i.e. zero area, which draws nothing.
+        if (tcount < _tris.Length) System.Array.Clear(_tris, tcount, _tris.Length - tcount);
 
-        // Bounds are set BY HAND because DontRecalculateBounds is set above. Skip this and the strip
-        // gets culled by a stale/zero bound and vanishes — including right at the screen edge, which
-        // is exactly where it looks like a mesh bug and not a culling bug.
+        // Full-array overloads, with NO MeshUpdateFlags — deliberately. 1jq's first version carried a
+        // `MeshUpdateFlags` field to skip bounds recalculation and index validation, and it did not
+        // compile (CS0246). This project runs Unity 6000.5.1f1, where ChunkMeshGenerator's upload is the
+        // proven-working reference and it uses exactly these overloads with no flags at all. Matching the
+        // codebase is both the version-safe choice and the one that can be verified by reading a file that
+        // already ships. The optimisation it gave up is worth naming: these three calls DO recalculate
+        // bounds, which is why the hand-set bounds below must come AFTER them rather than before — and it
+        // costs a bounds pass over 58 vertices about three times a second, which is not a measurement.
+        _mesh.SetVertices(_verts);
+        _mesh.SetColors(_cols);
+        _mesh.SetTriangles(_tris, 0);
+
+        // Bounds are set BY HAND, and LAST. Skip this and the strip gets culled by a stale/zero bound and
+        // vanishes — including right at the screen edge, which is exactly where it looks like a mesh bug
+        // and not a culling bug.
         bounds.Expand(HeadHalfWidth * 2f + BoundsSlack);
         _mesh.bounds = bounds;
     }

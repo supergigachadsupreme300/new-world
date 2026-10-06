@@ -37,6 +37,25 @@
    case looks legal and only fails definite assignment. When the user pastes Unity console errors,
    fix them in a **new commit** (never an amend) and sweep the whole class Ã¢â‚¬â€ every
    `return <void helper>(...)`, and every name declared in one `case` and read in another.
+   **An API that you are using for the FIRST time in this codebase is an unverified assumption, and the
+   project's own existing usage is the reference to check it against.** 1jq wrote a runtime mesh update
+   around `MeshUpdateFlags` + the `(array, start, count, flags)` overloads; the type does exist in Unity
+   6000.5.1f1, the project's own 1jq verification pass (`StaticChecks.ps1`, grep, reread) all went green,
+   and it still shipped CS0246 on the user's console - because **`TrailStrip.cs` was the only file in
+   the repo that ever mentioned the symbol**, so nothing local could confirm the name and no check looks
+   for it. Three habits, all mechanical:
+     - **Before writing an API call, grep the tree for an existing use of it.** If there is one, copy
+       that exact overload shape - `ChunkMeshGenerator`'s upload is the proven pattern here:
+       `SetVertices(array)` / `SetColors(array)` / `SetTriangles(array, 0)` / `bounds` by hand, with **no
+       flags**. If there is **no** existing use, treat the call as unproven and prefer the plainest
+       overload the codebase already demonstrates over the one the docs describe as optimal.
+     - **A count of zero hits is itself the finding.** "No other file uses this" is not a gap in the
+       sweep, it is the answer: the risk is unbounded precisely because there is no local precedent.
+     - **Swapping a bounded upload for a full-array one silently changes the contract.** Dropping the
+       `(start, count)` overloads means leftover entries from a *longer previous frame* are still uploaded,
+       and stale indices reference real vertex slots - so garbage geometry, not a harmless no-op. 1jq had
+       to add `Array.Clear` over the index tail for exactly this. Whenever you trade a bounded write for
+       an unbounded one, ask what the leftovers now point at.
    **Run `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1` before committing any
    change to `WorldBuilder*.cs` or `NewWorldTestGround.cs`** Ã¢â‚¬â€ it mechanises exactly those checks
    (balance, overload-aware arity, void-return, unassigned locals, cross-case locals, part-key parity).

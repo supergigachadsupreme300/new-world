@@ -53,6 +53,15 @@ grep or by `StaticChecks.ps1`):
   one-point strip lives for its first 0.3 m with an empty mesh.
 
 ### 1jq-status
+- [x] **CS0246 `MeshUpdateFlags` could not be found** (found on the user's console, fixed in the
+      follow-up commit). The runtime mesh update used `MeshUpdateFlags` + the `(array, start, count,
+      flags)` overloads; the type exists in Unity 6000.5.1f1 but `TrailStrip.cs` was the only file in
+      the repo that ever mentioned it, so no local use could confirm it and **no check in this repo
+      looks for it** - `StaticChecks.ps1` went green, grep went green, reread went green, and it still
+      did not compile. Rewritten onto `ChunkMeshGenerator`'s proven idiom: `SetVertices(array)` /
+      `SetColors(array)` / `SetTriangles(array, 0)` / `bounds` set by hand **after**, no flags. Full-array
+      upload means leftover indices from a longer previous frame are live, so the index tail is now
+      `Array.Clear`ed - garbage geometry, not a harmless no-op. See `AGENTS.md` rule 3.
 - [ ] **Look at a trail in flight (this is the part no check can judge)** - tapewidth, whether the tail
       fades the way you want, and whether the colour reads as the spell's. It is `Sprites/Default`
       alpha-blended, **not** additive, so it will read softer than the old voxels; say if you want it
