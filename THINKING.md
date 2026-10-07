@@ -1,4 +1,78 @@
-## 1ju. Camera aim: the smoother was a steering input, and "a bit" was 13 degrees
+## 1jv. "The camera is continuously bugging when moving" - the distance moved, and so did the room to guess
+
+OPEN until the user presses Numpad2 on flat ground and the readout chooses a mechanism. This is a
+**measure-first** task; the fix is deliberately withheld until the lane prints a verdict.
+
+**H1 (REJECTED before any code changed) - the collision clamp pulls the camera in.** I wanted to rule
+this out from the geometry, not from a knock-out test. `ThirdPersonDistance` = 6.5 m, `ThirdPersonY` =
+2.6 m above the player's *feet*, pivot at the ~1.5 m head, so the boom rises 1.1 m over its 6.65 m of
+length (about 9.5 deg above horizontal). The `SphereCast` starts at the pivot and sweeps along the boom
+direction - the ray climbs from ~1.5 m up to ~2.6 m as it travels and **never descends below the
+pivot's height**. On flat ground the only surface in the sweep would have to rise ≥ ~1.5 m within the
+boom's reach (a wall, or a slope steep enough the ground climbs above the pivot). The report's own
+qualifier ("everywhere even on flat open ground") already excluded it, and "in-out-in-out" both ways is
+a direction the clamp cannot produce (it only shortens). Flat-ground clamping is geometrically
+impossible; the clamp needs a wall or a rising slope.
+
+**H2 (OPEN, the lane's job) - the position smoother lengthens the boom's effective reach.** The camera
+is a `SmoothDamp` behind the pivot. Under steady motion the camera lags by `v * SmoothTime` = 0.75 m at
+walk (5 m/s x 0.15 s) / 1.5 m sprint - on a 6.5 m boom that is a 0.75-1.5 m longer *effective* camera-to-
+pivot distance while moving. It is speed-dependent by construction and present on flat ground with the
+pivot's yaw constant - exactly the "continuously, everywhere, especially when moving" shape. The trail
+would read as: rest held constant, applied == rest, but measured camera-to-pivot distance grows while
+the player moves.
+
+**H3 (OPEN, needs the yaw control) - the boom swings with mouse yaw.** Any mouse turn moves the pivot
+faster than the smoothed camera, transiently changing the measured distance. This is *expected* camera
+behaviour, not the defect, but it is also a distance mover, so a lane that separated nothing would file
+it as a finding. Hence section B's mouse-yaw total: if distance moves only while the player turns, that
+is the swing and the report says so. On the other boot, the "out/in/out/in" cadence of the report
+parallels a walk gait plus head bob, which SmoothTime would smear out - worth knowing later; the lane's
+measure-first answer decides.
+
+**How the lane separates H2 from H3 from the clamp (rule 7: report the frame the key was pressed, and
+gate the classifier on the width of its own test).** A single frame cannot catch a transient, so the
+tracker feeds a 120-frame ring every frame and the key only reads the window that ended at the press.
+The D verdict branches in width-aware order: VOID when the premise (third person + switcher) fails - in
+first person the camera snaps to the pivot and no distance here means anything; NOT MEASURED on an empty
+window (an absent measurement is not zero, rule 7/1ik); NOT REPRODUCED when under a quarter of the
+frames had the player moving (a held distance over a motionless window proves nothing - the classifier
+is gated on its own 25% moving-threshold so standing cannot manufacture a verdict); COLLISION CLAMP when
+applied < rest - 0.01 on >10% of frames (uses the two published lengths, no re-derived boom, rule 8);
+POSITION SMOOTHER when distance range > 0.35 m while yaw total < 5 degrees with the boom never clamped
+(rest == applied, distance moved anyway - the smoother trailing past the boom's end); INCONCLUSIVE when
+yaw >= 5 degrees (the swing is confounded, re-press with the mouse still); else STEADY (does not
+reproduce). The threshold arithmetic is deliberate: 0.35 m is ~half the walk lag (0.75 m) and a full
+turn of yaw would be 90+ degrees, so the "held" case cannot be manufactured by the smoother, and
+section C prints its own window length and range so a number is always read next to its confidence.
+
+**The published-lengths choice is an ownership decision, not a convenience.** `CameraModeSwitch` assigns
+`BoomRestLength` (from `targetDist`) and `BoomAppliedLength` (from `finalDist`) at the exact locals the
+rest of the class already uses. A lane that recomputed a boom from `ThirdPersonDistance` would be rule
+8's second spelling - it would drift when the camera's math changed and nothing would notice until the
+lane silently disagreed with the camera it measures. Publishing at the source is the frame for building
+a real acceptance readout (rule 7: the readout names the mechanism before the fix names a guess).
+
+**1f3's "membership vs measured value may use different references" applies one level down and is a
+trap I avoided deliberately.** The collision flag is *not* `outside < rest` (a magic constant framed as
+a free threshold); it is `applied < rest - 0.01f`, i.e. measured against the boom's *own* published
+rest. A spike in `BoomRestLength` (e.g. a respawn changing the pivot) is therefore gated out by the
+owner-cache reset and by comparing published-to-published, never a re-derived formula. A lane that
+copied a camera formula would have been a *second owner* of the boom length, exactly the class of bug
+this project keeps rediscovering (rule 13's trail colour, 1js).
+
+**The commit that landed while I worked (6c8c702, "camera fix in progress") is the task id's other
+lesson.** The user committed an earlier, incomplete draft of this lane: it referenced `_boomYaw`,
+`_boomLastPivot` and `_boomSeen` without ever declaring them (CS0103), kept a write-only
+`_boomTrackable`, and orphaned the 1jq trail XML doc from `SnapshotTrailAudit` by inserting the boom
+block between them. My commit repairs that baseline rather than pretending it never existed (rule 1: no
+amend - a new commit on top), declares the missing state, drops the write-only flag, restores the trail
+doc to sit directly above its method, and adds the owner-cache on top. Two habits this reinforces:
+**a draft committed mid-task is both a checkpoint and a hazard** - the reviewer must re-sweep for
+undeclared references introduced by the *draft*, not just the final design; and **when a user commit
+ships my in-flight code, the acceptance tests that justified the lane (rule 7's frame-the-press +
+premise-first + self-gated thresholds) are part of the follow-up**, because a partially-committed lane
+without its verdict semantics is a key that prints numbers nobody can trust.
 
 OPEN until the user play-tests strafing. **The report was four words long and needed no measurement lane**,
 which is the exception, not the rule - see H5 for why I was allowed to skip it.

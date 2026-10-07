@@ -3191,6 +3191,25 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     term and the camera yaws toward it — is the same anti-pattern but a different trigger, so it is
     reported rather than bundled.
 
+- **The boom's distance is measured before anything is fixed (1jv).** Reported as "the camera is
+    continuously bugging when moving" and "snaps in and out / zooms, everywhere even on flat open
+    ground". Two mechanisms were derivable and needed different fixes, and the first hypothesis — the
+    collision clamp — was **falsified before touching it**: the boom rises `ThirdPersonY` − pivot
+    height (2.6 − ~1.5 = 1.1 m) over `ThirdPersonDistance` 6.5 m (boom ≈ 6.65 m), and the collision
+    `SphereCast` sweeps along that boom from the pivot, so the ray climbs from ~1.5 m up to ~2.6 m and
+    **never descends below the pivot's height** — flat ground cannot be in the sweep; the clamp needs a
+    wall or a slope rising ≥ ~1.5 m within the boom's reach. The report's own qualifier excluded it.
+    The survivors are the position smoother changing the boom's *effective* length with movement
+    direction (lag `v * SmoothTime`, see 1ju) and the boom swinging with mouse yaw. A rule-7 read-only
+    lane separates them: **Numpad2**, `NewWorldTestGround`
+    `EnableBoomAudit`/`BoomAuditKey`. `CameraModeSwitch` publishes the boom's two lengths —
+    `BoomRestLength` (from `targetDist`) and `BoomAppliedLength` (from `finalDist`) — so the lane
+    can tell "held length, distance grew" (the smoother trailing past the boom's end) from "length
+    shortened" (the clamp) instead of re-deriving the boom vector (rule 8: no second spelling). The
+    readout's D verdict names a mechanism off the **controls** (player speed + mouse-yaw total over
+    a 120-frame trailing window), not off the size of the movement. Pending: the user play-tests on
+    flat ground and the verdict picks the mechanism.
+
   **Reported, not fixed:** `Player/ThirdPersonCamera.cs` is a second, **dead** class carrying the same
   anti-pattern (`Quaternion.LookRotation(pivotPos - transform.position)` at `RotationSmoothTime`,
   position-driven aim) and still has **zero** code references — its only mention anywhere is a comment in

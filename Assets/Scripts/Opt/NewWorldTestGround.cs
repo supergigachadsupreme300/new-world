@@ -123,7 +123,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
 
     [Tooltip("QA/perf (1jq): press TrailAuditKey for a read-only count of the in-flight projectile trail strips - how many exist, how many of those were actually RENDERED, and their segment/vertex/triangle totals. This is the acceptance readout for the voxel -> strip change: the proposal was 'this costs less', and no other lane in this file reports component or draw counts (1ik's F2 reports CPU/GPU milliseconds, not counts). Strips-1-with-visible-0 names the mechanism - a strip that built but did not draw is a mesh-bounds or missing-camera fault, not a colour problem. Prints a known-zero control beside every count, because a count never shown able to report 0 is not a count. Read-only by rule 7: counts what is in the scene on the frame the key was pressed, spawns nothing and changes nothing. It CANNOT prove the strip is flush with the ground or how the tail looks - drawn and flush are separate properties, so the tail read is a play-test item, not a number. Needs EnableFpsStats on to display.")]
     public bool EnableTrailAudit = true;
-    [Tooltip("QA/perf (1jq): key that snapshots the trail-strip counts. Numpad8, chosen the way F13's and Numpad1's were - by grepping all three Input System spellings ('Key.Numpad8', '.numpad8Key', '[Key.Numpad8]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jq: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 is this file's frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, numpadEnter the ending cutscene. Numpad0 and Numpad2-Numpad9 are free. See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
+    [Tooltip("QA/perf (1jq): key that snapshots the trail-strip counts. Numpad8, chosen the way F13's and Numpad1's were - by grepping all three Input System spellings ('Key.Numpad8', '.numpad8Key', '[Key.Numpad8]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jq: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 is this file's frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, numpadEnter the ending cutscene. The free Numpads as of 1jv are 0 and 3-9: 1je took Numpad1, 1jq took Numpad8, 1jv took Numpad2 (1jv corrected this sentence's older 'Numpad2-Numpad9 are free' in place). See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
     public Key TrailAuditKey = Key.Numpad8;
     private string _trailAuditText;
 
@@ -148,7 +148,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     // not rebuild, re-stamp, force a poll, teleport the player, or write anything the camera reads.
     [Tooltip("QA (1jv): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Read-only by rule 7: samples transforms and reads two published floats, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
     public bool EnableBoomAudit = true;
-    [Tooltip("QA (1jv): key that reports the third-person camera boom readout. Numpad2, chosen the way F13's / Numpad1's / Numpad8's were - by grepping all three Input System spellings ('Key.Numpad2', '.numpad2Key', '[Key.Numpad2]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jv: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 is this lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene. Numpad0 and Numpad3-Numpad9 are now free - the 'Numpad2-Numpad9 are free' sentence in the three tooltips above is STALE, this lane took Numpad2. See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
+    [Tooltip("QA (1jv): key that reports the third-person camera boom readout. Numpad2, chosen the way F13's / Numpad1's / Numpad8's were - by grepping all three Input System spellings ('Key.Numpad2', '.numpad2Key', '[Key.Numpad2]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jv: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 is this lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene. Numpad0 and Numpad3-Numpad9 are the free Numpads (this lane took Numpad2; the trail tooltip's older 'Numpad2-Numpad9 are free' was corrected in place in the same commit). See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
     public Key BoomAuditKey = Key.Numpad2;
     private string _boomAuditText;
 
@@ -163,9 +163,13 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private readonly float[] _boomRest = new float[BoomWindow];
     private readonly float[] _boomApplied = new float[BoomWindow];
     private readonly bool[] _boomClamped = new bool[BoomWindow];
+    private readonly float[] _boomYaw = new float[BoomWindow];
+    private Vector3 _boomLastPivot;
+    private bool _boomSeen;
+    private PlayerController _boomOwner;
+    private CameraModeSwitch _boomMode;
     private int _boomHead;
     private int _boomFilled;
-    private bool _boomTrackable;
 
     // ---------------------------------------------------------------------------------------------
     // (1ik) Frame-budget attribution lane: a continuous passive sampler plus one snapshot key.
@@ -1975,47 +1979,35 @@ private static string Describe(in SpellLook look)
             + " (ally colour #" + ColorUtility.ToHtmlStringRGB(tint) + ").");
     }
 
-    /// <summary>1jq: read-only snapshot of the in-flight projectile trail strips. This is the
-    /// acceptance readout for the voxel -> strip rewrite: the proposal was entirely about COST, and no
-    /// other lane in this file reports component or draw COUNTS (1ik's frame-budget lane reports
-    /// milliseconds, which under vsync is quantised by the present interval and cannot separate
-    /// "cheaper" from "slightly cheaper").
-    /// <para>
-    /// <b>Scoping, which is the whole difficulty (rule 7).</b> "Live strips that were not drawn" is the
-    /// finding this lane exists to catch — bad mesh bounds or a missing camera are invisible to a pure
-    /// component count. But it is only a POSITIVE result where a draw is possible at all: a bolt's first
-    /// 0.3 m of flight has a strip with zero segments and therefore nothing to draw, and counting that
-    /// as a fault would train the reader to ignore the verdict. So the not-drawn count is split into
-    /// <c>drawn</c> / <c>undrawn</c> over strips that HAVE geometry, and strips with no geometry are
-    /// reported separately as <c>young</c>. Only <c>undrawn-with-geometry</c> is a fault, and it is the
-    /// number the headline names.
-    /// </para>
-    /// <para>
-    /// The collider count is the deliberate known-zero control. It is zero BY DESIGN (a trail is
-    /// cosmetic), so a run that reports strips-with-colliders &gt; 0 means the count is lying, and a
-    /// count never shown able to report non-zero is not a count. It is also a real invariant rather than
-    /// a filler number: a strip that acquired a Collider would cost physics time it never should.
-    /// </para>
-    /// </summary>
-    /// <summary>1jv: feed the boom lane's trailing window. Runs EVERY frame - the key only reads the
-/// window, because "snaps in and out" is a transient and a single frame cannot catch one. Strictly
-/// read-only: reads two transforms and two published floats, writes only its own arrays.</summary>
+      /// <summary>1jv: feed the boom lane's trailing window. Runs EVERY frame - the key only reads the
+      /// window, because "snaps in and out" is a transient and a single frame cannot catch one. Strictly
+      /// read-only: reads two transforms and two published floats, writes only its own arrays.</summary>
       private void TrackBoomFrame()
       {
           var gm = GameManager.Instance;
           var player = gm != null ? gm.Player : null;
           PlayerController ctrl = player != null ? PlayerControllerCached(player) : null;
           Camera cam = Camera.main;
+
+          // Resolve the switcher only when the controller CHANGES - one GetComponent per owner rather
+          // than per frame - and drop the window with it: a respawn that swaps the controller must not
+          // leave samples from the OLD player's camera mixed into one report.
+          if (!ReferenceEquals(ctrl, _boomOwner))
+          {
+              _boomOwner = ctrl;
+              _boomMode = ctrl != null ? ctrl.GetComponent<CameraModeSwitch>() : null;
+              _boomHead = 0;
+              _boomFilled = 0;
+              _boomSeen = false;
+          }
           Transform pivot = ctrl != null ? ctrl.PlayerCameraPivot : null;
-          CameraModeSwitch mode = ctrl != null ? ctrl.GetComponent<CameraModeSwitch>() : null;
+          CameraModeSwitch mode = _boomMode;
 
           // PREMISE gate. In first person this camera snaps to the pivot every frame and cannot zoom
           // at all, so a distance sampled then describes a camera that is not the boom. Reset the
           // window instead of recording a number that cannot mean anything - a lane that reports a
           // confident figure about the wrong camera is worse than one that reports nothing.
-          _boomTrackable = ctrl != null && cam != null && pivot != null && mode != null
-                           && !mode.IsFirstPerson;
-          if (!_boomTrackable)
+          if (ctrl == null || cam == null || pivot == null || mode == null || mode.IsFirstPerson)
           {
               _boomHead = 0;
               _boomFilled = 0;
@@ -2048,10 +2040,10 @@ private static string Describe(in SpellLook look)
       private void SnapshotBoomAudit()
       {
           var sb = new System.Text.StringBuilder(384);
-          var gm = GameManager.Instance;
-          var player = gm != null ? gm.Player : null;
-          PlayerController ctrl = player != null ? PlayerControllerCached(player) : null;
-          CameraModeSwitch mode = ctrl != null ? ctrl.GetComponent<CameraModeSwitch>() : null;
+          // Read the switcher TrackBoomFrame resolved THIS frame, rather than reaching for the
+          // component again: one place decides what the premise gate saw, so the gate in the tracker
+          // and the gate in the report can never disagree about which camera they mean.
+          CameraModeSwitch mode = _boomMode;
           bool third = mode != null && !mode.IsFirstPerson;
 
           sb.Append("boom audit: ");
@@ -2164,6 +2156,28 @@ private static string Describe(in SpellLook look)
           Debug.Log("[NewWorldTestGround] " + _boomAuditText.Replace("\n", " | "));
       }
 
+    /// <summary>1jq: read-only snapshot of the in-flight projectile trail strips. This is the
+    /// acceptance readout for the voxel -> strip rewrite: the proposal was entirely about COST, and no
+    /// other lane in this file reports component or draw COUNTS (1ik's frame-budget lane reports
+    /// milliseconds, which under vsync is quantised by the present interval and cannot separate
+    /// "cheaper" from "slightly cheaper").
+    /// <para>
+    /// <b>Scoping, which is the whole difficulty (rule 7).</b> "Live strips that were not drawn" is the
+    /// finding this lane exists to catch — bad mesh bounds or a missing camera are invisible to a pure
+    /// component count. But it is only a POSITIVE result where a draw is possible at all: a bolt's first
+    /// 0.3 m of flight has a strip with zero segments and therefore nothing to draw, and counting that
+    /// as a fault would train the reader to ignore the verdict. So the not-drawn count is split into
+    /// <c>drawn</c> / <c>undrawn</c> over strips that HAVE geometry, and strips with no geometry are
+    /// reported separately as <c>young</c>. Only <c>undrawn-with-geometry</c> is a fault, and it is the
+    /// number the headline names.
+    /// </para>
+    /// <para>
+    /// The collider count is the deliberate known-zero control. It is zero BY DESIGN (a trail is
+    /// cosmetic), so a run that reports strips-with-colliders &gt; 0 means the count is lying, and a
+    /// count never shown able to report non-zero is not a count. It is also a real invariant rather than
+    /// a filler number: a strip that acquired a Collider would cost physics time it never should.
+    /// </para>
+    /// </summary>
       private void SnapshotTrailAudit()
     {
         TrailStrip[] strips = Object.FindObjectsByType<TrailStrip>(FindObjectsSortMode.None);
@@ -2483,6 +2497,11 @@ private static string Describe(in SpellLook look)
                 // would read as "the trail is broken" rather than "the bolt already finished").
                 if (EnableTrailAudit && !string.IsNullOrEmpty(_trailAuditText))
                     stats += "\n" + _trailAuditText;
+
+                // 1jv: the camera-boom snapshot. Same persistence rule, so the readout stays on screen
+                // until the next press replaces it - the report IS the window that ended at the press.
+                if (EnableBoomAudit && !string.IsNullOrEmpty(_boomAuditText))
+                    stats += "\n" + _boomAuditText;
 
                 _fpsText.text = stats;
             }

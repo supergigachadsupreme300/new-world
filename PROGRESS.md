@@ -1,4 +1,56 @@
-## 1ju. The camera turned a bit when strafing - position smoothing was steering the aim
+## 1jv. "The camera is continuously bugging when moving" / "snaps in and out / zooms, everywhere even on flat open ground" - MEASUREMENT LANE SHIPPED, mechanism not yet chosen
+
+Reported by the user; the fix has NOT been chosen, because rule 7 says measure before fixing what you
+cannot see. Two mechanisms were derivable from the code and they need different fixes, and the first
+hypothesis was **falsified before touching it**: the collision clamp. The boom rises `ThirdPersonY` -
+pivot height = 2.6 - 1.5 = **1.1 m** over `ThirdPersonDistance` 6.5 m (boom length ≈ 6.65 m), and the
+collision `SphereCast` sweeps along that boom from the pivot — so the ray climbs from 1.5 m up to ~2.6 m
+as it travels and **never descends below the pivot's height**. Flat open ground cannot be in the sweep;
+the clamp needs a wall or a slope rising ≥ ~1.5 m within the boom's reach. The report's own qualifier
+("everywhere even on flat open ground") already excluded it. The surviving candidates are (a) the
+**position smoother** lengthening the boom's *effective* reach as the camera trails behind the player
+(`lag = v * SmoothTime`, see 1jn/1ju - 0.75 m walk / 1.5 m sprint), and (b) the **boom swinging** with
+mouse yaw. Both move the distance, so the *number* cannot separate them - the *controls* (speed + yaw)
+can. Hence the measurement lane.
+
+### 1jv-status
+- [x] `CameraModeSwitch` now publishes the boom's own two lengths - `BoomRestLength` (assigned from
+      `targetDist`, the unclamped desired boom in `UpdateThirdPerson`) and `BoomAppliedLength` (assigned
+      from `finalDist`, the post-`SphereCast` length). The lane measures against these rather than re-
+      deriving the boom vector (rule 8: no second spelling; a "shorter applied than rest" is the clamp,
+      "rest held but measured distance grew" is the smoother trailing past the boom's end).
+- [x] `NewWorldTestGround` boom audit lane (bench key **Numpad2**): fields `EnableBoomAudit` +
+      `BoomAuditKey`, a 120-frame trailing window fed every frame by `TrackBoomFrame` (distance, pivot
+      speed, pivot yaw, rest/applied boom length, clamped flag), and `SnapshotBoomAudit` read on the key.
+      Sections A (premise: third person + switcher present), B (controls: peak speed, moving frames, mouse
+      yaw total), C (measure: camera-to-pivot min/max/range/peak step, boom rest/applied min..max, clamped
+      frames), D (verdict naming a mechanism: VOID / NOT MEASURED / NOT REPRODUCED / COLLISION CLAMP /
+      POSITION SMOOTHER / INCONCLUSIVE / STEADY). Strictly read-only (rule 7): samples two transforms and
+      two published floats, writes only its own arrays; the report describes the window that ended on the
+      frame the key was pressed.
+- [x] The switcher is resolved once per controller change (cached `_boomOwner`/`_boomMode`,
+      `GetComponent<CameraModeSwitch>()` only when the player object changes), and the window resets with
+      it - a respawn must not mix the old camera's samples into one report.
+- [x] Numpad2 verified free across all three Input System spellings (`Key.Numpad2` / `.numpad2Key` /
+      `[Key.Numpad2]`), F1 as the positive control; `tools\StaticChecks.ps1` check 8 now lists it among
+      the 7 lane keys. The older tooltips' stale "Numpad2-Numpad9 are free" claim was corrected in place.
+- [x] The committed draft (user's `6c8c702 "camera fix in progress"`) referenced `_boomYaw` /
+      `_boomLastPivot` / `_boomSeen` that it never declared (CS0103) and kept a write-only
+      `_boomTrackable`; this task's commit declares the arrays/fields and the owner-cache, drops
+      `_boomTrackable`, and restores the orphaned 1jq trail XML doc to sit directly above
+      `SnapshotTrailAudit`.
+- Verification: grep + reread + `tools\StaticChecks.ps1` => 0 candidates (NewWorldTestGround.cs braces
+      193/193 parens 1270/1270; check 8 green for Numpad2). No Unity build (rule 3).
+      `skills: none applied` - no installed skill governs a third-person follow-camera measurement lane;
+      the Unity skills cannot run in this project (rule 15).
+- [ ] **PLAY-TEST (this is the deliverable's whole point):** open in third person on flat ground, walk
+      and sprint with the mouse held steady, press **Numpad2**; repeat with a burst of mouse turning, then
+      against a wall so the collision clamp is genuinely active. The section-B controls and section-D
+      verdict are expected to separate the smoother from the swing from the clamp. Report the readout
+      verbatim (console or HUD). The verdict then names the mechanism to fix in a follow-up task.
+- [ ] Carried-over pending play-tests: 1jt (both Meteors, Fireball on slopes, Continuous Fireball, the
+      no-spell/ranged paths, third-person alignment, F4 output), and 1jr/1ju regression (turning while
+      moving must not zoom; strafing must not yaw).
 
 Reported by the user: "the camera turning abit when moving to the side is not needed". `CameraModeSwitch`
 derived its rotation from `LookRotation(lookTarget - _camera.transform.position)`, and that position is
