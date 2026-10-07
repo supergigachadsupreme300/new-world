@@ -1,3 +1,63 @@
+## 1kc. Conflagration's model → firestorm (a circle with edge particles rising in a vortex) (testing.md task 6)
+
+OPEN until the play-test confirms the rising vortex-circle reads as a firestorm and all other Vortex
+spells still draw their tornado funnel. The reasoning:
+
+**H1 (CONFIRMED - the two clauses are ONE spec, not a rename + a new model).** "Change the model of
+Conflagration to firestorm, and set up a new model for Conflagration — a circle whose particles around
+the circle edge fly up in a vortex." The second clause defines the first: the user is describing the
+new conflagration model in one breath. Reading it as "renames the spell's name to Firestorm" would
+collide with the existing Firestorm spell (Storm family) — and Firestorm has nothing to reuse anyway
+(H2) — so the only coherent implementation is "Conflagration's body becomes a firestorm".
+
+**H2 (REJECTED - "reuse the firestorm model" has no target).** `SpellZoneModelBuilder` builds the
+generic pull funnel; `SpellStormModelBuilder` builds ONLY a per-strike bolt body for Lightning-type
+storms. Fire storms have no persistent body — a Firestorm cast draws per-strike impact flashes over
+bare ground. So there is no "firestorm model" to point Conflagration at; the model has to be built.
+That also settles the delivery-identity question: Conflagration stays `SpellDelivery.Vortex` (its
+pull/Burn behaviour untouched) and only its drawn zone body changes.
+
+**H3 (REJECTED - the two rule-13 mistakes the naive fix makes).** (a) Moving Conflagration to
+`SpellDelivery.Summon` so it "classifies as a summon": `SpellCaster.ResolveZone` is the only resolver
+that spawns summon-falling-rocks and applies zone TerrainShape, so a delivery change silently deletes
+behaviour. (b) A consumer-side `spell.id == "magic_fireball_inferno_conflagration_spell"` branch inside
+`SpellZone.BuildVisual`: exactly the second-spelling pattern that has drifted twice in the palettes
+(1ib), and it would have made every other zone a special case against it. The look layer owns identity.
+
+**H4 (CONFIRMED - the axis is authored-only, like SkyRock, because it is a structural statement).**
+A zone body is a choice between looks that carry *meaning* (tornado-funnel vs rising-ring-of-fire),
+not jitter between equally-valid looks — so: no school family, no deterministic `Pick()`, `Inherit`
+resolves to the pre-1kc default (`Funnel`) and only a profile grants `VortexCircle`. That makes the
+axis inert for every non-authored spell, which is what keeps the F4 collision audit's verdict intact
+by construction (ratchet: a new axis can only split, never merge).
+Evidence the axis needs no Pick: `Families` arrays and the id hash are the deterministic machinery;
+SkyRock's comment already documents "authored-only" as the second kind of axis, and ZoneBody is laid
+out to mirror it (spelled in the enum/toast docs).
+
+**H5 (CONFIRMED - the F4 predicted deltas, stated before the lane runs).** Pre-1kc counts (verified by
+counting `look: Look(` call sites, regex-Matches not Split): SkillCatalog.Magic.cs 4 + SkillCatalog.cs
+16 + ClassSkillCatalog.cs 5 = 25 authored, matching game-design.md. 1kc adds Conflagration's →
+**26**. The `zone bodies:` histogram: Funnel for every zone spell but Conflagration, VortexCircle = 1.
+Because determinism resolves the axis to Funnel everywhere else, every existing LookKey is
+bit-identical and Conflagration's is the only key that changes → since `M == N == 172` already,
+`M`/`colliding`/`worst` hold **by construction**, verified by re-pressing F4 (do NOT "fix" the lane to
+match a guess). The F4 lane's `authored` counter is the live authority; game-design.md's 25 (fixed to
+26) and SkillCatalog.cs's "21" (fixed to 22, the SkillCatalog-partial-family-only count) are both
+consistent pre-1kc — they just count different scopes.
+
+**H6 (CONFIRMED by read - where the per-frame motion belongs).** The embers' rise is time-driven, so it
+must not live in the shape factory (rule 19: "a per-frame effect belongs in the loop that runs while it
+MOVES"). `SpellZoneMobile`/spellzone has no per-piece update, so the builder attaches a private
+`VortexRiser : MonoBehaviour` (the `BoltFader` precedent verbatim: builder builds, attached component
+animates and dies with the zone). The disc stays static (Core colour — the "circle"), the embers carry
+the hot colour (`SpellLook.HotCore`, the same choice SpellBeam's funnel makes; Edge would desaturate
+Fire toward peach).
+
+**Verdict laid out, not yet observed:** code + docs + F4 key done; the lane must confirm `26 /
+Funnel=others, VortexCircle=1 / 172 / 0`. The one thing static checks cannot see is whether the
+vortex reads as a firestorm (16 embers, 0.45 rises/s, 1.6 turns/rise, 72% convergence at ~4.2 m) — that
+is the play-test item.
+
 ## 1kb. The beam body's shrink-and-enlarge: removed, replaced with a hold (testing.md task 5)
 
 OPEN until the play-test confirms the beam reads as steady and not frozen. The reasoning:

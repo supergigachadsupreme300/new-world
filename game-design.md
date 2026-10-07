@@ -2211,12 +2211,14 @@ but **delegates** to `SpellLook.SchoolColor`.
 
 **Precedence is exactly three steps** (1ib):
 
-1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — **25 spells** carry one, counted as
-   the `look: Look(` call sites across `SkillCatalog.Magic.cs` (4), `SkillCatalog.cs` (16) and
-   `ClassSkillCatalog.cs` (5) = 25 (regex `Matches`, not `String.Split`; a bogus `look: Zzz(` control
+1. **Authored `SpellLookProfile`** on the `SpellData` (`look:`) — **26 spells** carry one, counted as
+   the `look: Look(` call sites across `SkillCatalog.Magic.cs` (5), `SkillCatalog.cs` (16) and
+   `ClassSkillCatalog.cs` (5) = 26 (regex `Matches`, not `String.Split`; a bogus `look: Zzz(` control
    reads 0). It was **24** through 1js — the older "25" here was stale by one — and 1jt added exactly
    one more, Fire Meteor's, which is **anchor-only** (`Impact`/`Cast` left `Inherit`, so its
-   deterministic Fire picks are untouched). An axis only takes an authored profile when it is a
+   deterministic Fire picks are untouched); 1kc added Conflagration's, which is **zone-body-only**
+   (`Impact`/`Cast` left `Inherit`, so everything but the new body axis is unchanged). An axis only
+   takes an authored profile when it is a
    *statement about the spell* — 1f7's rule. Continuous Fireball and
    Flamethrower are authored for two separate reasons: the former is a steady 44-bolt stream where a
    deterministic per-cast jitter would read as a different spell, the latter the only spell whose
@@ -2229,7 +2231,8 @@ but **delegates** to `SpellLook.SchoolColor`.
 
 **What one look carries:** `Impact` family, `Cast` family, `DisplayShape` (the body actually drawn),
 `SkyRock` (the falling formation, §3.8.4), `CastAnchor` (the halo-draw axis, 1jt; INERT for placement
-since 1ka — the armed halo is flat, in front of the weapon), `Core` + `Edge`
+since 1ka — the armed halo is flat, in front of the weapon), `ZoneBody` (the persistent-zone body,
+1kc; §3.8.5), `Core` + `Edge`
 colours, `Trail`, `Scale`, `Tempo`.
 
 - **Impact families** (`SpellImpactStyle`, 1id) drive `SpellImpactFx`'s pooled flash: Burst, Ring,
@@ -2295,6 +2298,9 @@ measurement — a derivation, not a lane run, so re-press F4 to confirm it and t
 "the spell looks different", so packing it would split groups that are genuinely identical.
 1ka leaves the axis resolved and packed (only the *placement* moved to the weapon), so the F4 numbers
 must not move after 1ka either — any movement would be a real change, not the expected ratchet.
+**1kc adds the zone-body axis's 2 bits at 38 under 1f7's contract, not 1jt's:** it resolves to
+`Funnel` for every non-authored zone, so only Conflagration's own key flips (to `VortexCircle`) —
+with `M == N` already, `M`/`C` hold by construction (see §3.8.5).
 
 **Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
 main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render
@@ -2349,6 +2355,41 @@ given Meteor a swarm half the time.
   three cases now (rock / cone / following circle) rather than one, because a delivery with no
   projectile body needs its own mount; two new spells both falling through to the generic orb would
   have been the exact repeat of the 1f7 miss.
+
+#### 3.8.5 Persistent-Zone Bodies — `ZoneBody` (1kc)
+
+**One spell drew a vortex the wrong way.** Conflagration is a `SpellDelivery.Vortex` (a pulling zone)
+and up to 1kc drew the generic pull funnel — a tornado of spinning rings — because `SpellZone.BuildVisual`
+branches on pull, not on identity. The user asked for a **firestorm**: a flat ground circle whose edge
+particles fly up in a vortex, converging as they rise. The tempting implementation — move Conflagration
+to `SpellDelivery.Summon` or a custom branch inside `SpellZone` keyed on spell id — is the exact pair of
+mistakes rule 13 exists to stop: `ResolveZone` is the only resolver that spawns falling rocks and applies
+zone terrain, so a delivery change deletes the spell's behaviour, and a consumer-side id check is a second
+spelling of the look that has already drifted twice in this codebase.
+
+**The fix is a drawn-only axis, resolved like `SkyRockStyle`.** `ZoneBody` joins the look layer with no
+school family and no deterministic pick: `Inherit` always resolves to `Funnel` (the pre-1kc tornado /
+ground disc), and only an authored profile may grant `VortexCircle`. `SpellZone.BuildVisual` reads the
+resolved `_look.ZoneModel` — the vortex-circle body is drawn regardless of pull, because its rising edge
+swirl IS the wind that drags foes in. Conflagration gained a profile carrying only this axis
+(`Impact`/`Cast` left `Inherit`), so its deterministic Fire look is byte-for-byte unchanged; the
+authored count 25 → **26**.
+
+**Body:** `SpellZoneModelBuilder.BuildConflagration(transform, Radius, core, HotCore(core))` — a thin
+ground disc in the spell's Core colour, then 16 ember cubes in the hot colour, each rising from the edge
+on a helix (0.45 rises/s, 1.6 turns per rise) that shrinks 72% toward the apex at `max(2.5, 1.6·radius)`
+high. The per-frame rise is owned by a builder-attached `VortexRiser` component — rule 19: the shape
+factory builds, the component that runs while the pieces *move* animates, the same split `BoltFader`
+uses for the storm bars. The disc takes the Core and the flames the hot end, the identical hot-end choice
+SpellBeam's funnel makes (Edge desaturates Fire toward peach and cannot supply the yellow).
+
+**The F4 audit gained the axis's 2 bits at 38 and the ratchet stays one-way.** Because determinism
+resolves the axis to `Funnel` for every non-authored spell, every existing key is byte-identical and
+not one verdict moved — the only key to change is Conflagration's, which flips its zone bits. With
+`M == N` already, `M`/`C`/`worst` hold **by construction**, not by a lane run: re-press F4 to confirm
+`zone bodies:` (Funnel = every zone spell but Conflagration; VortexCircle = 1) and `authored = 26`.
+Giving every non-authored spell the same two bits is also why the axis can only split a group, never
+merge one — the 1jt ratchet, unchanged.
 
 #### Spell Sources
 
@@ -3149,7 +3190,7 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   | Builder | Moved out of | What stayed behind |
   |---|---|---|
   | `SpellBeamModelBuilder` | `SpellBeam` | the debris orbit — the body scale HOLDS since 1kb (no funnel flare) |
-  | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime |
+  | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime; the 1kc conflagration body springs its own `VortexRiser` helix |
   | `SpellStormModelBuilder` | `SpellStorm` | strike scheduling |
   | `SummonModelBuilder` | `SpellSummon` | the pulse |
   | `SkillFxModelBuilder` | `SkillFx` | nothing — slash/ring are one-shot |

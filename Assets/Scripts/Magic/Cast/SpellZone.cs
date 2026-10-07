@@ -135,6 +135,15 @@ public class SpellZone : MonoBehaviour
         Color color = _look.Core;
         Material sharedMat = SkillFx.SharedSpriteMaterial(color);
 
+        // 1kc: an authored VortexCircle body is drawn regardless of pull — its rising edge swirl IS
+        // the "wind" that drags foes in, so the pull branch below must not swap it back to the old
+        // funnel. Every other zone resolves Funnel and keeps the pre-1kc shapes.
+        if (_look.ZoneModel == ZoneBody.VortexCircle)
+        {
+            SpellZoneModelBuilder.BuildConflagration(transform, Radius, color, SpellLook.HotCore(color));
+            return;
+        }
+
         if (PullSpeed > 0f)
         {
             SpellZoneModelBuilder.BuildFunnel(transform, Radius, sharedMat);

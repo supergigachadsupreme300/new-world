@@ -1582,6 +1582,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
         // (1ka: the armed halo no longer reads it - it is flat at the weapon - but the axis is still
         // resolved and packed here, so the count stays; deleting it is a separate task.)
         var byAnchor = new Dictionary<SpellCastAnchor, int>();
+        // 1kc: the zone-body axis. Like SkyRock it is resolved to a constant (Funnel) for every
+        // non-authored spell, so the count is a singleton until a spell authors VortexCircle —
+        // which exactly one spell does (Conflagration). Kept because an axis packed into the key but
+        // not reported is one you cannot tell you moved.
+        var byZone = new Dictionary<ZoneBody, int>();
         int total = 0;
         int authored = 0;
         var seen = new HashSet<string>();
@@ -1600,6 +1605,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             Bump(byShape, look.DisplayShape);
             Bump(bySkyRock, look.SkyRock);
             Bump(byAnchor, look.CastAnchor);
+            Bump(byZone, look.ZoneModel);
             ulong key = LookKey(look);
             if (!groups.TryGetValue(key, out var list))
             {
@@ -1643,7 +1649,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append("look audit: ").Append(total).Append(" spells, ").Append(groups.Count)
           .Append(" distinct identities, ").Append(colliding).Append(" colliding groups")
           .Append(" (worst ").Append(worstText).Append("), ").Append(authored)
-          .Append(" authored profiles. axes = impact+cast+shape+skyrock+anchor+coreRGB@8bit (scale/tempo excluded)");
+          .Append(" authored profiles. axes = impact+cast+shape+skyrock+anchor+zone+coreRGB@8bit (scale/tempo excluded)");
         _lookAuditText = sb.ToString();
         _lookAuditRun = true;
         Debug.Log("[NewWorldTestGround] " + _lookAuditText);
@@ -1655,6 +1661,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
           .Append("   (only SummonFallingRock spells draw one; the rest resolve to Boulder)");
         sb.Append('\n').Append("  cast anchors:   ").Append(CountLine(byAnchor))
           .Append("   (1jt: Feet = Summon deliveries + the two authored Meteors; front = everything else; 1ka: resolved for the audit only, placement no longer reads it)");
+        sb.Append('\n').Append("  zone bodies:    ").Append(CountLine(byZone))
+          .Append("   (1kc: Funnel for every non-authored zone; VortexCircle = Conflagration's own body)");
         foreach (var kv in groups)
         {
             if (kv.Value.Count < 2) continue;
@@ -1664,11 +1672,19 @@ public sealed class NewWorldTestGround : MonoBehaviour
         Debug.Log("[NewWorldTestGround] " + sb.ToString());
     }
 
-    /// <summary>Packs the perceptual axes into one key. 38 bits: 3+3+4+2+2 for the enums, 8 per channel.
+    /// <summary>Packs the perceptual axes into one key. 40 bits: 3+3+4+2+2+2 for the enums, 8 per channel.
     /// 1f7 added SkyRock's 2 bits. Because determinism always resolves that axis to
     /// <see cref="SkyRockStyle.Boulder"/> (see the enum remarks), every non-authored spell gets the
     /// SAME two bits, so no existing collision verdict moved - the axis only separates the spells
     /// that actually wear a different falling body, which is exactly the pair 1f7 authored.
+    /// <para><b>1kc adds ZoneBody's 2 bits at 38</b>, under the same contract as 1f7's: the axis is
+    /// resolved to <see cref="ZoneBody.Funnel"/> for every non-authored spell, so no existing key
+    /// moves and `M`/`colliding` are untouched — the ONLY key that changes is Conflagration's, which
+    /// flips its zone bits to <see cref="ZoneBody.VortexCircle"/>. If Conflagration previously shared
+    /// a group, `colliding` drops by one; otherwise nothing but that one key moves. Predicted deltas:
+    /// authored 25→26 (the F4 counter's whole-roster; the magic-catalog-only count 21→22 in the
+    /// SkillCatalog files is the same roster minus ClassSkillCatalog's five), zone count
+    /// Funnel→everyone-but-Conflagration and VortexCircle=1.
     /// <para><b>1jt adds CastAnchor's 2 bits at 36</b>, for a different reason than 1f7's: 1f7's axis
     /// was resolved to a constant by determinism, whereas the anchor is genuinely two-valued among
     /// spells that are otherwise identical - a halo at the feet and a halo 1.8 m in front are two
@@ -1693,6 +1709,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
                  | ((ulong)(int)look.DisplayShape << 26)
                  | ((ulong)(int)look.SkyRock << 24)
                  | ((ulong)(int)look.CastAnchor << 36)
+                 | ((ulong)(int)look.ZoneModel << 38)
                  | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
         }
 
@@ -1717,7 +1734,7 @@ private static string Describe(in SpellLook look)
     // CAST EFFECT and the halo is drawn by the PLAYER path, not the bench - so this text is the only
     // readout for the resolution rule. Placement itself is a play-test item (1ka: flat, at the weapon).
     => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/" + look.SkyRock + "/"
-    + (look.CastAnchor == SpellCastAnchor.Feet ? "feet" : "front") + "/"
+    + (look.CastAnchor == SpellCastAnchor.Feet ? "feet" : "front") + "/" + look.ZoneModel + "/"
     + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")
     + " trail " + look.Trail.r.ToString("F2") + "," + look.Trail.g.ToString("F2") + "," + look.Trail.b.ToString("F2")
     + (look.Authored ? " AUTHORED)" : ")");
@@ -1863,6 +1880,16 @@ private static string Describe(in SpellLook look)
                 var rockLook = SpellLook.Resolve(spell);
                 SkillFx.BuildRockBody(modelRoot.transform, RockBodyBenchScale(spell),
                     rockLook.Core, rockLook.SkyRock);
+            }
+            // 1kc: Conflagration's own body — mounts the SAME builder the runtime SpellZone runs,
+            // for the same rule-13 reason as the beam branch below: a visual that exists only inside
+            // a live cast has no acceptance readout. The VortexRiser embers animate on the pedestal,
+            // so the rising vortex reads as well as it does in a live cast.
+            else if (SpellLook.Resolve(spell).ZoneModel == ZoneBody.VortexCircle)
+            {
+                var cl = SpellLook.Resolve(spell);
+                SpellZoneModelBuilder.BuildConflagration(modelRoot.transform, spell.Radius,
+                    cl.Core, SpellLook.HotCore(cl.Core));
             }
             // 1ir: the two deliveries that have NO projectile body at all. Without these two branches
             // a Beam and a Summon both fall through to CreateProjectileDisplay, which draws the generic

@@ -138,10 +138,17 @@ public static partial class SkillCatalog
     /// "this factory silently cannot express that" trap. Verify with a named argument whenever it
     /// matters: a named argument that only one overload declares forces the binding.</para>
     /// </summary>
+    /// <para><b>1kc adds <paramref name="zoneBody"/></b> — the persistent-zone body a
+    /// <c>Zone</c>/<c>Vortex</c> spell draws while it ticks. Same sentinel contract: <c>Inherit</c>
+    /// means the generic pull funnel, and only Conflagration uses this argument (the 1kc rising
+    /// vortex-circle). Leaving every other profile field at its default — here by passing
+    /// <see cref="SpellImpactStyle.Inherit"/> and <see cref="SpellCastStyle.Inherit"/> — is what
+    /// keeps the spell's look byte-for-byte unchanged except for the new body axis.</para>
+    /// </summary>
     private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
         ProjectileShape shape = ProjectileShape.Auto, SkyRockStyle skyrock = SkyRockStyle.Inherit,
-        SpellCastAnchor castAnchor = SpellCastAnchor.Inherit)
+        SpellCastAnchor castAnchor = SpellCastAnchor.Inherit, ZoneBody zoneBody = ZoneBody.Inherit)
         => new SpellLookProfile
         {
             Impact = impact,
@@ -153,7 +160,8 @@ public static partial class SkillCatalog
             SaturationScale = sat,
             DisplayShape = shape,
             SkyRock = skyrock,
-            CastAnchor = castAnchor
+            CastAnchor = castAnchor,
+            ZoneBody = zoneBody
         };
 
     private static SpellCastEffect Spell(string spellId, string spellName, DamageType type,
@@ -199,7 +207,8 @@ public static partial class SkillCatalog
         spell.BoltSplashRadius = boltSplashRadius;
         spell.SummonFiresForward = summonFiresForward;
         // 1ii: null (the default) means "fully deterministic from spell.id" — the resolver treats a
-        // profile that merely EXISTS as authored, so these 21 must be a deliberate list and not a
+        // profile that merely EXISTS as authored, so these 22 (16 here + 5 in SkillCatalog.Magic.cs;
+        // 21 before Conflagration's zone-body-only profile in 1kc) must be a deliberate list and not a
         // blanket default. Assigning a null here is the same as leaving the field at its default.
         spell.Look = look;
         return new SpellCastEffect { Spell = spell };

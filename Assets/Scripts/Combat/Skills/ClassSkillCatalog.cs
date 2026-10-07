@@ -136,7 +136,8 @@ public static class ClassSkillCatalog
     /// </summary>
     private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
-        ProjectileShape shape = ProjectileShape.Auto, SpellCastAnchor castAnchor = SpellCastAnchor.Inherit)
+        ProjectileShape shape = ProjectileShape.Auto, SpellCastAnchor castAnchor = SpellCastAnchor.Inherit,
+        ZoneBody zoneBody = ZoneBody.Inherit)
         => new SpellLookProfile
         {
             Impact = impact,
@@ -147,7 +148,8 @@ public static class ClassSkillCatalog
             ValueScale = value,
             SaturationScale = sat,
             DisplayShape = shape,
-            CastAnchor = castAnchor
+            CastAnchor = castAnchor,
+            ZoneBody = zoneBody
         };
 
     private static SpellData MakeSpell(string classId, string name, DamageType type, float power,

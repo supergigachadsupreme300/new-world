@@ -1,3 +1,53 @@
+## 1kc. Conflagration's model is now the firestorm — a circle whose edge particles rise in a vortex (testing.md task 6)
+
+The user asked to "change the model of conflagmath to firestorm, and setup a new model for
+conflagmath, it would be a circle the particle around the circle edge fly up in vortex". Read as ONE
+coherent spec: Conflagration's new model IS that firestorm. That reading is the only workable one —
+Firestorm (`SpellDelivery.Storm`) has no persistent body to reuse (the storm model is only a
+per-strike Lightning-type bolt; Fire storms play as per-strike impact flashes), so "swap Conflagration
+onto the Firestorm model" has nothing to swap onto; the user's own description is exactly a vortex
+zone body.
+
+The generic pull funnel was the wrong shape for it: `SpellZone.BuildVisual` branches on
+`PullSpeed > 0`, so every pulling vortex drew the tornado ring-stack. Per rule 13, Conflagration could
+not be special-cased by spell id in a consumer — the look layer is the single owner of spell identity.
+So a drawn-only, **authored-only** axis joined the look layer:
+
+- `SpellLook.ZoneBody` (Inherit / Funnel / VortexCircle), resolved like `SkyRockStyle`: no school
+  family, no deterministic pick; `Inherit` always resolves to `Funnel`, so every existing spell is
+  byte-for-byte unchanged and only an authored profile may grant `VortexCircle`.
+- Conflagration gained a **zone-body-only** profile (`Look(SpellImpactStyle.Inherit,
+  SpellCastStyle.Inherit, zoneBody: ZoneBody.VortexCircle)`) — `Impact`/`Cast` left at Inherit, so its
+  deterministic Fire look did not move a pixel; authored count 25 → **26** (F4 lane).
+- `SpellZoneModelBuilder.BuildConflagration(parent, radius, core, hot)`: a thin ground disc in the
+  spell's Core colour, then 16 ember cubes in `SpellLook.HotCore` rising from the edge on a helix
+  (0.45 rises/s, 1.6 turns/rise) that shrinks 72% toward the apex at `max(2.5, 1.6·radius)` high.
+  Per-frame rise lives in a builder-attached `VortexRiser` MonoBehaviour (rule 19 — the factory
+  builds, the component that runs while the pieces move animates; same split as `BoltFader`).
+- `SpellZone.BuildVisual` reads `_look.ZoneModel` first: the vortex-circle body draws regardless of
+  pull, because its rising edge swirl IS the wind that drags foes in.
+- F4 audit: the axis packs into `LookKey` at bits 38-39 (40-bit key now), `Describe` + the `axes =`
+  line + a `zone bodies:` histogram all gained it. Same ratchet contract as SkyRock: every non-authored
+  spell resolves Funnel, so only Conflagration's key flips — `M`/`C`/`worst` hold by construction.
+- The QA spell band mounts the real `BuildConflagration` on the pedestal (rule 13 — a visual that
+  exists only inside a live cast has no acceptance readout), so the rising helix is inspectable.
+
+Verification: grep + reread; `tools\StaticChecks.ps1` => 0 candidates (before commit). Predicted F4
+deltas vs the pre-1kc lane: `authored` 25 → 26; `zone bodies:` has `VortexCircle = 1`; `M`/`colliding`/
+`worst` unchanged. No Unity build (rule 3).
+    `skills: none applied` - no installed skill governs this C#/docs edit (rule 15).
+
+### 1kc-status
+- [x] `SpellLook.ZoneBody` enum + profile field + resolved `_look.ZoneModel`; documented authored-only.
+- [x] Both `Look(...)` factories (SkillCatalog + ClassSkillCatalog, the 1jt twin-trap) carry `zoneBody`.
+- [x] Conflagration profile authored (zone-body-only; determinism untouched) + catalog description updated.
+- [x] `SpellZoneModelBuilder.BuildConflagration` + `VortexRiser` helix component; `SpellZone.BuildVisual` gates on `_look.ZoneModel`.
+- [x] F4 audit: LookKey bits 38-39, `Describe`, `axes =` line, `zone bodies:` histogram.
+- [x] QA magic-model bench mounts the real builder for Conflagration.
+- [x] Docs: game-design.md (§3.8.5 new, §3.8.1 count 25→26, ratchet note, file-index row), magic-skills.md (Vortex row + Conflagration row, range 7→8 fix), Magic/README.md; SkillCatalog.cs "21"→"22" comment.
+- Verification: `tools\StaticChecks.ps1` => 0 candidates; re-grep => all `ZoneBody`/`ZoneModel`/`BuildConflagration` references resolve (both factories, both resolve paths, the zone gate, the bench, the audit, docs); no build.
+- [ ] **PLAY-TEST:** cast Conflagration — a flat burning circle appears whose 16 flame tongues rise from the EDGE and spiral inward to a point ~4.2 m up, the whole zone still dragging foes to the centre and ticking Burn. F4 later: `authored 26`, `zone bodies:` line with `VortexCircle = 1`, `M`/`colliding`/`worst` unchanged. Other Vortex spells (Water Vortex, Frozen Touch, Cyclone Spin, Whirlpool) must still draw their tornado funnel untouched.
+
 ## 1kb. The beam body holds its size — shrink-and-enlarge animation removed (testing.md task 5)
 
 The user asked to remove the beam body's shrink-and-enlarge animation and change it into "something

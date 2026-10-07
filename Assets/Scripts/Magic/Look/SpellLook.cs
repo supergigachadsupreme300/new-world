@@ -115,6 +115,29 @@ public enum SkyRockStyle
 }
 
 /// <summary>
+/// Persistent-zone body family for a <c>SpellDelivery.Zone</c>/<c>Vortex</c> spell (1kc) — what the
+/// ground zone draws while it ticks. <b>Authored-only, like <see cref="SkyRockStyle"/>.</b> A zone
+/// body is a structural choice about how the spell reads (a tornadic pull funnel vs a rising ring of
+/// flame), so there is deliberately no school family and no deterministic <see cref="SpellLook.Pick"/>
+/// — a jitter would have given a quarter of the Zone spells a body their delivery never described.
+/// <see cref="Inherit"/> always resolves to <see cref="Funnel"/>; only an authored profile may grant
+/// <see cref="VortexCircle"/>.
+/// <para><b>Read by <c>SpellZone.BuildVisual</c>, and by the QA spell band's bench so the new body
+/// has an acceptance readout.</b> Placement/reach still come from the spell's own fields (radius,
+/// duration); this axis is drawn-only and never touches delivery (rule 13).</para></summary>
+public enum ZoneBody
+{
+    /// <summary>No authored opinion — <see cref="Funnel"/> (the pre-1kc pull funnel / ground disc).</summary>
+    Inherit = 0,
+    /// <summary>The generic whirling pull funnel: 7 spinning rings + 6 orbiting debris blocks
+    /// (tornado/vortex), or the flat ground disc for a non-pulling zone.</summary>
+    Funnel = 1,
+    /// <summary>The 1kc conflagration/Firestorm look: a flat ground circle whose edge particles fly
+    /// up in a vortex, converging as they rise. Conflagration's own body.</summary>
+    VortexCircle = 2
+}
+
+/// <summary>
 /// Hand-authored per-spell nudges on top of the deterministic look (1ib). Every field is a
 /// *multiplier or a sentinel*, never an absolute colour: a profile can shift a spell within its
 /// school's family but cannot repaint it out of it, which is what keeps a Fire spell reading as fire.
@@ -143,6 +166,8 @@ public sealed class SpellLookProfile
     public ProjectileShape DisplayShape = ProjectileShape.Auto;
     [Tooltip("Falling-body shape for a sky spell (SummonFallingRock). Inherit = the 1cy boulder.")]
     public SkyRockStyle SkyRock = SkyRockStyle.Inherit;
+    [Tooltip("Persistent-zone body for a Zone/Vortex spell (1kc). Inherit = the Funnel pull funnel / ground disc.")]
+    public ZoneBody ZoneBody = ZoneBody.Inherit;
 }
 
 /// <summary>
@@ -224,12 +249,17 @@ public readonly struct SpellLook
     /// write-only profile sentinel — a resolved look is always a real style, because there is no
     /// deterministic pick for this axis (see the enum's remarks).</summary>
     public readonly SkyRockStyle SkyRock;
+    /// <summary>Persistent-zone body (1kc). Same write-only sentinel contract as
+    /// <see cref="SkyRock"/>: a resolved look is always a real body
+    /// (<see cref="ZoneBody.Funnel"/> for every non-authored spell) because there is no
+    /// deterministic pick for this axis.</summary>
+    public readonly ZoneBody ZoneModel;
     /// <summary>True when an authored <see cref="SpellLookProfile"/> supplied at least one field.</summary>
     public readonly bool Authored;
 
     private SpellLook(Color core, Color edge, Color trail, float scale, float tempo,
         SpellImpactStyle impact, SpellCastStyle cast, ProjectileShape displayShape,
-        SkyRockStyle skyRock, SpellCastAnchor castAnchor, bool authored)
+        SkyRockStyle skyRock, SpellCastAnchor castAnchor, ZoneBody zoneModel, bool authored)
     {
         Core = core;
         Edge = edge;
@@ -241,6 +271,7 @@ public readonly struct SpellLook
         DisplayShape = displayShape;
         SkyRock = skyRock;
         CastAnchor = castAnchor;
+        ZoneModel = zoneModel;
         Authored = authored;
     }
 
@@ -354,6 +385,12 @@ public readonly struct SpellLook
         // SkyRockStyle's remarks for why this one axis does not jitter.
         SkyRockStyle skyRock = SkyRockStyle.Boulder;
 
+        // 1kc: the zone body is authored-only for the same reason as the sky-rock style — a
+        // persistent-zone shape is a structural statement about how the spell reads, not jitter. It
+        // resolves to the generic pull funnel (spelled below) and only a profile may swap in the
+        // 1kc conflagration's rising vortex-circle. See ZoneBody's remarks.
+        ZoneBody zoneModel = ZoneBody.Funnel;
+
         // 1jt: the cast anchor is derived from DELIVERY, not picked. A Summon is cast on yourself
         // (something appears where you stand); everything else is cast at something in front of you.
         // The authored profile below is the only thing that may override it, which is how the two
@@ -379,13 +416,14 @@ public readonly struct SpellLook
             // above may never pick it, because a look layer must not grant homing on its own.
             if (p.DisplayShape != ProjectileShape.Auto) display = p.DisplayShape;
             if (p.SkyRock != SkyRockStyle.Inherit) skyRock = p.SkyRock;
+            if (p.ZoneBody != ZoneBody.Inherit) zoneModel = p.ZoneBody;
         }
 
         Color baseColor = SchoolColor(type);
         Color core = Tint(baseColor, hueShift, satScale, valueScale);
         Color edge = EdgeFor(core, rC);
         return new SpellLook(core, edge, TrailColor(type), Mathf.Clamp(scale, 0.55f, 1.7f), Mathf.Clamp(tempo, 0.6f, 1.6f),
-            impact, cast, display, skyRock, castAnchor, authored);
+            impact, cast, display, skyRock, castAnchor, zoneModel, authored);
     }
 
     /// <summary>
@@ -403,7 +441,7 @@ public readonly struct SpellLook
         Color baseColor = SchoolColor(type);
         ProjectileShape display = shape != ProjectileShape.Auto ? shape : Pick(fam.Shapes, 0.5f);
         return new SpellLook(baseColor, EdgeFor(baseColor, 0.5f), TrailColor(type), 1f, 1f,
-            fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, SpellCastAnchor.Front, false);
+            fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, SpellCastAnchor.Front, ZoneBody.Funnel, false);
     }
 
     // (1ig: `Fingerprint` was deleted here. 1ib built it as the 1ic audit's measuring instrument
