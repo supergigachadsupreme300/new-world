@@ -89,7 +89,16 @@ public enum ProjectileShape
 
     /// <summary>Tumbling cluster of rock chunks (the Earth school / stone shards). Dressed like the
     /// world's breakable-rock debris (grey <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes).</summary>
-    Debris = 11
+    Debris = 11,
+
+    /// <summary>1jy: a ground-hugging wave front that sweeps forward instead of flying straight.
+    /// <b>This value is ALSO behaviour, like <see cref="Missile"/>:</b> it turns on the terrain-glued
+    /// sweep in <c>SpellEffect</c> (flatten the aim, ride the ground at a fixed lift, hit each foe
+    /// once as the band passes over it, die after the authored Range). It must therefore never appear
+    /// in any <c>Shape_*</c> family — the deterministic pick would hand it to a spell as a display
+    /// only, and the look layer would grant the sweep without the spell asking. Only an authored
+    /// <c>spell.Shape</c> may grant it. Fire Wave is the only user.</summary>
+    Wave = 12
 }
 
 /// <summary>
@@ -144,7 +153,7 @@ public class SpellData : ScriptableObject
     [Header("Presentation")]
     public GameObject CastEffectPrefab;
     public GameObject ImpactEffectPrefab;
-    [Tooltip("Projectile-delivery visual shape. Auto = element default (SpellCaster). NOTE: this is ALSO behaviour — ProjectileShape.Missile turns on homing (SpellEffect.cs:75-76). Per-spell look variation goes in Look.DisplayShape, never here (1ib).")]
+    [Tooltip("Projectile-delivery visual shape. Auto = element default (SpellCaster). NOTE: this is ALSO behaviour — ProjectileShape.Missile turns on homing (SpellEffect.cs:75-76) and ProjectileShape.Wave turns on the ground-hugging forward sweep (1jy). Per-spell look variation goes in Look.DisplayShape, never here (1ib).")]
     public ProjectileShape Shape = ProjectileShape.Auto;
     [Tooltip("Hand-authored per-spell visual identity (1ib). Null = fully deterministic from the spell id. Every field is a multiplier or an Inherit sentinel, so a profile can shift a spell within its school but never repaint it out of its school.")]
     public SpellLookProfile Look;

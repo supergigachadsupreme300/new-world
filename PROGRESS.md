@@ -1,3 +1,58 @@
+## 1jy. Fire Wave is now a ground-hugging forward wave projectile (testing.md task 2)
+
+The user asked to convert Fire Wave's AoE-placement zone skill ("firewave skill is currently an aoe
+placement skills") into "a projectile type but only stay to the ground and shoot out and wave
+projectile forward". Fixed in `SkillCatalog.Magic.cs:322`:
+`SpellDelivery.Zone` → `SpellDelivery.Projectile`, `deliveryRange: 12f`, and a new
+`ProjectileShape.Wave` — the FIRST shape that is both a look AND a behaviour, where the behaviour is a
+complete flight-mode rewrite in `SpellEffect`:
+
+- **A new authored-only `ProjectileShape.Wave`.** `SpellData.cs` gains `Wave = 12`. It is behaviour,
+  not a look: `SpellEffect.Launch` sets `_wave` when `Shape == Wave`, caps travel to exactly
+  `Range / Speed` (~0.6 s at 12 m / 20 m/s — the 4 s default Lifetime would have run it 80 m), and
+  kicks off with a `SkillFx.RingFlash` on the GROUND beneath the spawn. Because `SpellLook.Resolve`
+  inherits a non-Auto `spell.Shape` into `DisplayShape`, the wave body flows to the look without any
+  profile authoring; the resolve comment (`SpellLook.cs:327-331`) now says families never contain
+  Missile **or** Wave.
+- **The wave rides the terrain.** The new per-frame branch in `Update` flattens `_dir.y = 0`,
+  re-faces the body with `LookRotation(flatDir)`, and clamps the center to
+  `ground.point + 0.35` via a downward raycast — so the disc always lies flat and glued even when the
+  release was aimed up or down. The normal flight probes (enemy raycast, ground-probe detonation) and
+  the trail strip are all bypassed on purpose: a wave may not die on the ground it rides or on the
+  first foe it touches.
+- **Each foe is hit ONCE as the band passes.** `SweepWave()` ticks a `OverlapSphereNonAlloc` band at
+  `SplashRadius` every `WaveTickInterval` 0.15 s, but a per-wave `HashSet<Transform> _waveHit` (root
+  keyed, caster excluded) enforces a single `ResolveHitAt` + the spell's existing caster-outward
+  knockback — no re-resolve/re-knock on later ticks.
+- **Body.** `MagicProjectileModelBuilder.Wave(...)`: a flat disc of 16 voxel cubes at ground level
+  with a brighter 7-cube forward crest arc — reads as a wave rolling outward, and the bench picks it
+  up automatically via `CreateProjectileDisplay` (no F4 special-casing needed).
+
+### 1jy-status
+- [x] `SpellData.cs`: `ProjectileShape.Wave = 12` + doc comment stating it is behaviour like Missile
+      and authored-only; `Shape` tooltip extended.
+- [x] `SkillCatalog.Magic.cs:322`: Fire Wave → Projectile delivery, range 12, `projectileShape: Wave`
+      (power 32 / FP 22 / cd 6 / radius 3.4 / knockback 2.5 unchanged).
+- [x] `SpellEffect.cs`: `_wave` flag (Launch), lifetime cap `Range/Speed`, ground ring at launch,
+      terrain-glued per-frame wave branch (flatten + re-face + clamp + `SweepWave` + move), spent
+      wave's end burst via `SpellImpactFx`, `_waveHit` once-per-root set; `using System.Collections.Generic`.
+- [x] `MagicProjectileModelBuilder.cs`: `case ProjectileShape.Wave` + `Wave(...)` body builder.
+- [x] `SpellLook.cs:327-331`: comment now names Wave as behaviour (families never grant it).
+- [x] Docs: §3.8.1 shape-table **Wave** row + **Ground waves** delivery bullet; magic-skills.md row
+      gains `range 12, shape:Wave`.
+- Verification: grep + reread. Confirmed `projectileShape:` is the `Spell(...)` factory param (34
+  sites), `SplashRadius`/`_splashBuffer`/`HitLayers`/`IsGroundCollider`/`ResolveHitAt`/`SkillFx.RingFlash`
+  signatures reused from existing call sites, the resolve inherit path flows Wave to display, and the
+  bench draws the Wave body via `CreateProjectileDisplay`. `tools\StaticChecks.ps1` => 0 candidates.
+  No Unity build (rule 3).
+      `skills: none applied` - no installed skill governs these C# edits (rule 15).
+- [ ] **PLAY-TEST:** craft/equip Fire Wave. (a) casting sends a ground-level ring of cubes sweeping
+      forward roughly 12 m and ~0.6 s, staying flat across slopes and drops; (b) foes the band passes
+      over are damaged once each and shoved forward (caster-outward knockback along the ground); (c)
+      it passes over the ground without detonating and through walls/foes; (d) the wave dies with a
+      small impact burst at the end of its reach; (e) the F2/F3 lane and bench list Fire Wave under
+      projectile shapes, drawn as the flat wave disc.
+
 ## 1jw. Continuous Fireball: follow circle now body-anchored, bolts now homing (testing.md task 1)
 
 Two changes the user asked for in testing.md: the follow circle must sit "behind the player" and rotate

@@ -1,3 +1,49 @@
+## 1jy. Fire Wave converted from AoE placement zone to ground-hugging forward wave (testing.md task 2)
+
+OPEN until the play-test confirms the wave rides the ground flat, travels ~12 m, hits each foe once,
+and shoves them along the ground. The reasoning that mattered:
+
+**H1 (CONFIRMED by read) - the existing Projectile path could NOT express a wave; "change it into a
+projectile type" means a new shape, not a delivery swap.** Fire Wave was `SpellDelivery.Zone` (drop the
+3.4 m puff anywhere within GroundAimMax 1200, single burst). Switching only the delivery to Projectile
+would have fired a flying ball at the look pivot's forward (1jm) — vertical aim permitted, would detonate
+on the ground (small center probe, SpellEffect) and die on the first enemy (full-step raycast, Hitbox 1),
+with no waves. So the flight-mode *distinctions* I needed were exactly the ones a normal bolt owns:
+flat-aim (flatten `_dir`), no ground detonation, no first-touch detonation, no trail, a per-foe once
+band. That is a per-frame branch, i.e. a new `ProjectileShape` whose value is behaviour — the second
+after `Missile`. Grep confirmed BOTH meanings were safe: `ProjectileShape` is consumed by
+`MagicProjectileModelBuilder`'s switch (display) and `SpellEffect`'s `== Missile` (behaviour), and
+`SpellLook.Resolve` inherits non-Auto `spell.Shape` into DisplayShape (L331), so an authored `Wave`
+flows to both the sweep behaviour AND the wave body with no Look profile needed.
+
+**H2 (CONFIRMED by read) - the wave's reach is a count of the SPELL, not a leftover of Lifetime.**
+`SpellEffect` gives every projectile a default Lifetime (≈4 s); at the 20 m/s default that is an 80 m
+wave. The pattern that stopped me is 1jq/1ik's "a slot nobody reads still has to exist" inverted: the
+field exists and IS read, but the number travelling is the wrong ladder. Capping `Lifetime =
+min(Lifetime, Range / Speed)` makes reach = Range exactly (12 m ≈ 0.6 s) and keeps a spell that later
+sets a longer lifetime able to extend it — the cap is a `min`, not an overwrite.
+
+**H3 (REJECTED) - the wave should die on obstacles like a bolt.** That reading loses the spell's
+identity: Fire Wave's own description is "sweeps foes across the field", and its knockback is
+caster-outward (`ApplyKnockback`, pushing roots away from the caster), i.e. the fantasy is a wave that
+shoves the field, not a missile that stops at the first wall. Passing through terrain/foes and riding
+the ground is the *point* — the same simplification zones already make (a zone does not detonate on its
+center tile). Tracked as a deliberate difference in the code comment and the doc bullet.
+
+**H4 (the once-only contract - HashSet is the whole mechanism).** `SweepWave` is ticked on
+`WaveTickInterval` 0.15 s so the band keeps up with a fast wave, but sweeping the same band twice at
+20 m/s would re-hit the same foe: `_waveHit` (per-root, caster excluded) makes the second tick a no-op.
+`ResolveHitAt` already does the immediate damage + the spell knockback, so the wave's "shoves as it
+rolls over" behaviour IS the existing hit flow — I did not write a second damage path.
+
+**H5 (caught by read, would have shipped a 0.3 s sky-wave) - the body inherits the release pitch.**
+`FireProjectile` spawns `pos += fwd * 0.5f` and orients `LookRotation(fwd)` with vertical aim intact;
+the generic body would therefore spawn tipped by the camera pitch and ride at that angle. The wave
+branch re-flattens `_dir` and re-faces with `LookRotation(flatDir)` on its first Update, so the disc
+reads flat from frame one. The `MagicProjectileModelBuilder.Wave` body is authored flat in its own
+local space (ring cubes at y ≈ 0.06, crest at y ≈ 0.26 in +Z), so `LookRotation` to the flat travel
+direction is exactly what the body expects.
+
 ## 1jw. Continuous Fireball follow circle + homing bolts (testing.md task 1)
 
 CLOSED when the play-test confirms circle-behind-on-body-yaw, rotation with the body, and runaway

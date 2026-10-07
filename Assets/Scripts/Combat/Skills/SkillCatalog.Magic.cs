@@ -319,7 +319,7 @@ public static partial class SkillCatalog
             S("magic_fireball_inferno_firestorm", "Firestorm", Spell("magic_fireball_inferno_firestorm_spell", "Firestorm", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 7f, deliveryRange: 10f, deliveryRadius: 3.8f, duration: 3.5f, statusEffect: StatusEffectType.Burn), "A storm of whirling flame that rains burning embers over the area.", Focus(26f), DamageType.Fire, true),
             S("magic_fireball_inferno_rage", "Infernal Rage", Perk(PassivePerkType.AttackPowerPercent, 5f), "Rage feeds the flame — physical attack +5%.", passive: true),
             S("magic_fireball_inferno_peak", "Inferno Peak", Spell("magic_fireball_inferno_peak_spell", "Inferno Peak", DamageType.Fire, 40f, 30f, SpellDelivery.Zone, 9f, deliveryRadius: 4.2f, duration: 3.5f, knockback: 1f, statusEffect: StatusEffectType.Burn), "A towering eruption of flame that leaves the ground burning for seconds.", Focus(30f), DamageType.Fire, true),
-            S("magic_fireball_inferno_wave", "Fire Wave", Spell("magic_fireball_inferno_wave_spell", "Fire Wave", DamageType.Fire, 32f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3.4f, knockback: 2.5f), "A rolling wave of fire that sweeps foes across the field.", Focus(22f), DamageType.Fire, true),
+            S("magic_fireball_inferno_wave", "Fire Wave", Spell("magic_fireball_inferno_wave_spell", "Fire Wave", DamageType.Fire, 32f, 22f, SpellDelivery.Projectile, 6f, deliveryRange: 12f, deliveryRadius: 3.4f, knockback: 2.5f, projectileShape: ProjectileShape.Wave), "A rolling wave of fire that sweeps foes across the field.", Focus(22f), DamageType.Fire, true),
         };
 
         /* magic_fireball_ember children (all passive) */

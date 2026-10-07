@@ -1939,6 +1939,15 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   Every `SpellCaster` in the tree is the player's (`WeaponRigBuilder` adds it to `playerRoot`; everything
   else is `GetComponent<SpellCaster>()` on the player or the QA bench), so aiming from `Camera.main` is
   player-scoped in practice — a property this rule now depends on, which is why it is written down.
+- **Ground waves (1jy, `ProjectileShape.Wave`).** A Wave-shaped projectile does **not** fly straight: it is
+  re-aimed flat and rides the terrain. `SpellEffect` flattens the release direction to horizontal every
+  frame, re-faces the body to it, clamps itself to the ground at a fixed lift, and sweeps forward for
+  exactly the spell's `Range`, hitting each enemy **once** (plus the spell's knockback, pushed outward
+  from the caster) as its `Radius`-wide band passes over them — a per-wave `HashSet` of hit roots, ticked
+  on a short cadence so the band keeps up with a fast wave. A wave deliberately never detonates on the
+  ground it rides, never dies on the first foe it touches (it passes through and shoves), and leaves no
+  trail strip — it is a sweep, not a bolt. Fire Wave is the only spell: a 3.4 m-wide band sweeping
+  12 m at 20 m/s (~0.6 s), knockback shoving foes away from the caster along the ground.
 
 **Sky spells** (`SummonFallingRock`, the meteor/boulder family) drop a **rock formation** from high
 above the ground target and read as the spell landing: the burst (damage, knockback, terrain
@@ -1984,6 +1993,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Ember Streak** | 1f7, **removed in 1ir**: a stretched bright head (0.18×0.18×0.42) with a long tapering ember tail, read-only via `SpellLookProfile.DisplayShape`, never `spell.Shape`. It existed for exactly one spell — the meteor-line Comet — and that spell's slot is now Flamethrower, which is a swept Beam with no projectile body to shape. Flamethrower does **not** reuse the tail: it would have to survive in a delivery that draws nothing but a cone. |
 | **Missile** | Three 2-cube mini dart-stacks; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles, Chill Soul. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
+| **Wave** | 1jy: a **flat ground-hugging disc** of voxel cubes with a brighter forward crest arc — Fire Wave. This shape is *also behaviour*, not just a look: a Wave-shaped projectile is fully transformed by `SpellEffect` into a terrain-glued forward sweep (§3.8.1 below). It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the sweep without its asking. |
 
 `Auto` picks from the spell's **school family** via `SpellLook.Resolve` (§3.8.3): Fire→Sphere,
 Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Physical→Dart, everything

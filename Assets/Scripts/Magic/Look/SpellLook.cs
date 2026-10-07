@@ -325,7 +325,8 @@ public readonly struct SpellLook
         SpellCastStyle cast = Pick(fam.Cast, rD);
 
         // Shape: an authored shape is real design work and wins outright. Determinism only fills the
-        // Auto gap, and its families never contain Missile (that value also means "homing").
+        // Auto gap, and its families never contain Missile (that value also means "homing") or Wave
+        // (1jy: that value also means "ground-hugging sweep").
         // rE, not rD: the cast-style pick already consumed rD, and two components fed by the same
         // random value are correlated, which quietly costs uniqueness in the 1ic audit.
         ProjectileShape display = spell.Shape != ProjectileShape.Auto

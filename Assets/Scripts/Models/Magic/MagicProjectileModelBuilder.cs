@@ -129,6 +129,7 @@ internal static class MagicProjectileModelBuilder
             case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
+            case ProjectileShape.Wave: return Wave("FireWave", shader, color);
             default: return Cluster("Orb", shader, color, 0.24f, 5, 0.10f, 0.03f); // fireball + generic orbs
         }
     }
@@ -432,6 +433,41 @@ internal static class MagicProjectileModelBuilder
         tip.localScale = new Vector3(0.08f, 0.08f, 0.12f);
         Materialize(tip, shader, color);
         AddTrailingFlecks(root, shader, color, 0.38f);
+        return root;
+    }
+
+    /// <summary>
+    /// Ground-hugging wave front (1jy): a flat disc of voxel cubes at ground level with a brighter
+    /// front-facing crest arc. The parent projectile's rotation is flattened to horizontal every
+    /// frame by <c>SpellEffect</c> (the Wave branch re-aims <c>LookRotation</c> at the flattened
+    /// <c>_dir</c>), so this ring always lies flat on the terrain instead of inheriting the release
+    /// aim's pitch. Assumes local +Z is the travel direction.
+    /// </summary>
+    private static Transform Wave(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        const float radius = 0.95f;
+        Color deep = Color.Lerp(color, Color.black, 0.55f);
+        int outer = 16;
+        for (int i = 0; i < outer; i++)
+        {
+            float a = i / (float)outer * Mathf.PI * 2f;
+            var cube = Primitive(PrimitiveType.Cube, "Ring" + i, root);
+            cube.localPosition = new Vector3(Mathf.Cos(a) * radius, 0.06f, Mathf.Sin(a) * radius);
+            cube.localScale = new Vector3(0.16f, 0.10f, 0.16f);
+            Materialize(cube, shader, Color.Lerp(color, deep, (i & 1) * 0.4f));
+        }
+        // Forward crest: a short arc of taller, brighter cubes where the wave is "rolling".
+        int crests = 7;
+        for (int i = 0; i < crests; i++)
+        {
+            float t = crests <= 1 ? 0.5f : i / (float)(crests - 1);
+            float x = Mathf.Lerp(-radius, radius, t);
+            var crest = Primitive(PrimitiveType.Cube, "Crest" + i, root);
+            crest.localPosition = new Vector3(x, 0.26f, radius * 0.55f);
+            crest.localScale = new Vector3(0.22f, 0.32f, 0.10f);
+            Materialize(crest, shader, Color.Lerp(color, Color.white, 0.22f));
+        }
         return root;
     }
 }

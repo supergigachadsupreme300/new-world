@@ -171,7 +171,7 @@ All ten earlier beams leave `BeamHalfAngle` at 0 and keep the original single-ca
   - **Firestorm** (`magic_fireball_inferno_firestorm`) - Active (Fire) - power 36, FP 26, cd 7s, range 10, radius 3.8, dur 3.5s, Burn | A storm of whirling flame that rains burning embers over the area.
   - **Infernal Rage** (`magic_fireball_inferno_rage`) - + 5 Strength (passive) | Permanent +5 Strength.
   - **Inferno Peak** (`magic_fireball_inferno_peak`) - Active (Fire) - power 40, FP 30, cd 9s, radius 4.2, dur 3.5s, Burn, knockback 1 | A towering eruption of flame that leaves the ground burning for seconds.
-  - **Fire Wave** (`magic_fireball_inferno_wave`) - Active (Fire) - power 32, FP 22, cd 6s, radius 3.4, knockback 2.5 | A rolling wave of fire that sweeps foes across the field.
+  - **Fire Wave** (`magic_fireball_inferno_wave`) - Active (Fire) - power 32, FP 22, cd 6s, range 12, radius 3.4, knockback 2.5, shape:Wave | A rolling ground-hugging wave of fire that sweeps forward, scorching every foe it rolls over.
 - **Embermind** (`magic_fireball_ember`) - + 3 Intelligence (passive) | Permanent +3 Intelligence.
   - **Ember Intellect** (`magic_fireball_ember_intellect`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Ember Wisdom** (`magic_fireball_ember_wisdom`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
