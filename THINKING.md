@@ -1,3 +1,47 @@
+## 1ka. Per-spell casting circle: from the ground to a flat point in front of the magic weapon (testing.md task 4)
+
+OPEN until the play-test confirms the flat weapon-height circle reads clearly and the burst lands on
+the same spot. The reasoning:
+
+**H1 (the ask, CONFIRMED by the request itself) - "like the Continuous Fireball follow circle but in
+front of the magic weapon" is a FLAT, weapon-anchored halo that re-places every frame.** The Follow
+circle is the SpellSummon body: flat on the ground, re-derived from `-body.forward` each frame. The
+per-spell halo needed the same two properties at the weapon: (a) a point re-derived from the weapon's
+own forward every aim frame — which `PlayerController.Interactions.cs:328` already provides by calling
+`UpdateCastingCircle(previewLevel)` every frame during aim; (b) a flat (world-up) orientation. The
+user's qualifier ("on the ground" being the thing to change) means the ground probe was the defect,
+not the flatness — the follow circle being flat is the property to keep.
+
+**H2 (REJECTED - keep the ground probe under the weapon halo).** The halo is no longer on the ground,
+so `GroundCastPoint` (weapon forward â†’ `GroundUnder`) placed a HALF-METRE-FLOATING point at the feet,
+tilting the circle onto the terrain under the player. `GroundUnder`/the rear circle keep ground-snapping
+for the familiar and summons (things that are actually ON the ground); the weapon halo must NOT. The
+shared-derivation invariant survives: the BURST re-derives through the same `WeaponCastPoint`, exactly
+as 1jt's "one function" required — the halo has no ground basis to disagree about anymore, so the
+probe's original job is gone rather than duplicated.
+
+**H3 (decision - why FLAT and why 0.5 m).** (a) A disc tilted with the staff is exactly what 1jt moved
+off the weapon because it read as part of the weapon; the user asked for the Follow circle's flatness,
+so the flat plane is `Quaternion.identity` with a never-tilt comment (rule 8: the comment asserts a
+mechanism, and the flat branch is the only writer, so it is checkable in one read). (b) The 0.5 m
+offset is copied from the two proven muzzle sites (`SpellCaster.Projectiles.cs:30`, path preview
+`pos + fwd * 0.5f`) — the halo sits on the actual flight line, and rule 3 says copy the codebase's
+proven shape rather than invent a new one.
+
+**H4 (CastAnchor is now a dormant axis; keep it resolved, delete it separately).** No placement reads
+the axis anymore — every spell places at the weapon, so `Feet`/`Front` would be a choice nothing
+consumes. It stays resolved + packed so the F4 identity key never changes (1f7's corollary: a packing
+change cannot move the verdict, so it MUST not move here either); removal is a rule-14 task recorded in
+PROGRESS.md. `CastFrontOffset` stays only as `SpellSummon.BackOffset`'s alias (SpellSummon.cs:48-52);
+`GroundUnder` keeps its live caller (SpellSummon.cs:170) and definition (SpellCaster.Cast.cs:236).
+
+**H5 (regression sweep, CONFIRMED clean).** Only Livestock.cs's own unrelated `_grounded` field matched
+the stale halo symbols — no magic file still calls `ShowGround`/`GroundCastPoint`/`_groundUp`. The new
+symbols (`ShowFlat`/`WeaponCastPoint`/`WeaponCastFrontOffset`/`_flat`/`_flatPos`) resolve only in the
+two edited files, and every call site of `Show(...)` and `Burst(...)` was checked for mode-flag
+correctness (`_flat ? _flatPos : ...` forever channels any non-flat path into `_anchor`, matching
+pre-1ka `ShowGround` behaviour).
+
 ## 1jz. The flamethrower funnel chunk does not rotate with the player (testing.md task 3)
 
 CLOSED when the channeled cone sweeps with the aim as one body. The reasoning:

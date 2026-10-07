@@ -1,12 +1,19 @@
 using UnityEngine;
 
 /// <summary>
-/// Halo-style casting circle that wraps around the held magic weapon while a spell is being
-/// aimed/charged (driven by <see cref="PlayerController"/>). The ring plane lies perpendicular
-/// to the weapon's up axis so it tilts with the weapon like a halo, growing brighter and
-/// spinning faster as the charge level (0..1) builds. Released on cast with a quick outward
-/// ring burst. Prefab-free, built from a translucent disc + LineRenderer rings. Pure
+/// Halo-style casting circle shown while a spell is being aimed/charged (driven by
+/// <see cref="PlayerController"/>). Two placements: the armed per-spell charge floats FLAT
+/// (world-up plane) just ahead of the magic weapon at the weapon's own height, and the preview /
+/// ranged-draw variants wrap the held weapon and tilt with it like a halo. Either way it grows
+/// brighter and spins faster as the charge level (0..1) builds. Released on cast with a quick
+/// outward ring burst. Prefab-free, built from a translucent disc + LineRenderer rings. Pure
 /// visual: no colliders and nothing blocking gameplay.
+///
+/// <para><b>1ka: the armed per-spell charge is FLAT, in front of the weapon.</b> It is placed by
+/// the caller through <see cref="ShowFlat(Vector3, float, in SpellLook)"/> at a refreshed world
+/// point half a metre ahead of the magic hand (see <c>PlayerController.WeaponCastPoint</c>). Its
+/// plane is always world-up, never tilted with the aim or the terrain, because a disc angled with
+/// the staff reads as part of the weapon rather than as the cast (rule 20).</para>
 ///
 /// <para><b>1if: the halo family is per-spell.</b> There are seven <see cref="SpellCastStyle"/>
 /// families and this component draws all of them. They are built ONCE in <see cref="Build"/> and
@@ -75,13 +82,15 @@ public sealed class CastingCircle : MonoBehaviour
     private float _spin;
     private float _pulse;
 
-    // ---------------------------------------------------------------- 1jt: ground anchoring
+    // ---------------------------------------------------------------- 1ka: flat weapon-front mode
     //
-    // The two `Show(Transform, ...)` overloads below hang the halo off the held magic WEAPON, and
-    // that is still correct for their three callers (the cast preview, the ranged-draw accent, and
-    // the no-spell-armed release). 1jt adds a third mode for the actual per-spell charge, which
-    // belongs on the ground at the player's feet or in front of them (SpellCastAnchor) instead of
-    // under the staff.
+    // (1jt anchored the per-spell charge on the ground at the player's feet or CastFrontOffset ahead
+    // of them. 1ka moves that same charge circle to a flat world-up position just in front of the
+    // magic weapon, at the weapon's own height — "like the continuous fireball follow circle, but at
+    // the weapon" (testing.md task 4). The two `Show(Transform, ...)` overloads above still hang the
+    // halo off the held magic WEAPON for their three callers (the cast preview, the ranged-draw
+    // accent, and the no-spell-armed release), but the per-spell charge is now a caller-refreshed
+    // world point instead of a weapon anchor.
     //
     // Why a flag rather than an overload on `_anchor`: `Update` RE-DERIVES the transform from
     // `_anchor` every single frame, so simply passing a different position to Show would be
@@ -90,19 +99,15 @@ public sealed class CastingCircle : MonoBehaviour
     // "a transform to follow" and one meaning "a world point we were handed" is exactly the aliasing
     // that produced 1jq's ArgumentOutOfRange.
 
-    /// <summary>1jt: true when the halo is placed by <see cref="_groundPos"/> instead of by
-    /// <see cref="_anchor"/>. Set by the <see cref="ShowGround"/> overloads and cleared by both
+    /// <summary>1ka: true when the halo is placed by <see cref="_flatPos"/> instead of by
+    /// <see cref="_anchor"/>. Set by the <see cref="ShowFlat"/> overloads and cleared by both
     /// <see cref="Show(Transform,float,Color)"/> and <see cref="Show(Transform,float,in SpellLook)"/>.</summary>
-    private bool _grounded;
+    private bool _flat;
 
-    /// <summary>1jt: the world point the halo sits on, refreshed by the caller each frame so it
-    /// tracks the player while a charge is held.</summary>
-    private Vector3 _groundPos;
-
-    /// <summary>1jt: the surface normal the halo is laid flat against. Always <see cref="Vector3.up"/>
-    /// for a ground halo — it is not a slope-aligned disc, deliberately: a halo that tilts with a
-    /// hillside reads as falling over, and the ground probe returns a height, not a normal.</summary>
-    private Vector3 _groundUp = Vector3.up;
+    /// <summary>1ka: the world point the halo floats at (a flat position in front of the magic
+    /// weapon, at the weapon's own height), refreshed by the caller each aim frame so it follows a
+    /// walking/turning player while a charge is held.</summary>
+    private Vector3 _flatPos;
 
     /// <summary>Ensure the singleton exists and returns it (builds on first access).</summary>
     public static CastingCircle Instance
@@ -137,7 +142,7 @@ public sealed class CastingCircle : MonoBehaviour
         // No spell behind this colour — draw the plain family rather than inventing an identity.
         if (anchor == null) { Hide(); return; }
         _active = true;
-        _grounded = false;
+        _flat = false;
         _anchor = anchor;
         _charge = Mathf.Clamp01(charge);
         _color = color;
@@ -155,7 +160,7 @@ public sealed class CastingCircle : MonoBehaviour
     {
         if (anchor == null) { Hide(); return; }
         _active = true;
-        _grounded = false;
+        _flat = false;
         _anchor = anchor;
         _charge = Mathf.Clamp01(charge);
         _color = look.Core;
@@ -168,45 +173,45 @@ public sealed class CastingCircle : MonoBehaviour
         Apply();
     }
 
-    /// <summary>1jt: the plain-family ground halo — no spell behind it, so no identity to invent.</summary>
-    public void ShowGround(Vector3 groundPos, float charge, Color color)
+    /// <summary>1ka: the plain-family flat halo — no spell behind it, so no identity to invent. Drawn
+    /// in a world-up plane at the given world point, parallel to the ground.</summary>
+    public void ShowFlat(Vector3 flatPos, float charge, Color color)
     {
         _active = true;
-        _grounded = true;
-        _groundPos = groundPos;
-        _groundUp = Vector3.up;
+        _flat = true;
+        _flatPos = flatPos;
         _anchor = null;
         _charge = Mathf.Clamp01(charge);
         _color = color;
         _style = SpellCastStyle.Circle;
         _scale = 1f;
         _tempo = 1f;
-        transform.position = _groundPos;
-        transform.rotation = Quaternion.FromToRotation(Vector3.up, _groundUp);
+        transform.position = _flatPos;
+        transform.rotation = Quaternion.identity;
         gameObject.SetActive(true);
         Apply();
     }
 
-    /// <summary>1jt: the per-spell ground halo — the charge circle for a real armed spell, placed by
-    /// the caller at the resolved <see cref="SpellLook.CastAnchor"/> point rather than under the
-    /// weapon. Colour, family, size and tempo all come from the look, exactly as the weapon-anchored
-    /// overload takes them; only the placement differs.
-    /// <para>The caller re-sends <paramref name="groundPos"/> every frame while charging, so the halo
-    /// follows a walking player instead of being left behind at the cast origin.</para></summary>
-    public void ShowGround(Vector3 groundPos, float charge, in SpellLook look)
+    /// <summary>1ka: the per-spell flat halo — the charge circle for a real armed spell, placed by the
+    /// caller at a flat position just in front of the magic weapon at the weapon's own height
+    /// (testing.md task 4). Colour, family, size and tempo all come from the look, exactly as the
+    /// weapon-anchored overload takes them; only the placement differs.
+    /// <para>The caller re-sends <paramref name="flatPos"/> every aim frame while charging, so the
+    /// halo follows a walking/turning player and stays ahead of the weapon instead of being left
+    /// behind at the cast origin.</para></summary>
+    public void ShowFlat(Vector3 flatPos, float charge, in SpellLook look)
     {
         _active = true;
-        _grounded = true;
-        _groundPos = groundPos;
-        _groundUp = Vector3.up;
+        _flat = true;
+        _flatPos = flatPos;
         _anchor = null;
         _charge = Mathf.Clamp01(charge);
         _color = look.Core;
         _style = look.Cast == SpellCastStyle.Inherit ? SpellCastStyle.Circle : look.Cast;
         _scale = Mathf.Max(0.2f, look.Scale);
         _tempo = Mathf.Max(0.2f, look.Tempo);
-        transform.position = _groundPos;
-        transform.rotation = Quaternion.FromToRotation(Vector3.up, _groundUp);
+        transform.position = _flatPos;
+        transform.rotation = Quaternion.identity;
         gameObject.SetActive(true);
         Apply();
     }
@@ -218,21 +223,23 @@ public sealed class CastingCircle : MonoBehaviour
     /// <summary>1if: the per-spell burst, taking the look's size multiplier.</summary>
     public void Burst(float radius, Color color, Vector3 upDir, float scaleMul)
     {
-        // 1jt: in ground mode the release ring must come off the same point the halo was charging on,
+        // 1ka: in flat mode the release ring must come off the same point the halo was charging on,
         // or it fires from the staff and reads as two different spells. Weapon mode is unchanged.
-        Vector3 at = _grounded
-            ? _groundPos
+        Vector3 at = _flat
+            ? _flatPos
             : (_anchor != null ? _anchor.position : transform.position);
         SkillFx.RingFlash(at, upDir, color, Mathf.Max(radius, 0.4f), 0.35f, scaleMul);
     }
 
-    /// <summary>1jt: the per-spell burst at an EXPLICIT world point, for a halo that was charging on
-    /// the ground rather than on the weapon. Takes the point rather than reading it out of state so
-    /// the caller cannot accidentally burst at last frame's halo position if the player has moved
-    /// since — the release ring belongs at the cast, not at wherever the circle drifted to.
-    /// <para><c>upDir</c> is passed separately from <paramref name="at"/> because the ground halo is
-    /// always flat (see <see cref="_groundUp"/>), so the two are independent facts and reading the
-    /// normal out of state would make them look coupled when they are not.</para></summary>
+    /// <summary>1ka: the per-spell burst at an EXPLICIT world point, for a halo that is placed
+    /// outside the weapon (flat, in front of it) rather than on it. Takes the point rather than
+    /// reading it out of state so the caller cannot accidentally burst at last frame's halo position
+    /// if the player has moved since — the release ring belongs at the cast, not at wherever the
+    /// circle drifted to.
+    /// <para><c>upDir</c> is passed separately from <paramref name="at"/> because the flat halo is
+    /// always world-up (see <see cref="ShowFlat(Vector3,float,in SpellLook)"/>), so the two are
+    /// independent facts and reading the normal out of state would make them look coupled when they
+    /// are not.</para></summary>
     public void Burst(float radius, Color color, Vector3 upDir, float scaleMul, Vector3 at)
     {
         SkillFx.RingFlash(at, upDir, color, Mathf.Max(radius, 0.4f), 0.35f, scaleMul);
@@ -243,7 +250,7 @@ public sealed class CastingCircle : MonoBehaviour
     {
         if (!_active) return;
         _active = false;
-        _grounded = false;
+        _flat = false;
         _anchor = null;
         gameObject.SetActive(false);
     }
@@ -251,11 +258,14 @@ public sealed class CastingCircle : MonoBehaviour
     private void Update()
     {
         if (!_active) return;
-        if (!_grounded && _anchor == null) { Hide(); return; }
-        if (_grounded)
+        if (!_flat && _anchor == null) { Hide(); return; }
+        if (_flat)
         {
-            transform.position = _groundPos;
-            transform.rotation = Quaternion.FromToRotation(Vector3.up, _groundUp);
+            // Always world-up, never aim- or slope-tilted. A disc angled with the aim reads as part
+            // of the weapon (the very thing 1ka moved the charge away from); the ground-halo
+            // never-tilts rule from 1jt holds for the flat weapon halo unchanged.
+            transform.position = _flatPos;
+            transform.rotation = Quaternion.identity;
         }
         else
         {

@@ -1,3 +1,45 @@
+## 1ka. The casting circle now charges flat just in front of the magic weapon (testing.md task 4)
+
+The user asked to take the per-spell casting circle off the ground and make it like the Continuous
+Fireball follow circle — floated in front of the magic weapon instead. Fixed in
+`PlayerController.Combat.cs` + `CastingCircle.cs`:
+
+- **`WeaponCastPoint(GameObject hand)` replaces `GroundCastPoint`.** The halo point is now the magic
+  hand's own forward, pitch-flattened (a yaw-only rig can't produce a vertical forward; the guard
+  exists so a pitch regression reads "halo at the hand", not NaN), plus `WeaponCastFrontOffset = 0.5f`
+  — the exact muzzle the path preview and `FireProjectile` use (`pos + fwd * 0.5f`,
+  SpellCaster.Projectiles.cs:30), so the halo sits on the flight line the projectile will take.
+- **The armed halo is flat (world-up), not weapon-tilted.** `CastingCircle.ShowGround` → `ShowFlat`,
+  `_grounded`/`_groundPos` → `_flat`/`_flatPos`, `_groundUp` dropped, and the flat transform is
+  `Quaternion.identity` with a comment: a disc angled with the staff would read as part of the weapon
+  again (the exact thing 1jt moved the halo off the weapon to fix), and the user asked for the Follow
+  circle's flat look.
+- **The release ring re-derives the same point.** `BurstCastingCircle` now calls `WeaponCastPoint`
+  → `Burst(r, look.Core, Vector3.up, look.Scale, at)` every cast, so the charging circle and the
+  release ring can't disagree (1jt's "one function" invariant held across the move).
+- **`CastAnchor` is now INERT for placement.** No placement reads the axis anymore (the halo is flat
+  at the weapon for every spell — no `Feet`/`Front` split). It stays resolved and packed into the F4
+  audit key so that key never changes; deleting the axis is a follow-up removal task (rule 14).
+  `SpellLook.CastFrontOffset` (1.8 m) stays as `SpellSummon.BackOffset`'s alias; `GroundUnder` stays
+  for the summon/familiar and its own callers.
+- **Supersedes the 1jt ground placement** described in that entry below for the per-spell halo; the
+  summon/familiar rear circle (1jw) is untouched.
+
+Verification: grep + reread — no stale halo symbols (`GroundCastPoint`/`ShowGround`/`_grounded`/
+`_groundPos`/`_groundUp`/`_castGroundBuffer` now match only Livestock.cs's own unrelated `_grounded`);
+`ShowFlat`/`WeaponCastPoint`/`WeaponCastFrontOffset` wired in both files; `GroundUnder` still has a
+live caller (SpellSummon.cs:170). Docs updated in the same pass (game-design.md §2, SpellLook.cs,
+NewWorldTestGround.cs, AGENTS.md rule 20). No Unity build (rule 3).
+    `skills: none applied` - no installed skill governs this C#/docs edit (rule 15).
+
+### 1ka-status
+- [x] `WeaponCastPoint(GameObject hand)` + `WeaponCastFrontOffset = 0.5f` in PlayerController.Combat.cs; `GroundCastPoint` + `_castGroundBuffer` deleted.
+- [x] `CastingCircle.ShowFlat` overloads, `_flat`/`_flatPos` state, `Quaternion.identity` flat transform; `_groundUp` removed.
+- [x] `BurstCastingCircle` re-derives the burst point through the same `WeaponCastPoint`.
+- [x] Docs: game-design.md §2 (flat-at-weapon, shared 0.5 m muzzle), SpellLook.cs (`CastAnchor` INERT + removal candidate), NewWorldTestGround.cs, AGENTS.md rule 20.
+- Verification: `tools\StaticChecks.ps1` => 0 candidates; re-grep of stale symbols => clean; no build.
+- [ ] **PLAY-TEST:** arm any spell and LMB — the charge halo must float FLAT in front of the magic weapon at the weapon's own height (not on the ground, not tilted), following the weapon as you turn; releasing pops the ring at the same spot; the projectile then flies through the circle's heart (0.5 m muzzle). Check a front-placed halo reads well in third person from behind (edge-on visibility is the known risk; `WeaponCastFrontOffset` 0.5 m is the tuning knob). Continuous Fireball's follow circle and every summon's rear circle must be unchanged.
+
 ## 1jz. Flamethrower's funnel now rotates with the player like BeamEnd (testing.md task 3)
 
 The user reported the flamethrower funnel chunk doesn't track the player: "edit flamethrower funnel

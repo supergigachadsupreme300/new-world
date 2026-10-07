@@ -1579,6 +1579,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
         // 1jt adds this alongside the 2 key bits. Unlike SkyRock (constant under determinism), the
         // anchor really is two-valued - Summon deliveries plus the two authored Meteors resolve to
         // Feet and everything else to Front - so this count is the visible proof the axis moved.
+        // (1ka: the armed halo no longer reads it - it is flat at the weapon - but the axis is still
+        // resolved and packed here, so the count stays; deleting it is a separate task.)
         var byAnchor = new Dictionary<SpellCastAnchor, int>();
         int total = 0;
         int authored = 0;
@@ -1652,7 +1654,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append('\n').Append("  sky rocks:       ").Append(CountLine(bySkyRock))
           .Append("   (only SummonFallingRock spells draw one; the rest resolve to Boulder)");
         sb.Append('\n').Append("  cast anchors:   ").Append(CountLine(byAnchor))
-          .Append("   (1jt: Feet = Summon deliveries + the two authored Meteors; front = everything else)");
+          .Append("   (1jt: Feet = Summon deliveries + the two authored Meteors; front = everything else; 1ka: resolved for the audit only, placement no longer reads it)");
         foreach (var kv in groups)
         {
             if (kv.Value.Count < 2) continue;
@@ -1675,8 +1677,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// is a one-way ratchet - a new axis can only split a group, never merge two, so these three
     /// numbers moving the wrong way would mean the key is broken rather than the world improved.
     /// <c>Authored</c> is deliberately NOT packed: it means "a profile exists", not "the spell looks
-    /// different", so packing it would split groups that are genuinely identical.</para>
-    /// </summary>
+    /// different", so packing it would split groups that are genuinely identical.
+    /// <para><b>1ka: the axis is kept packed even though placement no longer reads it</b> (the armed
+    /// halo is flat at the weapon now). Removing the axis would shave 2 bits AND change every existing
+    /// key, which moves `M`/`colliding` the way a real change would - indistinguishable from a broken
+    /// key (1jt's ratchet, reversed). Keeping it packed means the 1ka commit changes the key NOT AT
+    /// ALL, so any movement in `M` after it is meaningful.</para></summary>
     private static ulong LookKey(in SpellLook look)
         {
             int r = Mathf.Clamp(Mathf.RoundToInt(look.Core.r * 255f), 0, 255);
@@ -1705,9 +1711,11 @@ private static string Describe(in SpellLook look)
     // 1jt DOES add CastAnchor, because the anchor duplicates nothing already packed: the same
     // fireball with its halo at the feet and 1.8 m in front is two different pictures.
     // See AGENTS.md rule 13's corollary.
-    // 1jt: "feet"/"front" is the resolved cast anchor. The matrix band cannot SHOW it either - the band
-    // renders the CAST EFFECT, not the ground halo, over a player model with no ground beneath it - so
-    // like the trail, this text is the only readout for the rule and the placement is a play-test item.
+    // (1ka: the per-spell halo no longer reads the anchor - it is flat at the weapon now - so the
+    // value is resolution-only, kept because LookKey packs it.)
+    // 1jt: "feet"/"front" is the resolved cast anchor. The matrix band cannot SHOW it - it renders the
+    // CAST EFFECT and the halo is drawn by the PLAYER path, not the bench - so this text is the only
+    // readout for the resolution rule. Placement itself is a play-test item (1ka: flat, at the weapon).
     => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/" + look.SkyRock + "/"
     + (look.CastAnchor == SpellCastAnchor.Feet ? "feet" : "front") + "/"
     + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")

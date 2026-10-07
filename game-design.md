@@ -2119,28 +2119,33 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   builds a **charge level** (0–100%, ~2 s, no auto-fire). **Releasing LMB** fires at the frozen level.
   Charge scales the cast: FP cost (up to ×1.6), damage (up to ×2.0), and AoE radius (up to ×1.8), so
   a deeper charge is always a gamble for more FP — never a dud.
-- While aiming/charging, the **spell's casting circle halo** is drawn **on the ground** — at the
-  player's feet, or `SpellLook.CastFrontOffset` (**1.8 m**) in front of them — tinted by the armed
-  spell's **resolved look** (§3.8.3). (1jt: it used to hang off the held magic weapon, which read as
-  part of the weapon rather than as the cast.) It is no longer one ring: the halo picks one of **seven
+- While aiming/charging, the **spell's casting circle halo** is drawn **FLAT** — a world-up plane,
+  never tilted with the aim — **right in front of the held magic weapon**: at the weapon's own height,
+  half a metre ahead of the hand via `PlayerController.WeaponCastPoint` (1ka; the same muzzle the path
+  preview and `FireProjectile` use, `pos + fwd * 0.5f`), tinted by the armed spell's **resolved look**
+  (§3.8.3). (1jt parked it on the ground at the player's feet or `CastFrontOffset` 1.8 m ahead, which
+  read as "the cast is out there"; 1ka brings it back to the weapon so the charge visibly belongs to
+  the thing about to fire — but flat rather than halo-tilted, because a disc angled with the staff
+  reads as part of the weapon.) It is no longer one ring: the halo picks one of **seven
   cast families** from the spell's look, and the *parts* that family enables differ — Disc / outer Halo /
   spinning Rune (8 radial tick marks) / HexRing / inner segments. So the same Wind spell and the same
   Earth spell no longer wear the same halo, and the family is visible before the cast resolves. Radius,
   brightness and spin still ramp with charge level; `Scale`/`Tempo` from the look scale it.
   Releasing the cast pops a one-shot expanding ring **in the spell's own colour and size**, **at the
-  same ground point the halo was charging on**. (`CastingCircle.cs`, driven by `PlayerController`;
-  split aim → charge → release is used by both magic and ranged.)
+  same flat point the halo was charging on** (release re-derives the point through the same
+  `WeaponCastPoint`, so ring and circle cannot disagree). (`CastingCircle.cs`, driven by
+  `PlayerController`; split aim → charge → release is used by both magic and ranged.)
   **Unarmed / no-spell-armed casts still play a plain white hand glow on the weapon** — a weapon
   release with no spell behind it keeps the neutral colour *and* the weapon anchor, because a white
   burst reads as "released the weapon" and an Arcane-pink one would read as "cast an Arcane spell",
   and because with no spell there is no delivery to classify.
-- The halo is **ground-snapped by one shared probe** (`SpellCaster.GroundUnder`, a downward
-  `RaycastNonAlloc` taking the *nearest* hit and skipping the player's own hierarchy), so it lies on a
-  slope instead of floating at the caster's feet height. The same probe places the rear-mounted
-  familiar, so the halo and the summon cannot disagree about where "the ground" is. The front offset is
-  applied **before** the probe; the front direction is the **player's** `transform.forward`
-  (yaw-only, pitch-flattened) — not the camera's, so moving the camera cannot skew where a spell casts.
-  **1jw: the rear direction now obeys the same rule.** The following circle for a caster-anchored
+- The flat halo's **point** comes from one place (`PlayerController.WeaponCastPoint`): the magic
+  hand's own forward, flattened to strip pitch (a yaw-only rig cannot produce a vertical forward — the
+  guard exists so a pitch regression reads as "halo at the hand", not NaN), plus a constant 0.5 m
+  muzzle. The front direction is the **weapon's** forward — deliberately not the camera's, so moving
+  the camera cannot skew where a spell casts (1jl's shoulder offset and 1jm's camera-position coupling
+  would both drift the halo with the view).
+  **1jw: the rear direction obeys the same body-yaw rule.** The following circle for a caster-anchored
   summon places itself at `-body.forward` (yaw-only, flattened) on every frame, so it reads as
   *directly behind the player* and rotates with their body. Its old bearing came from the shared
   camera-aim helper (`SpellCaster.CurrentAimDirection`) — a point on the aim line that carries the
@@ -2149,12 +2154,13 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   the identical reference `SpellSummon` receives as its root), so it never appears off the body for a
   frame and snaps back. The auto-fired bolt *direction* stays on the aim line — the circle follows the
   body, the fire follows the aim; the two are deliberately different.
-  (`CastingCircle` keeps a `_grounded` mode flag because `Update` re-derives the transform every frame
-  from `_anchor`; a position handed to `Show` would simply be overwritten.)
-- Projectile spells launch **from the casting circle's center**: the spawn point sits on the aim line
-  at the rig/hand origin (a small forward muzzle offset only, no vertical lift), so the flight
-  trajectory passes through the circle's heart. The pre-cast **path preview** mirrors the exact launch
-  (`SpellCaster.FireProjectile` ↔ `PlayerController.UpdatePathPreview` share the same origin math).
+  (`CastingCircle` keeps a `_flat` mode flag because `Update` re-derives the transform every frame
+  from `_anchor`; a position handed to `Show` would simply be overwritten — 1jt's rule-4 lesson in its
+  1ka name.)
+- Projectile spells launch **from the rig/hand origin** plus `fwd * 0.5f` — the same muzzle the flat
+  halo and the path preview sit on, so the flight trajectory passes through the circle's heart. The
+  pre-cast **path preview** mirrors the exact launch (`SpellCaster.FireProjectile` ↔
+  `PlayerController.UpdatePathPreview` share the same origin math).
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
   tinted by the spell's resolved core colour (1ij), matching the projectile **ray** colour (1iq turned
   that shared charge readout from a cone into a ray) so a charge reads in one colour from aim to release.
@@ -2216,7 +2222,8 @@ but **delegates** to `SpellLook.SchoolColor`.
    *not* a fourth precedence step: it is what you get by falling off the end of the rule on purpose.
 
 **What one look carries:** `Impact` family, `Cast` family, `DisplayShape` (the body actually drawn),
-`SkyRock` (the falling formation, §3.8.4), `CastAnchor` (where the halo is drawn, 1jt), `Core` + `Edge`
+`SkyRock` (the falling formation, §3.8.4), `CastAnchor` (the halo-draw axis, 1jt; INERT for placement
+since 1ka — the armed halo is flat, in front of the weapon), `Core` + `Edge`
 colours, `Trail`, `Scale`, `Tempo`.
 
 - **Impact families** (`SpellImpactStyle`, 1id) drive `SpellImpactFx`'s pooled flash: Burst, Ring,
@@ -2237,6 +2244,11 @@ colours, `Trail`, `Scale`, `Tempo`.
   that applies a Zone `TerrainShape`, so a `Summon` Meteor would lose its falling rock and carve its
   crater behind the player. This is rule 13's drawn-vs-gameplay split: `CastAnchor` changes the halo's
   position and nothing else.
+  **1ka: the axis is now INERT for placement.** The per-spell charge halo is flat, half a metre in
+  front of the magic weapon at the weapon's own height (`PlayerController.WeaponCastPoint`, matching
+  the path-preview muzzle), so no placement reads `CastAnchor` anymore. It is still resolved and packed
+  into the F4 audit key so that key never changes; deleting the axis (field + profile + resolve + 2
+  key bits) is a separate removal task (rule 14).
 - **`Shape` vs `DisplayShape`** — `spell.Shape` is a *gameplay* flag (`Missile` = homing, see
   §3.8.1); `DisplayShape` is what gets drawn. They are separate fields because a spell can be a
   homing missile and still want its school's family body. **1jw is that split in the wild:**
@@ -2275,6 +2287,8 @@ identities can only **rise**, and `C`/`worst` can only **fall**. Because `M` was
 measurement — a derivation, not a lane run, so re-press F4 to confirm it and to read the new
 `cast anchors:` line. `Authored` is deliberately **not** in the key: it means "a profile exists", not
 "the spell looks different", so packing it would split groups that are genuinely identical.
+1ka leaves the axis resolved and packed (only the *placement* moved to the weapon), so the F4 numbers
+must not move after 1ka either — any movement would be a real change, not the expected ratchet.
 
 **Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
 main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render

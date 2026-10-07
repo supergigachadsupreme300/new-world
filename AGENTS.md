@@ -1446,14 +1446,18 @@ the handoff.** `MagicImpactModelBuilder` returns its pieces, and the shape it us
       by optional parameters, the honest question is "can a reader tell which one any given call reached?"
       - and the answer here was no. Record it at both declarations, and prefer a named argument when the
       distinction matters.
-    - **A component that re-derives its own transform every frame DISCARDS a position handed to it.** That
-      is why `CastingCircle` needs a `_grounded` *mode flag* holding `_groundPos`, not just a new `Show`
+- **A component that re-derives its own transform every frame DISCARDS a position handed to it.** That
+      is why `CastingCircle` needs a `_flat` *mode flag* holding `_flatPos`, not just a new `Show`
       overload taking a point: `Update` rewrites `transform.position` from `_anchor` before the next
       repaint, so a parameter would live exactly one frame. **If a placement has to survive a frame, it
       has to be state, and the flag is the thing that says which placement is authoritative.**
-    - **A per-frame placement and the one-shot event that ends it must derive their point through ONE
-      function**, or the halo and the ring that announces it can disagree. `GroundCastPoint` is called
-      from both the per-frame `UpdateCastingCircle` and the release `BurstCastingCircle`; because the
-      halo is also re-placed per frame, a fresh point at release is *the same* point - had the halo been
-      placed once at cast start, the "same" derivation would have drifted by the player's whole walk-up
-      and still read as two derivations of one point.
+      (1jt's flag was `_grounded`/`_groundPos`; 1ka renamed it to `_flat`/`_flatPos` when the armed
+      halo moved from the ground to a flat point in front of the magic weapon.)
+- **A per-frame placement and the one-shot event that ends it must derive their point through ONE
+      function**, or the halo and the ring that announces it can disagree. `WeaponCastPoint` (1jt's
+      `GroundCastPoint`) is called from both the per-frame `UpdateCastingCircle` and the release
+      `BurstCastingCircle`; because the halo is also re-placed per frame, a fresh point at release is
+      *the same* point - had the halo been placed once at cast start, the "same" derivation would have
+      drifted by the player's whole walk-up and still read as two derivations of one point. (1ka: the
+      point moved from the ground to a flat position at the weapon, but the shared-derivation
+      invariant is unchanged.)

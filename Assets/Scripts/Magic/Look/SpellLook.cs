@@ -70,6 +70,11 @@ public enum SpellCastStyle
 /// a jitter would have put half the Zone spells' haloes on the ground at the player's feet for no
 /// reason. Authored value wins; otherwise <c>Delivery == Summon</c> → <see cref="Feet"/>, and
 /// everything else → <see cref="Front"/>.</para>
+/// <para><b>1ka: resolved but no longer placement-authoritative.</b> The armed per-spell halo now
+/// floats flat at the magic weapon (testing.md task 4, <c>PlayerController.WeaponCastPoint</c>), so
+/// the player halo path no longer reads this axis. It is still resolved and packed into the F4 audit
+/// fingerprint so that key stays stable; deleting the whole axis is a separate removal task (rule 14)
+/// recorded in PROGRESS.md.</para>
 /// </summary>
 public enum SpellCastAnchor
 {
@@ -132,7 +137,7 @@ public sealed class SpellLookProfile
     public SpellImpactStyle Impact = SpellImpactStyle.Inherit;
     [Tooltip("Casting halo family. Inherit = deterministic pick.")]
     public SpellCastStyle Cast = SpellCastStyle.Inherit;
-    [Tooltip("Where the casting halo is drawn (1jt). Inherit = feet for Summon spells, in front for everything else.")]
+    [Tooltip("Where the casting halo is drawn (1jt). 1ka: INERT — the armed halo is flat at the weapon (PlayerController.WeaponCastPoint), so placement ignores this; kept only for the F4 audit key. Inherit = feet for Summon spells, in front for everything else.")]
     public SpellCastAnchor CastAnchor = SpellCastAnchor.Inherit;
     [Tooltip("Projectile body shape. Auto = inherit (never Missile — see SpellLook.DisplayShape).")]
     public ProjectileShape DisplayShape = ProjectileShape.Auto;
@@ -205,7 +210,12 @@ public readonly struct SpellLook
     public readonly SpellCastStyle Cast;
     /// <summary>Where that halo is drawn (1jt). Never <see cref="SpellCastAnchor.Inherit"/> on a
     /// resolved look — this axis has no <c>Inherit</c> state once resolved, because the delivery
-    /// default is a real answer and there is no family to pick from (see the enum's remarks).</summary>
+    /// default is a real answer and there is no family to pick from (see the enum's remarks).
+    /// <para><b>1ka: nothing reads this for placement anymore.</b> The armed per-spell charge halo is
+    /// now flat, half a metre in front of the magic weapon at the weapon's own height, and the player
+    /// halo path no longer consults this axis. The field survives only so the F4 audit's packed
+    /// identity key stays stable; removing it (field + profile + resolve + the key's 2 bits) is a
+    /// separate removal task (rule 14) recorded in PROGRESS.md.</para></summary>
     public readonly SpellCastAnchor CastAnchor;
     /// <summary>Projectile body shape. Authored shapes always win; deterministic picks exclude
     /// <see cref="ProjectileShape.Missile"/> because that value means "homing" (see type remarks).</summary>
@@ -234,15 +244,18 @@ public readonly struct SpellLook
         Authored = authored;
     }
 
-    /// <summary>1jt: how far AHEAD of the player's feet a <see cref="SpellCastAnchor.Front"/> halo
-    /// sits, in metres. One number for the charge halo and the release burst (rule 10: a metric two
-    /// code paths must agree on is one named constant — <c>PlayerController.Combat</c> uses it for
-    /// both).
+/// <summary>1jt: how far AHEAD of the player a front-placed casting halo sat, in metres.
+    /// <para><b>1ka: no longer consumed by the casting halo.</b> The per-spell charge circle now
+    /// floats flat at the magic weapon, half a metre ahead of the hand
+    /// (<c>PlayerController.WeaponCastFrontOffset = 0.5f</c>, testing.md task 4), so this 1.8 has no
+    /// halo reader anymore. It survives because <see cref="SpellSummon.BackOffset"/> aliases it, and
+    /// this paragraph records the design reasoning that chose 1.8 in case the value is ever reused.
+    /// </para>
     /// <para><b>It is <see cref="SpellSummon.BackOffset"/> by design, and that is the whole reason
     /// it is named here:</b> the front halo and the rear-mounted familiar are meant to sit
     /// symmetrically about the player, so changing one without the other would break the symmetry
     /// silently. <see cref="SpellSummon.BackOffset"/> therefore aliases this constant rather than
-    /// repeating the literal.</para>
+    /// repeating the literal.
     /// <para><b>Clearance arithmetic, so the number is not arbitrary:</b> the halo grows to
     /// <c>CastingCircle.FullRadius</c> (0.75 m) times <c>look.Scale</c>, which
     /// <c>SpellLook.Resolve</c> clamps to at most 1.7 — so the widest halo is 1.275 m. The player's
@@ -346,6 +359,7 @@ public readonly struct SpellLook
         // The authored profile below is the only thing that may override it, which is how the two
         // Meteors get `Feet` while staying `SpellDelivery.Zone` — see SpellCastAnchor's remarks for
         // why moving them to `Summon` instead would delete their falling rock and zone damage.
+        // (1ka: resolved and packed for the F4 audit key only — the armed halo no longer reads it.)
         SpellCastAnchor castAnchor = spell.Delivery == SpellDelivery.Summon
             ? SpellCastAnchor.Feet
             : SpellCastAnchor.Front;
