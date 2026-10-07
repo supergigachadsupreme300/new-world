@@ -1,4 +1,56 @@
-## 1jv. "The camera is continuously bugging when moving" - the distance moved, and so did the room to guess
+## 1jw. Continuous Fireball follow circle + homing bolts (testing.md task 1)
+
+CLOSED when the play-test confirms circle-behind-on-body-yaw, rotation with the body, and runaway
+homing bolts with an unchanged comet body. The reasoning that actually mattered:
+
+**H1 (CONFIRMED by read, drove the FollowCaster rewrite) - the circle was anchored to the CAMERA aim,
+not the player.** `FollowCaster` called the 1is helper `SpellCaster.CurrentAimDirection(_casterRoot.position,
+BackOffset * 3f, _casterRoot.forward, _mainCam)` — the *same* derivation the beam and the spray use, i.e.
+a point on the camera aim line. That is a point out in the world, and the terminal aim point carries the
+third-person camera's 1jl shoulder offset and full pitch. The old flattening of that aim vector then
+pointed backwards along a line that was NOT the body's: off by the shoulder offset horizontally, and when
+aiming steeply down the flatten became near-zero, collapsing the circle onto the player's feet. The
+player's body rotation is yaw-only (`PlayerController.Camera.cs:20/27/54` write `Euler(0, _yaw, 0)`), so
+`_casterRoot.forward` flattened IS the upper-body yaw. That is the exact thing the user asked for ("behind
+the player, rotates with the upper body"), so the fix was to use it as the bearing directly rather than
+deriving one from the camera.
+
+**H2 (REJECTED by design choice, not by evidence) - "flypath update like other projectile" = straight-
+flight path preview.** The aim preview (`ProjectilePathPreview`) exists only for Projectile deliveries;
+Continuous Fireball is a Summon, whose charge preview is the ground AoE ring, so the phrase could not
+mean the pre-cast ray. "The fireball shooting from the skill" is the summon's auto-fired bolt, and the
+only per-projectile "path update" the other spells have that this one lacked is in-flight steering.
+Grep settled the trigger: `SpellEffect._homing = _spell.Shape == ProjectileShape.Missile`, and the only
+spells that already home are the ones carrying `projectileShape: ProjectileShape.Missile` (Arcane
+Missiles: SkillCatalog.Magic.cs:255, Chill Soul: :388). Confirmed the summon's bolts reach that gate:
+`SpellSummon.SpawnBolt` → `SpellEffect.Initialize(_spell, ...)` passes the summon's own SpellData, so
+setting the game shape to Missile switches the bolts onto the shared homing path with no other code.
+
+**H3 (would have SHIPPED a visible regression, caught by read) - Missile as the only change.** I checked
+`SpellLook.Resolve` before editing: L331 `display = spell.Shape != Auto ? spell.Shape : Pick(...)`, L365
+`if (p.DisplayShape != Auto) display = p.DisplayShape`. A bare `projectileShape: Missile` would therefore
+inherit Missile into the DisplayShape and the drawn body would silently become the arcane-missile cone
+(`MagicProjectileModelBuilder` `Missile("ArcaneMissiles")`). So homing (gameplay axis) and the drawn body
+(display axis) had to be authored separately. I wanted the body byte-identical, so I computed what the
+deterministic Fire pick already resolved for this id: FNV-1a("magic_fireball_meteor_continuous_spell") =
+0x9D953A8C, murmur-mixed with the display-shape seed `0x165667B1` (SpellLook.cs:312) =
+0x933F7FDF, rE = 0x7FDF / 0xFFFF = 0.4995 → index `(int)(0.4995 * 3)` = 1 of `Shape_Fire = {Sphere,
+Comet, Shard}` = **Comet** (verified against the exact C# FNV-1a/Mix/Unit/Pick code). Authored
+`shape: ProjectileShape.Comet` in the look profile — the override is a no-op against the deterministic
+value, so the bolt is pixel-identical and only the flight path moved.
+
+**H4 (CONFIRMED by grep) - the spawn point disagreed with the follow frame by a few degrees.** ResolveSummon
+derived the caster-anchored back offset from the flattened *camera-point aim* `fwd`, while FollowCaster
+computed it (before 1jw) from CurrentAimDirection and (after) from the body — so the circle visibly
+snapped between its birth spot and its first follow frame. `SpellSummon._casterRoot` is set from
+`caster.transform.root` (L74), so ResolveSummon's `transform.root.forward` is the same reference,
+flattened; spawn == first follow by construction.
+
+**H5 (dead end recorded, still relevant to task 4) - `CastingCircle.GroundCastPoint`/halo is a SEPARATE
+system.** The follow circle is `SpellSummon`; the charge halo is `CastingCircle`. Both ground-snap
+through the same probe (`GroundUnder`) but their forward bases are independent members. I did not touch
+the halo in this task; testing.md task 4 wants the halo to move in front of the magic weapon "the same
+way" the summon circle follows, and that will need its OWN basis change in `CastingCircle`, not this one.
 
 OPEN until the user presses Numpad2 on flat ground and the readout chooses a mechanism. This is a
 **measure-first** task; the fix is deliberately withheld until the lane prints a verdict.

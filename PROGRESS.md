@@ -1,3 +1,55 @@
+## 1jw. Continuous Fireball: follow circle now body-anchored, bolts now homing (testing.md task 1)
+
+Two changes the user asked for in testing.md: the follow circle must sit "behind the player" and rotate
+"with the player's upper body", and the fireballs "shooting from the skill" must have the same "flypath
+update" as other projectiles — in-flight homing.
+
+- **The follow circle stations on the CASTER BODY, not the camera aim line.** The player's body rotation
+  is yaw-only (PlayerController.Camera.cs writes `Quaternion.Euler(0, _yaw, 0)`), so the flattened
+  `_casterRoot.forward` IS the upper-body yaw. `SpellSummon.FollowCaster` now places the circle at
+  `-BackOffset` along that bearing, still on the shared `GroundUnder` probe. The old 1is derivation
+  reused `SpellCaster.CurrentAimDirection` (the camera-point aim the beam and the spray use), which
+  pulled the circle off-axis by the third-person camera's 1jl shoulder offset and collapsed it onto the
+  player's feet when aiming steeply down. The spray (`FireForward`) deliberately still uses the camera
+  aim line — "pours bolts down your aim line" — so the station basis and the fire basis are now
+  different by design, and the stale "one fact, one place" comment was rewritten to say so.
+- **Spawn and first follow frame agree by construction.** `ResolveSummon` derived the caster-anchored
+  back offset from the flattened camera-point aim `fwd`; it now uses the player root's yaw-only forward
+  (`transform.root.forward`, flattened) — the identical reference `SpellCaster` hands `SpellSummon` as
+  `_casterRoot` (`caster.transform.root`) — so the circle no longer appears a few degrees off the body
+  and snaps onto it on the first frame.
+- **The bolts are homing.** Continuous Fireball's spell now carries `projectileShape:
+  ProjectileShape.Missile` — the gameplay axis that makes `SpellEffect._homing` true, the same "flypath"
+  Arcane Missiles and Chill Soul follow. Because `SpellLook.Resolve` inherits a non-Auto `spell.Shape`
+  into `DisplayShape` (a bare Missile would silently re-body the bolt as the arcane-missile cone), the
+  look profile re-authors `shape: ProjectileShape.Comet` — verified as exactly the body the
+  deterministic Fire-family pick already resolved for this spell id (FNV-1a + murmur mix, `rE = 0.4995`
+  → index 1 of `{Sphere, Comet, Shard}` = Comet), so the drawn bolt is byte-for-byte unchanged and only
+  the flight path gained homing.
+
+### 1jw-status
+- [x] `SpellSummon.FollowCaster`: back offset from the flattened body forward (yaw-only); comment states
+      the station (body) and fire (camera-aim) bases are deliberately different.
+- [x] `SpellCaster.Cast.cs ResolveSummon`: caster-anchored spawn offset from `transform.root.forward`
+      (flattened), matching `_casterRoot`, so spawn == first follow frame.
+- [x] `SkillCatalog.Magic.cs` continuous-fireball line: `projectileShape: ProjectileShape.Missile` +
+      `shape: ProjectileShape.Comet` in its authored Look; the comment records why both (homing vs
+      display, and the inheritance hazard a bare Missile would have caused).
+- Verification: grep + reread + `tools\StaticChecks.ps1` => 0 candidates. Confirmed `projectileShape:`
+  is the `Spell(...)` factory's parameter name (34 existing call sites), the class-skill `Look` factory
+  sets `DisplayShape = shape`, the bolt carries the summon's `_spell` into `SpellEffect.Initialize`
+  (homing engages at SpellEffect.cs:106), and the display-shape seed (`0x165667B1`, SpellLook.cs:312)
+  matches the hash used to pick Comet. No Unity build (rule 3).
+      `skills: none applied` - no installed skill governs these C# edits (rule 15).
+- [ ] **PLAY-TEST:** cast Continuous Fireball in THIRD person: (a) the circle sits directly behind the
+      player and rotates with the body as the camera turns, staying glued when aiming down/up;
+      (b) walk/strafe — the circle tracks behind the body, ground-snapped; (c) the auto-fired bolts now
+      curve onto enemies like guided projectiles while still drawing the fireball **comet** body (no
+      arcane-missile cone appears).
+- [ ] Carried-over pending play-tests (unchanged): 1jt (both Meteors, Fireball on slopes, Continuous
+      Fireball, no-spell/ranged paths, third-person alignment, F4 output), 1jr/1ju regression (turning
+      while moving must not zoom; strafing must not yaw), and 1jv Numpad2 verdict.
+
 ## 1jv. "The camera is continuously bugging when moving" / "snaps in and out / zooms, everywhere even on flat open ground" - MEASUREMENT LANE SHIPPED, mechanism not yet chosen
 
 Reported by the user; the fix has NOT been chosen, because rule 7 says measure before fixing what you

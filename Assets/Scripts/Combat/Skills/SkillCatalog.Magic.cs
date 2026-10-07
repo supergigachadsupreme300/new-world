@@ -299,7 +299,16 @@ public static partial class SkillCatalog
             // deterministic jitter across that many bolts would read as a different spell every
             // tick. Impact=Burst (small throw-out per bolt) + Cast=Halo (a soft disc around the
             // caster, matching a familiar that stays with you) is one steady identity instead.
-            S("magic_fireball_meteor_continuous", "Continuous Fireball", Spell("magic_fireball_meteor_continuous_spell", "Continuous Fireball", DamageType.Fire, 36f, 28f, SpellDelivery.Summon, 8f, deliveryRadius: 5f, duration: 8f, tickInterval: 0.4f, projectileSpeed: 22f, statusEffect: StatusEffectType.Burn, casterAnchored: true, boltSplashRadius: 1.6f, summonFiresForward: true, look: Look(SpellImpactStyle.Burst, SpellCastStyle.Halo, scale: 1.1f, value: 1.12f)), "A bound flame that takes up station behind you and pours molten bolts down your aim line.", Focus(28f), DamageType.Fire, true),
+            // 1jx: the bolts are HOMING — projectileShape: Missile is the gameplay axis that makes
+            // SpellEffect._homing true, the same "flypath" every other guided projectile follows
+            // (Arcane Missiles, Chill Soul). Homing is what the pilot asked for ("no flypath update
+            // like other projectiles"). But SpellLook.Resolve INHERITS a non-Auto spell.Shape into
+            // DisplayShape, so a bare Missile would silently swap the drawn body to the arcane-missile
+            // cone — the Look below re-authors DisplayShape to Comet (the exact body the deterministic
+            // pick had already resolved for this id), which keeps the bolt looking exactly as before.
+            // One axis each: gameplay shape = homing, display shape = the fireball the spell has always
+            // had.
+            S("magic_fireball_meteor_continuous", "Continuous Fireball", Spell("magic_fireball_meteor_continuous_spell", "Continuous Fireball", DamageType.Fire, 36f, 28f, SpellDelivery.Summon, 8f, deliveryRadius: 5f, duration: 8f, tickInterval: 0.4f, projectileSpeed: 22f, statusEffect: StatusEffectType.Burn, casterAnchored: true, boltSplashRadius: 1.6f, summonFiresForward: true, projectileShape: ProjectileShape.Missile, look: Look(SpellImpactStyle.Burst, SpellCastStyle.Halo, scale: 1.1f, value: 1.12f, shape: ProjectileShape.Comet)), "A bound flame that takes up station behind you and pours molten bolts down your aim line.", Focus(28f), DamageType.Fire, true),
             S("magic_fireball_meteor_ember", "Ember Effigy", Spell("magic_fireball_meteor_ember_spell", "Ember Effigy", DamageType.Fire, 30f, 20f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Burn, projectileSpeed: 18f), "Summon a burning effigy that hurls embers at nearby foes.", Focus(20f), DamageType.Fire, true),
         };
 

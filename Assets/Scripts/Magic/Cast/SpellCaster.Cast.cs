@@ -273,14 +273,21 @@ public partial class SpellCaster
         // at the ground aim point — Spawn follows from there. GroundTarget would otherwise drop it
         // GroundAimMax metres away, and "follows the player" would visibly snap across the map on
         // the first frame.
-        // 1is: and specifically BEHIND them, along the aim line they are about to spray down. The
-        // offset is flattened, because this spell sprays forward (SpellSummon._sprayForward) and a
-        // circle parked on the aim line would be standing in its own fire. SpellSummon.BackOffset
-        // is applied again on every follow frame, so the two must not drift apart.
+        // 1is: and specifically BEHIND them — the offset is flattened, because this spell sprays
+        // forward (SpellSummon._sprayForward) and a circle parked on the aim line would be standing
+        // in its own fire. SpellSummon.BackOffset is applied again on every follow frame, so the
+        // two must not drift apart.
+        // 1jx: the back bearing is the CASTER BODY's yaw-only forward (PlayerController writes
+        // Euler(0, _yaw, 0)) — the same basis SpellSummon.FollowCaster uses every frame. NOT the
+        // camera-point aim `fwd`, which carries the third-person camera's 1jl shoulder offset and
+        // pitch: flattened, that would start the circle a few degrees off the body and snap it to
+        // body-back on the first tick. Spawn and follow now agree by construction.
         Vector3 center;
         if (spell != null && spell.CasterAnchored)
         {
-            Vector3 flat = new Vector3(fwd.x, 0f, fwd.z);
+            Transform root = transform.root;
+            Vector3 forward = root != null ? root.forward : fwd;
+            Vector3 flat = new Vector3(forward.x, 0f, forward.z);
             Vector3 back = flat.sqrMagnitude > 0.0001f
                 ? flat.normalized * -SpellSummon.BackOffset
                 : Vector3.zero;

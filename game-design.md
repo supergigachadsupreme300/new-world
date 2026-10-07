@@ -1890,7 +1890,14 @@ a school read distinctly instead of feeling like copies:
 - **Summon** — ground-targeted (shows the AoE preview ring). **Damage** summons are persistent
   **turrets** that repeatedly fire bolts at the nearest enemy (`BoltPowerMultiplier` ×0.6, reusing the
   projectile flight); **`heals`** summons are standing **heal auras** mending `IHealable` allies inside
-  (enemies still take damage). Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
+  (enemies still take damage). A **caster-anchored** summon (`CasterAnchored`, e.g. Continuous
+  Fireball) takes up station directly behind the caster and follows them each frame instead of
+  sitting on a fixed point; the station bearing is the **player body's yaw-only forward**, flattened
+  and applied before the shared ground probe (§3.8.3), and its spawn shares that basis. **1jw:** a
+  caster-anchored summon's auto-fired bolts can be guided — Continuous Fireball carries `Missile` as
+  its gameplay shape (`SpellEffect._homing`) while its authored `DisplayShape` stays `Comet`, so the
+  bolts now curve onto targets like every other guided projectile while keeping the fireball body they
+  have always drawn. Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
   Ember Effigy, Gust Totem.
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`
   (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
@@ -2117,6 +2124,15 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   familiar, so the halo and the summon cannot disagree about where "the ground" is. The front offset is
   applied **before** the probe; the front direction is the **player's** `transform.forward`
   (yaw-only, pitch-flattened) — not the camera's, so moving the camera cannot skew where a spell casts.
+  **1jw: the rear direction now obeys the same rule.** The following circle for a caster-anchored
+  summon places itself at `-body.forward` (yaw-only, flattened) on every frame, so it reads as
+  *directly behind the player* and rotates with their body. Its old bearing came from the shared
+  camera-aim helper (`SpellCaster.CurrentAimDirection`) — a point on the aim line that carries the
+  third-person shoulder offset and pitch, so the circle sat off-axis and collapsed onto the player's
+  feet when aiming steeply down. The summon's **spawn** uses the same basis (`transform.root.forward`,
+  the identical reference `SpellSummon` receives as its root), so it never appears off the body for a
+  frame and snaps back. The auto-fired bolt *direction* stays on the aim line — the circle follows the
+  body, the fire follows the aim; the two are deliberately different.
   (`CastingCircle` keeps a `_grounded` mode flag because `Update` re-derives the transform every frame
   from `_anchor`; a position handed to `Show` would simply be overwritten.)
 - Projectile spells launch **from the casting circle's center**: the spawn point sits on the aim line
@@ -2207,7 +2223,12 @@ colours, `Trail`, `Scale`, `Tempo`.
   position and nothing else.
 - **`Shape` vs `DisplayShape`** — `spell.Shape` is a *gameplay* flag (`Missile` = homing, see
   §3.8.1); `DisplayShape` is what gets drawn. They are separate fields because a spell can be a
-  homing missile and still want its school's family body.
+  homing missile and still want its school's family body. **1jw is that split in the wild:**
+  Continuous Fireball's auto-fired bolts gained homing (`spell.Shape = Missile`) while its authored
+  `DisplayShape` stayed `Comet` — the exact body the deterministic Fire-family pick had already
+  resolved for that spell id, so the drawn bolt did not change a pixel. A bare `Missile` would have
+  inherited into `DisplayShape` (Resolve only overrides a non-Auto shape when a profile re-authors it)
+  and silently swapped the body for the arcane-missile cone.
 
 **The single sanctioned exception:** `MagicTestMatrix`'s school **header swatch** keeps its own table
 rather than calling `SpellLook.SchoolColor`. It is a QA surface, not a readout — when the swatch and

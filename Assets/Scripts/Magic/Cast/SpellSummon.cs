@@ -150,14 +150,19 @@ public class SpellSummon : MonoBehaviour
     /// sliding solver, and this is the honest description of what ships.</para></summary>
     private void FollowCaster()
     {
-        // Same aim derivation the beam uses, so the circle always sits behind the line it sprays
-        // along — one fact, one place (SpellCaster.CurrentAimDirection).
-        if (_mainCam == null) _mainCam = Camera.main;
-        Vector3 aim = SpellCaster.CurrentAimDirection(_casterRoot.position, BackOffset * 3f,
-            _casterRoot.forward, _mainCam);
-        Vector3 back = new Vector3(aim.x, 0f, aim.z);
-        if (back.sqrMagnitude > 0.0001f)
-            back = back.normalized * -BackOffset;
+        // 1jx: stationed on the CASTER BODY, not the camera aim line. The player's body rotation is
+        // yaw-only (PlayerController.HandleMouseLook writes transform.rotation = Euler(0, _yaw, 0)),
+        // so _casterRoot.forward IS the upper-body yaw: the circle sits exactly behind the player and
+        // rotates with their body as the camera moves. The old 1is derivation reused CurrentAimDirection
+        // (the camera-point aim the beam and the spray use), which pulled the circle off-axis by the
+        // third-person camera's 1jl shoulder offset and collapsed it onto the player's feet when aiming
+        // steeply down. The spray (FireForward) still uses the camera aim line — "pours bolts down your
+        // aim line" — so the station basis and the fire basis are deliberately DIFFERENT, and that is
+        // the point: the circle follows the body, the fire follows the aim.
+        Vector3 flat = new Vector3(_casterRoot.forward.x, 0f, _casterRoot.forward.z);
+        Vector3 back = flat.sqrMagnitude > 0.0001f
+            ? flat.normalized * -BackOffset
+            : Vector3.zero;
 
         Vector3 p = _casterRoot.position + back;
         // 1jt: the probe itself is SpellCaster's now, so the halo under/in front of the player and
