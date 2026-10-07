@@ -935,6 +935,8 @@ public sealed class WeaponAnimator : MonoBehaviour
             transform.localPosition = _basePos + aPos;
             transform.localScale = _baseScale * aScale;
         }
+
+        StopSway();
     }
 
     /// <summary>Idle shoulder-pitch guard so blades hold a ready stance rather than hanging limp.</summary>

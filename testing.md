@@ -1,14 +1,13 @@
+1. i setup the greatsword to be 2 hand weapon which mean it should be one animation when it was used with two hand, but now its being hold with one hand and casting animation on the other empty hand, 
 
-1.i have adjust the follow circle of continuos fireball , now need to set it behind player and rotate as player upper body when moving camera, and the fireball shooting from the skill is still havent have flypath update like other projectile, fix it
+2.last update has change the conflagration model to firestorm, now i want the spell named firestorm to use the old model of conflagration, the model before the 1kc commit
 
-2.firewave skill is currently an aoe placement skills, change it into a projectile type but only stay to the ground and shoot out and wave projectile foward
+3.the following cicrcle from continuos fireball skill does not rotate with player when player turn and the projectile does not fly straight from the player view but rather the cursor which make the flypath unaccurate
 
-3. edit flamethrower funnel chunk to rotate with player like beamEnd
+4.when player moving foward the camera would sometime bugged and zoom forward , does not happen when moving sideway, 
 
-4. the casting circle is in front of player but its on the ground, i want it to be like the continuos fireball follow circle but infront of the magic weapon instead
+5.i dont want the casting circle to be flat, flip it by 90 degree, and adjust the position to be infront of weapon
 
-5.the beambody having shrink and enlarge animation , remove it, change into something else like holding 
+6.i just created a new wave projectile model, but it is kinda simple, improve it base on the frame i have put on
 
-6. change the model of conflagmation to firestorm, and setup a new model for conflagmation, it would be a circle the particle around the circle edge fly up in vortex
-
-7. i setup the greatsword to be 2 hand weapon which mean it should be one animation when it was used with two hand, but now its being hold with one hand and casting animation on the other empty hand, 
+7.currently confalgration only create one ember ray on the circle edge, i want more

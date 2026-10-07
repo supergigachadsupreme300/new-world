@@ -446,27 +446,19 @@ internal static class MagicProjectileModelBuilder
     private static Transform Wave(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
-        const float radius = 0.95f;
+        
         Color deep = Color.Lerp(color, Color.black, 0.55f);
-        int outer = 16;
-        for (int i = 0; i < outer; i++)
+        int wave = 3;
+        float waveZpos = 2;
+        for(int i = 0; i < wave; i++)
         {
-            float a = i / (float)outer * Mathf.PI * 2f;
-            var cube = Primitive(PrimitiveType.Cube, "Ring" + i, root);
-            cube.localPosition = new Vector3(Mathf.Cos(a) * radius, 0.06f, Mathf.Sin(a) * radius);
-            cube.localScale = new Vector3(0.16f, 0.10f, 0.16f);
-            Materialize(cube, shader, Color.Lerp(color, deep, (i & 1) * 0.4f));
-        }
-        // Forward crest: a short arc of taller, brighter cubes where the wave is "rolling".
-        int crests = 7;
-        for (int i = 0; i < crests; i++)
-        {
-            float t = crests <= 1 ? 0.5f : i / (float)(crests - 1);
-            float x = Mathf.Lerp(-radius, radius, t);
-            var crest = Primitive(PrimitiveType.Cube, "Crest" + i, root);
-            crest.localPosition = new Vector3(x, 0.26f, radius * 0.55f);
-            crest.localScale = new Vector3(0.22f, 0.32f, 0.10f);
-            Materialize(crest, shader, Color.Lerp(color, Color.white, 0.22f));
+            float t = i / (float)(wave - 1);
+            float s = Mathf.Lerp(0.08f, 0.04f, t);
+            var cube = Primitive(PrimitiveType.Cube, "Wave" + i, root);
+            cube.localPosition = new Vector3(0f, t * 1.7f, waveZpos * 0.07f * i * i);
+            cube.localScale = new Vector3(2f, 1f, 0.5f);
+            cube.localRotation = Quaternion.Euler(45f * t, 0f, 0f);
+            Materialize(cube, shader, Color.Lerp(color, Color.black, t * 0.6f));
         }
         return root;
     }

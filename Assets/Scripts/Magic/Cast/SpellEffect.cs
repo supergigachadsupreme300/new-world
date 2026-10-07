@@ -186,12 +186,12 @@ public class SpellEffect : MonoBehaviour
             _dir.Normalize();
             transform.rotation = Quaternion.LookRotation(_dir);
 
-            Vector3 here = transform.position;
-            if (Physics.Raycast(here + Vector3.up * 0.5f, Vector3.down, out RaycastHit waveGround, 4f)
+            Vector3 wavePos = transform.position;
+            if (Physics.Raycast(wavePos + Vector3.up * 0.5f, Vector3.down, out RaycastHit waveGround, 4f)
                 && IsGroundCollider(waveGround.collider))
             {
-                here.y = waveGround.point.y + WaveLift;
-                transform.position = here;
+                wavePos.y = waveGround.point.y + WaveLift;
+                transform.position = wavePos;
             }
 
             SweepWave();

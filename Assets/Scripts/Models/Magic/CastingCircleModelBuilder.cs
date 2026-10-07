@@ -62,6 +62,7 @@ public static class CastingCircleModelBuilder
         if (dcol != null) Object.Destroy(dcol);
         discGo.transform.SetParent(host, false);
         discGo.transform.localPosition = Vector3.zero;
+        discGo.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
         result.Disc.Root = discGo;
         result.Disc.Renderer = discGo.GetComponent<MeshRenderer>();
         if (shader != null && result.Disc.Renderer != null)

@@ -249,7 +249,7 @@ public static class WeaponRigBuilder
     public const float StowBladeFlip = 180f;
 
     /// <summary>Back-carry pitch (°) for staffs/bows/wands: a slim upright stick on the back.</summary>
-    public const float StowStickLean = -8f;
+    public const float StowStickLean = -16f;
 
     /// <summary>
     /// Local scale that yields a uniform world shape of <paramref name="world"/> units for a rig
@@ -296,7 +296,7 @@ public static class WeaponRigBuilder
             // reads at the sword's angle rather than hanging dead-vertical off the hand. Other
             // focuses (book / wand / orb / lute) keep their own natural hold.
             if (weapon.id == "staff")
-                return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, DrawHoldCant));
+                return (new Vector3(side * 0.1f, -7f, -4f), Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, DrawHoldCant));
             return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
         }
         if (weapon != null && weapon.Category == WeaponCategory.Shield)
@@ -449,7 +449,7 @@ public static class WeaponRigBuilder
         if (w.Category == WeaponCategory.Melee)
             return (new Vector3(isLeft ? 0.2f : -0.2f, 0.45f, -0.2f),
                 Quaternion.Euler(StowBladePitch, 0f, StowBladeFlip + (isLeft ? -StowBladeCant : StowBladeCant)));
-        return (new Vector3(0f, 0.32f, -0.2f), Quaternion.Euler(StowStickLean, 0f, 0f));
+        return (new Vector3(-0.1f, 0f, -0.2f), Quaternion.Euler(0f, 0f, StowStickLean));
     }
 
     /// <summary>The node carrying the weapon stow anchors (Torso, so they follow waist/back).</summary>
