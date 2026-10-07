@@ -152,6 +152,18 @@ public class SpellBeam : MonoBehaviour
         if (aimDir.sqrMagnitude > 0.0001f)
             Direction = aimDir;
 
+        // 1jz: a cone's funnel must re-aim with the NEW Direction each frame, exactly like the tip orb
+        // (BeamEnd, placed at EndPoint every frame) and the line body (rotated in PulseVisual). The
+        // funnel's discs are laid out in the parent's local +Z once at build time, so a parent that
+        // kept its spawn rotation left the WHOLE funnel frozen pointing at the cast-time aim while the
+        // tick walked the new Direction — "the flamethrower funnel doesn't rotate with me" while the
+        // tip orb swung away from the cone. Re-orienting the parent re-aims every disc, the orbiting
+        // debris and the leading ring in one line (their pulse only scales radii and orbits local X/Y,
+        // which stay correct because it all now orbits the LIVE beam axis). The line beam is untouched:
+        // it places its body in world space and never reads the parent's rotation.
+        if (_funnelChunks != null && Direction.sqrMagnitude > 0.0001f)
+            transform.rotation = Quaternion.FromToRotation(Vector3.forward, Direction);
+
         if (_fadeOut)
         {
             _fadeAge += Time.deltaTime;

@@ -1886,6 +1886,12 @@ a school read distinctly instead of feeling like copies:
   aim (caster-forward fallback, mirroring `SpellCaster.Execute`), so turning sweeps the ray and its tick
   capsule across the field. While channeling, LMB is consumed by the sustain (`IsChanneling` guard) so
   the beam can't be re-cast or switched to melee.
+  **Cone beams re-aim their WHOLE drawn funnel with the aim (1jz):** the funnel discs, orbiting debris
+  and leading ring are mounted in the beam parent's local +Z and the parent is re-oriented to the live
+  `Direction` every frame — exactly what `BeamEnd` (the tip orb, placed at the end point each frame)
+  and the line body already did. Before this, a swept cone kept its spawn-time rotation while the tick
+  and the tip orb swung with the player, so Flamethrower's funnel froze at the cast aim but its
+  bright tip orb chased the mouse.
   Examples: Searing Ray, Arc Storm, Beacon (heal), Hunger, Cold Stare, Storm Breath.
 - **Summon** — ground-targeted (shows the AoE preview ring). **Damage** summons are persistent
   **turrets** that repeatedly fire bolts at the nearest enemy (`BoltPowerMultiplier` ×0.6, reusing the

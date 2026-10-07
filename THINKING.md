@@ -1,3 +1,32 @@
+## 1jz. The flamethrower funnel chunk does not rotate with the player (testing.md task 3)
+
+CLOSED when the channeled cone sweeps with the aim as one body. The reasoning:
+
+**H1 (CONFIRMED by read - the funnel PARENT is never re-aimed; the funnel froze at cast time).** I
+checked every writer of aim-bearing transforms inside `SpellBeam`. `Update` sets
+`transform.position` each frame, re-derives `Direction`, and the tick (`TickCone` → `RayDirection`)
+fans rays along the NEW `Direction` — so the DAMAGE sweeps. `PulseVisual` re-aims the LINE body
+(`_body.rotation = FromToRotation(up, Direction)`) and the tip orb (`_endOrb.position = EndPoint()`,
+world-placed each frame) — so the LINE and the BEAMEND orb sweep. But the cone's funnel is built once
+(`BuildFunnelVisual(transform, ...)`), parented to the beam transform, with all discs/debris/ring laid
+in the PARENT's local +Z at build time, and *nothing ever wrote `transform.rotation`*. The funnel is
+the only drawn piece whose orientation is fixed at spawn. That asymmetry — funnel frozen, damage and
+orb swinging — is exactly the report: "the funnel chunk doesn't rotate with player like beamEnd"
+(BeamEnd being the one visible piece that DOES).
+
+**H2 (REJECTED - per-disc rotation is not the ask).** The discs each carry a fixed deterministic yaw
+(`Euler(0, YawFor(i), 90)`) so the funnel reads as a twisting tornado. "Rotate with the player" does
+not mean spin each disc on its own axis — that would be the 1is swirl, already present via the
+orbiting debris. It means the WHOLE cone must follow the aim. Re-orienting the parent (one rotation,
++Z → Direction) re-aims every child at once and cannot separate disc from debris from ring, which is
+the property that makes the fix one line instead of a bookkeeping pass over `_funnelChunks`.
+
+**H3 (checked, no regression - the line beam never reads the parent rotation).** Its body and orb are
+world-placed (`BuildLineBody` sets position/rotation explicitly; `PulseVisual` re-writes them), so
+setting `transform.rotation` would be harmless to it; I still gated the write on `_funnelChunks` so the
+"one active body" invariant stays explicit rather than implicit. `Quaternion.FromToRotation(Vector3.forward,
+Direction)` is the same idiom the line already uses (up → direction), just for forward → direction.
+
 ## 1jy. Fire Wave converted from AoE placement zone to ground-hugging forward wave (testing.md task 2)
 
 OPEN until the play-test confirms the wave rides the ground flat, travels ~12 m, hits each foe once,

@@ -1,3 +1,36 @@
+## 1jz. Flamethrower's funnel now rotates with the player like BeamEnd (testing.md task 3)
+
+The user reported the flamethrower funnel chunk doesn't track the player: "edit flamethrower funnel
+chunk to rotate with player like beamEnd". Root cause in `SpellBeam.Update`: the beam re-set
+`transform.position` and re-derived `Direction` every frame, and the LINE body re-aimed itself
+(`_body.rotation = FromToRotation(up, Direction)` in `PulseVisual`) — but the CONE's funnel never
+did. `BuildFunnelVisual` mounts all its discs + debris + ring in the beam parent's local +Z ONCE at
+build time, and nothing ever re-oriented that parent, so the whole cone stayed frozen at the
+cast-time aim while the damage tick walked the new `Direction` and the `BeamEnd` tip orb swung around
+with the player. One line fixes the family: re-orient the funnel parent to the live Direction each
+frame.
+
+- `SpellBeam.Update` after `Direction` is set: `if (_funnelChunks != null && Direction.sqrMagnitude >
+  0.0001f) transform.rotation = Quaternion.FromToRotation(Vector3.forward, Direction);` — +Z is the
+  funnel's forward by build convention, and re-facing the PARENT re-aims every disc, the orbiting
+  debris and the leading ring at once. Gated on `_funnelChunks` so the line beam (which places its
+  body in world space and never reads the parent rotation) is untouched.
+- The `PulseVisual` debris orbit rotates chunks in the parent's local X/Y about +Z — with the parent
+  now aimed at the live direction, the orbit plane is perpendicular to the true beam axis (it was
+  frozen at cast time before), so the swirl also tracks the player.
+
+Verification: grep + reread; `transform.rotation` is written nowhere else in `SpellBeam.cs` and read by
+no external consumer, so the line beam's behaviour is byte-identical. No Unity build (rule 3).
+    `skills: none applied` - no installed skill governs this C# edit (rule 15).
+
+### 1jz-status
+- [x] `SpellBeam.Update`: funnel parent re-aimed to the live `Direction` each frame (cone path only).
+- [x] Docs: game-design.md Beam bullet + magic-skills.md Beam row note the cone now sweeps as a whole.
+- Verification: `tools\StaticChecks.ps1` => 0 candidates; no other reader of `transform.rotation`.
+- [ ] **PLAY-TEST:** hold Flamethrower and turn/move the aim while channeling — the funnel (discs,
+      debris, leading ring) and the bright tip orb must stay aligned in front of the player and swing
+      together; Searing Ray (line beam) unchanged; QA bench still shows the funnel on its pedestal.
+
 ## 1jy. Fire Wave is now a ground-hugging forward wave projectile (testing.md task 2)
 
 The user asked to convert Fire Wave's AoE-placement zone skill ("firewave skill is currently an aoe
