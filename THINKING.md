@@ -1,3 +1,38 @@
+## 1kb. The beam body's shrink-and-enlarge: removed, replaced with a hold (testing.md task 5)
+
+OPEN until the play-test confirms the beam reads as steady and not frozen. The reasoning:
+
+**H1 (CONFIRMED by read) - the "shrink and enlarge animation" is `SpellBeam.PulseVisual`'s body scale,
+run on every channeled frame.** Both bodies breathe: the line at
+`_bodyBaseScale * (1 + 0.12*sin(23t) + 0.06*sin(41t))` — ALL axes, length and thickness together — and
+the cone's discs radially by the same `pulse` while ALSO compounding their thickness through
+`s.y * pulse` where `s.y` is the previous frame's own write, a random-walk drift stacked on the breath.
+The 23/41 Hz double sines are a fast nervous flutter — the "shrinking and enlarging constantly" of the
+report. The sweep (position/rotation) and the end (tip orb) are separate members and the report named
+the BODY, so the fix targets the scale member only.
+
+**H2 (decision - "like holding" = the steady extended beam, not a new grow-out).** The properties the
+request was NOT about: position, rotation, colour, fade, damage. "Holding" is the natural read of the
+request ("remove the breathing, the beam should just hold") — the beam comes out and stays. I
+deliberately did NOT add a grow-out-from-muzzle spawn animation: that is a bigger behaviour, and rule
+7's "name which property the request is not about" says the play-test decides which "holding" was
+meant. Shipped: hold. Fallback: a grow-out is a one-line follow-up (interpolate body scale from
+muzzle-length to full over ~0.15 s at Initialize) — recorded in the play-test items rather than
+silently shipped.
+
+**H3 (what survives a hold).** The debris ORBIT is motion, not size — kept (the 1is swirl is a
+separate feature and the tornado read depends on it). The debris per-chunk scale wobble was a size
+term; cut with the body breath. The tip orb's 9 Hz glow throb is the BeamEnd read (1jz) — a slow
+gentle pulse, not the body's flutter — kept, but named in the play-test so a future "still
+shrink/enlarge" report can distinguish "the body" from "the orb" instead of re-opening the wrong half.
+
+**H4 (CONFIRMED by grep - the base-radius readout existed only for the breath).** `_funnelBaseRadius`
+was read in exactly one place (PulseVisual's disc flare); deleting the flare deletes the field, its
+BuildVisual fill, and the cone legend's references. No other reader existed. The `LineBody` builder
+record is kept — the hold still writes `localScale = _bodyBaseScale` every frame — and its doc was
+corrected from "drives the pulse" to "holds it" in the same pass (rule 8: a stale doc naming
+`_bodyBaseScale * pulse` would send the next reader to the deleted mechanism).
+
 ## 1ka. Per-spell casting circle: from the ground to a flat point in front of the magic weapon (testing.md task 4)
 
 OPEN until the play-test confirms the flat weapon-height circle reads clearly and the burst lands on

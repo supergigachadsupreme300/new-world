@@ -1,3 +1,42 @@
+## 1kb. The beam body holds its size — shrink-and-enlarge animation removed (testing.md task 5)
+
+The user asked to remove the beam body's shrink-and-enlarge animation and change it into "something
+else like holding" (`SpellBeam.PulseVisual`). Both beam bodies breathed every channeled frame:
+
+- **Line body:** `_body.localScale = _bodyBaseScale * pulse` with `pulse = 1 + 0.12*sin(23t) + 0.06*sin(41t)` —
+  a fast breathing on ALL axes (length and thickness), for every non-cone beam (Searing Ray, Storm
+  Breath, and all ten legacy beams — `BeamHalfAngle` 0 makes them lines).
+- **Cone funnel (1is):** every disc flared radially by `pulse` AND compounded its thickness through
+  `s.y * pulse` — `s.y` was last frame's own write, so the thickness was a slow random-walk upward in
+  addition to the breath.
+
+1kb replaces that with a HOLD: the body keeps the scale the builder wrote for the whole channel. The
+line still re-derives position/rotation every frame (it tracks the caster and sweeps with the aim), but
+its scale is frozen at `_bodyBaseScale`; the funnel discs and leading ring hold their build scale. The
+debris keeps ORBITING (the 1is swirl is a motion feature, not a scale one) but its per-chunk scale
+wobble is cut with the breath. The tip orb keeps its slow 9 Hz glow throb. `_funnelBaseRadius` — the
+base-radius readout that existed only for the breath — is deleted (field, its BuildVisual fill, and the
+cone legend's reference, all in one pass).
+
+"Changed into holding": the ask read as "the beam body shrinks and enlarges constantly, make it stop" —
+"like holding" was taken to mean the steady extended beam, out and staying. A grow-out-from-the-muzzle
+spawn animation was deliberately NOT added (bigger behaviour; rule 7's "say which property the request
+is not about") — if play-test shows "holding" meant "grow out then hold", that is a one-line follow-up.
+
+Verification: grep + reread — `_funnelBaseRadius` has no remaining reader; `pulse` was the only
+time-driven BODY scaling and is gone; the 1jz funnel re-aim (parent rotation) and the tip-orb pulse are
+untouched. Docs updated in the same pass (game-design.md beam bullet + file-index row, magic-skills.md
+Beam row, Magic/README.md). No Unity build (rule 3).
+    `skills: none applied` - no installed skill governs this C#/docs edit (rule 15).
+
+### 1kb-status
+- [x] `SpellBeam.PulseVisual`: line body `localScale` frozen at `_bodyBaseScale`; cone discs/ring hold build scale; debris orbit kept, per-chunk wobble removed; `pulse` local deleted.
+- [x] `_funnelBaseRadius` field + build fill + legend references deleted (no remaining reader).
+- [x] `SpellBeamModelBuilder.LineBody` doc corrected — the base scale is "held", not "driven by the pulse".
+- [x] Docs: game-design.md beam bullet (§3.8.1) + file-index row, magic-skills.md Beam row, Magic/README.md.
+- Verification: `tools\StaticChecks.ps1` => 0 candidates; re-grep => no stale `_funnelBaseRadius`/`pulse`; no build.
+- [ ] **PLAY-TEST:** channel a line beam (Searing Ray / Storm Breath) and a cone beam (Flamethrower / Great Tornado) — the body must stay a steady full-size beam while channeling (no breathing); the swirl debris still orbits and the tip orb still pulses slightly. If "holding" was meant as a grow-out-from-muzzle spawn animation, say so — that would be a follow-up knob, not the shipped behaviour.
+
 ## 1ka. The casting circle now charges flat just in front of the magic weapon (testing.md task 4)
 
 The user asked to take the per-spell casting circle off the ground and make it like the Continuous

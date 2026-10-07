@@ -11,9 +11,10 @@ using UnityEngine;
 /// </summary>
 public static class SpellBeamModelBuilder
 {
-    /// <summary>The straight beam's cylinder, with the base scale the pulse drives it from.
+    /// <summary>The straight beam's cylinder, with the base scale <c>SpellBeam</c> holds it at.
     /// One record rather than two out-values because <c>SpellBeam</c> writes
-    /// <c>_body.localScale = _bodyBaseScale * pulse</c> on every frame — parallel values read in
+    /// <c>_body.localScale = _bodyBaseScale</c> every frame — since 1kb the body no longer breathes
+    /// (the shrink-and-enlarge pulse is gone; the scale just holds), and parallel out-values read in
     /// lockstep are an alignment an extraction must not be able to violate (rule 17).</summary>
     public struct LineBody
     {
@@ -85,12 +86,15 @@ public static class SpellBeamModelBuilder
     /// yawed so the stack reads as a twisting funnel, opening from <paramref name="mouthRadius"/> at the
     /// muzzle to <paramref name="tipRadius"/> at the far end, plus
     /// <see cref="SpellBeam.FunnelDebris"/> orbiting chunks and a leading ring. Returns the chunk
-    /// transforms in build order so the live pulse can scale them radially without re-deriving the taper.
+    /// transforms in build order because <see cref="SpellBeam.PulseVisual"/> addresses them by hard
+    /// index (the first <see cref="SpellBeam.FunnelDebris"/> entries are the orbiting debris), so the
+    /// taper is only ever re-derived here at build time — the live side neither scales them (1kb: the
+    /// body HOLDS) nor re-derives their radii.
     ///
     /// <para><b>Return-order contract.</b> Indexes <c>0 .. FunnelChunks-1</c> are the stacked discs;
     /// <c>FunnelChunks .. FunnelChunks + FunnelDebris - 1</c> are the debris. <c>SpellBeam.PulseVisual</c>
     /// reads that layout with hard index arithmetic, so the two sides must agree — stated here because a
-    /// builder that reorders its own output would fade one set of pieces and pulse the other.</para>
+    /// builder that reorders its own output would fade one set of pieces and orbit the other.</para>
     ///
     /// <para><b>Deliberately NOT <c>MapBuilder.BuildTornado</c>.</b> That model adds
     /// <c>TornadoBehavior</c>, which applies real physics pull to rigidbodies (props, livestock — and

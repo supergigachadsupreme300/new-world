@@ -73,13 +73,13 @@ public class SpellBeam : MonoBehaviour
     private float _mouthRadius;
 
     /// <summary>1is: the drawn funnel's chunk transforms, in build order (FunnelChunks discs then
-    /// FunnelDebris orbiting chunks), each with its base radius in <see cref="_funnelBaseRadius"/> so
-    /// PulseVisual can scale them radially without re-deriving the taper.
+    /// FunnelDebris orbiting chunks).
     /// <para>1is replaced 1ir's <c>_coneVisuals</c>/<c>_coneBaseScale</c> ray-fan pair, which the
     /// funnel body made dead: the tick still walks ConeRays/ConeSegments analytically and the drawn
-    /// body no longer sits on those rays.</para></summary>
+    /// body no longer sits on those rays.</para>
+    /// <para>1kb: the chunks hold the scale the builder wrote — the per-frame base-radius readout
+    /// <c>_funnelBaseRadius</c> existed only for the body breath and is deleted with it.</para></summary>
     private Transform[] _funnelChunks;
-    private float[] _funnelBaseRadius;
 
     /// <summary>1ir: every material that must fade out together (2 for a line, 1 + rays*segs + ring
     /// for a cone). Replaces the old single _mat/_orbMat pair so one fade path serves both modes
@@ -158,8 +158,9 @@ public class SpellBeam : MonoBehaviour
         // kept its spawn rotation left the WHOLE funnel frozen pointing at the cast-time aim while the
         // tick walked the new Direction — "the flamethrower funnel doesn't rotate with me" while the
         // tip orb swung away from the cone. Re-orienting the parent re-aims every disc, the orbiting
-        // debris and the leading ring in one line (their pulse only scales radii and orbits local X/Y,
-        // which stay correct because it all now orbits the LIVE beam axis). The line beam is untouched:
+        // debris and the leading ring in one line (since 1kb they HOLD their build scale — only the
+        // debris orbits local X/Y — which stays correct because it all now re-aims on the LIVE beam
+        // axis). The line beam is untouched:
         // it places its body in world space and never reads the parent's rotation.
         if (_funnelChunks != null && Direction.sqrMagnitude > 0.0001f)
             transform.rotation = Quaternion.FromToRotation(Vector3.forward, Direction);
@@ -385,38 +386,27 @@ public class SpellBeam : MonoBehaviour
     private void PulseVisual()
     {
         if (_endOrb == null) return;
-        float pulse = 1f + 0.12f * Mathf.Sin(Time.time * 23f) + 0.06f * Mathf.Sin(Time.time * 41f);
 
-        // 1ir: the line keeps its single body; a cone pulses each ray segment instead.
+        // 1kb (testing.md task 5): the BODY HOLDS its authored size — the shrink-and-enlarge
+        // breathing is gone. The line's pulse previously scaled `_bodyBaseScale * pulse` every frame
+        // (12% + 6% oscillation at 23/41 Hz); a cone flared every disc's radius by `pulse` and
+        // compounded its thickness through `s.y * pulse` (a slow random-walk upward that this freeze
+        // also ends). Both now keep the scale the builder wrote; only position/rotation still
+        // re-derive per frame, because the beam must track the caster and sweep with the aim.
+        // "Holding" is the steady extended beam — the debris keeps orbiting and the tip orb keeps its
+        // soft glow throb below, so the beam is held, not frozen in place.
         if (_body != null)
         {
             Vector3 mid = transform.position + Direction * (Length * 0.5f);
             _body.position = mid;
             _body.rotation = Quaternion.FromToRotation(Vector3.up, Direction);
-            _body.localScale = _bodyBaseScale * pulse;
+            _body.localScale = _bodyBaseScale;
         }
         else if (_funnelChunks != null)
         {
-            // 1is: the funnel's discs sit on the beam axis, so the pulse only scales them radially â€”
-            // their Z (distance from the muzzle) must NOT move, or the funnel would breathe ALONG the
-            // beam instead of flaring. The 1ir version of this branch recomputed every segment's
-            // position from RayDirection each frame, which was right for a fan of capsules on rays and
-            // is simply wrong for a stack on the axis.
-            for (int i = 0; i < FunnelChunks; i++)
-            {
-                Transform disc = _funnelChunks[i];
-                if (disc == null) continue;
-                float r = _funnelBaseRadius[i] * pulse;
-                Vector3 s = disc.localScale;
-                disc.localScale = new Vector3(r * 2f, s.y * pulse, r * 2f);
-            }
-
-            // Debris is ORBITED here, in local X/Y about the beam's own +Z axis, which is what makes
-            // "orbiting chunks" true rather than merely decorative. Rotating each chunk's transform
-            // instead would spin it about its OWN local Z, which is not the beam axis (the builder
-            // tilts each chunk), so the position is rotated by hand and stays exactly on the circle.
-            // The rotation is a manual 2D rotate rather than Transform.Rotate because Space.Self
-            // cannot express "about my parent's axis" and Space.World would ignore the beam's aim.
+            // The discs and the leading ring keep their build scale; only the debris still MOVES —
+            // orbit only. Its per-chunk scale wobble is cut with the body breath, so the cone holds
+            // its silhouette while the swirl continues.
             for (int d = 0; d < FunnelDebris; d++)
             {
                 int idx = FunnelChunks + d;
@@ -425,11 +415,6 @@ public class SpellBeam : MonoBehaviour
                 float ang = (70f + d * 55f) * Time.deltaTime * Mathf.Deg2Rad;
                 float cos = Mathf.Cos(ang), sin = Mathf.Sin(ang);
                 Vector3 lp = chunk.localPosition;
-                // Scale UNIFORMLY: debris is a cube, so scaling only x/z would flatten it into a
-                // spinning plate on every pulse. The discs above are the ones that flare radially.
-                chunk.localScale = lp.magnitude > 0f
-                    ? chunk.localScale * (1f + 0.22f * Mathf.Sin(Time.time * 31f + d))
-                    : chunk.localScale;
                 chunk.localPosition = new Vector3(
                     lp.x * cos - lp.y * sin,
                     lp.x * sin + lp.y * cos,
@@ -443,8 +428,9 @@ public class SpellBeam : MonoBehaviour
 
     /// <summary>1jd: the drawn body moved to <see cref="SpellBeamModelBuilder"/> (under
     /// <c>Models/Magic/</c>); this method still decides WHICH body, and still owns everything the
-    /// beam does with it afterwards (the radial pulse, the fade, the funnel's base radii). Nothing
-    /// about the shape changed — the builder hands back the same pieces under the same names.</summary>
+    /// beam does with it afterwards (since 1kb: holding its scale, the fade, and the debris orbit +
+    /// tip-orb glow in <see cref="PulseVisual"/>). Nothing about the shape changed — the builder
+    /// hands back the same pieces under the same names.</summary>
     private void BuildVisual(Color color)
     {
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
@@ -457,14 +443,6 @@ public class SpellBeam : MonoBehaviour
             // orange toward peach, so it can never supply the yellow this reads as.
             Color hot = SpellLook.HotCore(color);
             _funnelChunks = SpellBeamModelBuilder.BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
-            _funnelBaseRadius = new float[_funnelChunks.Length];
-            for (int i = 0; i < _funnelChunks.Length; i++)
-            {
-                if (_funnelChunks[i] == null) continue;
-                // Half the X scale IS the chunk's radius (the builder writes rad * 2), so the pulse
-                // can recover the radius instead of the builder having to hand back a parallel array.
-                _funnelBaseRadius[i] = _funnelChunks[i].localScale.x * 0.5f;
-            }
             _baseColor = color;
         }
         else

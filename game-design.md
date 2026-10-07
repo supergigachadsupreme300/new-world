@@ -1892,6 +1892,12 @@ a school read distinctly instead of feeling like copies:
   and the line body already did. Before this, a swept cone kept its spawn-time rotation while the tick
   and the tip orb swung with the player, so Flamethrower's funnel froze at the cast aim but its
   bright tip orb chased the mouse.
+  **1kb: the drawn BODY holds its size** (testing.md task 5). Both the line cylinder and the cone's
+  funnel discs stop breathing — the old `PulseVisual` scaled the body by `1 + 12% @ 23 Hz + 6% @ 41 Hz`
+  (and compounded the discs' thickness, a slow random-walk the freeze also ends), which read as a
+  constant shrink-and-enlarge. The body now keeps the scale the builder wrote for the whole channel, so
+  a held beam stays steady; the debris still orbits (1is swirl) and the tip orb keeps its soft glow
+  throb — only the body's scale is frozen.
   Examples: Searing Ray, Arc Storm, Beacon (heal), Hunger, Cold Stare, Storm Breath.
 - **Summon** — ground-targeted (shows the AoE preview ring). **Damage** summons are persistent
   **turrets** that repeatedly fire bolts at the nearest enemy (`BoltPowerMultiplier` ×0.6, reusing the
@@ -3142,7 +3148,7 @@ Three measured findings drive it, and one of them contradicts the obvious readin
 
   | Builder | Moved out of | What stayed behind |
   |---|---|---|
-  | `SpellBeamModelBuilder` | `SpellBeam` | `PulseVisual`'s funnel flare + debris orbit |
+  | `SpellBeamModelBuilder` | `SpellBeam` | the debris orbit — the body scale HOLDS since 1kb (no funnel flare) |
   | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime |
   | `SpellStormModelBuilder` | `SpellStorm` | strike scheduling |
   | `SummonModelBuilder` | `SpellSummon` | the pulse |

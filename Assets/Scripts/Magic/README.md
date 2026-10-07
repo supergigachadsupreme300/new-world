@@ -47,7 +47,7 @@ component that spawns them, so *"where is the code that builds the casting circl
 
 | Builder | Owns | Call site keeps |
 |---|---|---|
-| `SpellBeamModelBuilder` | line body, funnel discs + debris, the **shared** tip orb | `SpellBeam.PulseVisual` — the funnel flare and debris orbit |
+| `SpellBeamModelBuilder` | line body, funnel discs + debris, the **shared** tip orb | `SpellBeam.PulseVisual` — the debris orbit + tip-orb glow (the body scale HOLDS since 1kb; the funnel flare is gone) |
 | `SpellZoneModelBuilder` | pull funnel, ground zone disc + halo | the zone's own lifetime |
 | `SpellStormModelBuilder` | lightning bar pair, `BoltFader` | `SpellStorm`'s strike scheduling |
 | `SummonModelBuilder` | totem body, familiar summoning circle, **and (1je) the `SummonedAlly` combat construct** | `SpellSummon`'s pulse; for the ally, `SummonedAlly`'s move / face / strike / fade / die |
