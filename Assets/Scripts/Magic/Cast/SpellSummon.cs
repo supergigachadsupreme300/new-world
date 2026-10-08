@@ -165,9 +165,9 @@ public class SpellSummon : MonoBehaviour
             : Vector3.zero;
 
         Vector3 p = _casterRoot.position + back;
-        // 1jt: the probe itself is SpellCaster's now, so the halo under/in front of the player and
-        // this circle behind them can never disagree about what "the ground" is.
         transform.position = SpellCaster.GroundUnder(p, _casterRoot, _groundBuffer);
+        Vector3 flatForward = flat.sqrMagnitude > 0.0001f ? flat.normalized : _casterRoot.forward;
+        transform.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
     }
 
     private void Tick()
