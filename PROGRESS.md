@@ -1,3 +1,58 @@
+## 1ke. Greatsword two-hand grip: support hand solved onto the hilt; ready-sway restored (testing.md task 1)
+
+The user's item: a two-hander is "held with one hand and casting animation on the other empty
+hand" — clarified as: the raised empty hand appears DURING the attack swing, and the desired result
+is both hands visibly on the hilt in idle/ready and during swings.
+
+Diagnosis (grep + reread, no build):
+- `OffArm.Mirror` (greatsword / katana / greataxe / lance / warhammer — the only five Mirror defs)
+  keyed the support arm by MIRRORING the owner's swing angles (`ApplyPose` Mirror case and the
+  `UpdateSway` Mirror block), so the empty hand swung through the air *beside* the sword and never
+  touched the hilt. No cast path exists for an empty hand (`MagicCastKeys` lives only in the magic
+  defs; cast aim is gated by `HandIsMagic`), so the "casting" reading is exactly this mirrored raise.
+- The idle one-hand hang: the user's own `1a4a1ba` added `StopSway()` at the end of `UpdateSway` —
+  verified via `git show 1a4a1ba` to be that commit's ONLY WeaponAnimator change — which released
+  the arms every frame, making the sway a one-frame no-op that `PlayerAnimator.LateUpdate`
+  overwrote; a drawn two-hander then hung one-handed whenever the player stood still.
+
+Fix — a grip is a world-space contact, so it is solved, not keyed (new rule-16 bullet):
+- `WeaponAnimator.SolveSupportGrip`: two-joint CCD per frame pinning the support hand to
+  `ownerWrist.position + shaftDown * TwoHandGripDrop`, fist wrapped with `TwoHandPalmFlipDeg` about
+  the shaft axis. Called from all four phases (attack / charge / guard / ready-sway) strictly AFTER
+  the phase wrote the owner arm AND the weapon transform — the write-order contract is in the doc
+  comment — and only while a phase owns the arms. `TwoHandGripBlendIn` eases the first 0.18 s of
+  each phase entry instead of snapping.
+- Mirror keys removed from `ApplyPose`/`UpdateSway`; the `_swayOtherShBase`/`_swayOtherElBase`
+  fields went with them (grep-clean); the `StopSway()` line was reverted — the ready-sway must RUN
+  for the idle grip to exist.
+- Dual-wield guard: if the support hand already holds its own rig (§5.5 allows pairing two copies),
+  the solve bails and each rig drives its own arm. The old mirrored keys ignored this and both
+  rigs fought over one arm.
+
+Docs (rule 2, same pass): game-design.md §3.6 gains the *Two-hand grip* bullet; AGENTS.md rule 16
+gains the solved-grip/write-order habit; the stale `OffArm.Mirror` enum comment ("copies the
+swing") and the `ApplyPose` summary were corrected.
+
+Verification: grep + reread (rule 3 — no build; user play-tests in Unity). 4 call sites confirmed,
+0 `_swayOther*` remnants, braces 101/101, `StopSway()` still exists only for its real guard at the
+top of `UpdateSway`, `WeaponRigHost` is public, and `GetComponentInChildren<T>()` uses the no-arg
+form (24 precedents; the `(true)` overload had zero — switched before shipping as rule 3 requires).
+`StaticChecks.ps1` not applicable (WorldBuilder / NewWorldTestGround untouched).
+`skills: scenario-unity-animation loaded (informative only — its MCP/batchmode workflows are barred
+by rule 3; the CCD design came from the project's own code, and the skill's own note says version-
+specific animation systems must be verified against the exact stack).`
+
+### 1ke-status
+- [x] Mirrored support keys replaced by the CCD grip solver in all four phases; write-order contract documented.
+- [x] `1a4a1ba`'s `StopSway()` regression reverted (verified it was that commit's only WeaponAnimator change).
+- [x] Dual-wield hand-steal guard; grep-clean of removed fields; brace balance 101/101.
+- [x] Docs synced: game-design.md §3.6, AGENTS.md rule 16, stale comments.
+- [ ] Play-test (user, Unity): drawn greatsword, stand still → both hands on the hilt while the ready-sway breathes (this is the idle half — it only exists because the sway runs now).
+- [ ] Play-test: attack swings (all 4 combo variants), guard (RMB) → left hand rides the hilt, no casting raise.
+- [ ] Play-test tunables: `TwoHandGripDrop` (0.35 — is the second fist on the handle or floating past the pommel?) and `TwoHandPalmFlipDeg` (180 — does the fist wrap read twisted on the block model?).
+- [ ] Play-test: the original sway bug that `1a4a1ba`'s `StopSway()` was hiding — if it returns, report it; do NOT re-cut the sway (that kills the grip with it).
+- [ ] Play-test edge: dual-wielded pair / shield+two-hander → support hand stays on its own weapon.
+
 ## 1kd. AGENTS.md split: 138.9 KB -> 65.0 KB always-on, long case studies archived in LESSONS.md
 
 Two commits, one task. (a) `9b37d49` fixed ~160 runs of double-encoded mojibake in AGENTS.md

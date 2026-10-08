@@ -1,3 +1,64 @@
+## 1ke. Greatsword two-hand grip: mirroring can't make a contact, and the idle half is the user's own StopSway (testing.md task 1)
+
+OPEN until the play-test confirms (a) the grip reads as two hands ON the hilt in idle and during
+swings, (b) the tunables (`TwoHandGripDrop`, `TwoHandPalmFlipDeg`) land right on the block model,
+and (c) whatever sway bug `1a4a1ba`'s `StopSway()` was hiding does NOT return. Code + docs shipped.
+
+**H1 (CONFIRMED - "casting animation on the other empty hand" = the OffArm.Mirror mirrored keys).**
+The Mirror branch keyed the support arm by mirroring the owner's swing angles (`ApplyPose` case,
+`UpdateSway` block): the empty hand swings through the air BESIDE the sword — a raised arm beside
+the head reads as casting. Checked every rival explanation first: `MagicCastKeys` exists only in
+the five magic defs, and cast aim is gated by `HoldingMagicWeapon()`/`HandIsMagic`, so no code path
+plays a cast pose on an empty hand; `FallbackDef` (OffArm.None) is not involved because
+`host.Data = weapon` runs before `AddComponent<WeaponAnimator>()`, so the greatsword def resolves.
+The user then confirmed the timing themselves: the raised hand appears during the attack swing.
+
+**H2 (CONFIRMED - the idle one-hand hold is `StopSway()` at the end of `UpdateSway`, added by the
+user's own `1a4a1ba`).** With sway active, `StartSway`→pose→`StopSway` ran inside ONE frame
+(releasing the arm claim), and `PlayerAnimator.LateUpdate` overwrote the pose the same frame — the
+ready sway never displayed, and with it the only phase that owns arms while standing still.
+Verified `git show 1a4a1ba -- WeaponAnimator.cs` = exactly those two lines, nothing else, so no
+other regression rode along in that file. REJECTED alternative readings: the two-hand X-key toggle
+is gameplay-only (damage mult, zero visual code); PlayerAnimator's rest is local identity for both
+arms, so nothing else was holding the left arm down.
+
+**H3 (CONFIRMED - mirrored keys structurally cannot produce a grip, so this is a mechanism swap,
+not a tuning fix).** A grip is a world-space CONTACT between two bodies; mirrored angle keys know
+nothing about where the other hand IS. The options were: (a) hand-authored mirrored keyframes
+(chosen, rejected: no way to guarantee positional contact from swing angles alone, and every new
+pose would drift off the hilt again); (b) Unity Animation Rigging (rejected: package presence
+unverified, and rule 3's no-build means an unverified package API is unbounded risk); (c) analytic
+2-bone IK (rejected: needs the model's hinge-axis conventions, which cannot be verified without
+running the rig); (d) per-frame 2-joint CCD from live transforms (chosen: no new API surface —
+`Quaternion.FromToRotation`/`Transform.rotation` only — self-correcting every frame, and reachable
+from the pivots `ResolvePivots` already resolves).
+
+**H4 (CONFIRMED - write order decides whether the solve is one frame late).** The target derives
+from the owner wrist position and the rig's world rotation; the rig transform is written AFTER
+`ApplyPose` in every phase, so solving before it would track last frame's hilt — invisible at rest,
+visible at swing speed (rule 7: name the phase of every writer). Hence: `SolveSupportGrip()` sits
+at the END of all four update methods, after both writes, and only inside phases (arms owned —
+`PlayerAnimator.LateUpdate` would otherwise overwrite the support arm the same frame).
+
+**H5 (CONFIRMED - the support hand must not be stolen from a rig that already holds one).** §5.5
+allows dual-wielding two copies of one weapon, and each hand gets its own rig; the old mirrored
+keys already had this collision (both rigs wrote one arm), and a CCD pull would be worse — it would
+YANK the other weapon. The gate is a direct question, not an inferred one: does the support hand
+contain a `WeaponRigHost`? If yes, that rig owns the arm; bail. Same answer covers shield+two-hander.
+
+**H6 (OPEN - the palm-flip orientation is a reasoned guess, play-test decides).** Two stacked fists
+on one shaft want palms on opposite sides → `AngleAxis(180°, shaft) * ownerWrist.rotation`. The
+models' HandL/HandR bone axes were never measured; if the fist reads twisted, `TwoHandPalmFlipDeg`
+is the knob (0 = keep the owner's world orientation). Recorded as a tunable rather than asserting
+the wrap is right, because "right" here is a fact about the rig's geometry that grep cannot show.
+
+**H7 (OPEN - what sway bug did `1a4a1ba` actually hide?).** Unknown and possibly unknowable from
+code: the sway's own motion is bounded (`MoveTowards` ramp, small sines) and its claim lifecycle
+was balanced. Reverting `StopSway()` is required by the user's own request (idle two-hand hold),
+so the revert ships with an explicit play-test item: if the original bug returns, we root-cause it
+— never re-add the one-frame kill, which silently kills the grip with it (recorded in AGENTS rule
+16).
+
 ## 1kd. Splitting AGENTS.md: fix the encoding first (broken text hides broken boundaries), then archive (SHIPPED)
 
 SHIPPED - commit A `9b37d49` (encoding), commit B (the split). No play-test needed (docs only).

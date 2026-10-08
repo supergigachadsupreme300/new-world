@@ -1600,6 +1600,20 @@ keyframed pose tracks driving the arm pivots — "the animation pack lives on th
   `CombatController.SetBlocking` raises/drops the guard on the state edge only, and `CanKeepBlocking`
   drops it on sheathe/stow so the guard pose never fights the stow idle; a stamina-break on a
   blocked hit drops it too.
+- **Two-hand grip** (`OffArm.Mirror`: greatsword / warhammer / greataxe / katana / lance) — the
+  support hand stays **on the hilt**, and it is **solved, not keyed**:
+  `WeaponAnimator.SolveSupportGrip` runs a two-joint CCD each frame toward a point down the shaft
+  from the owner's own fist (`TwoHandGripDrop` below the wrist, wrapped with `TwoHandPalmFlipDeg`
+  about the shaft), called only after the phase wrote the owner arm AND the weapon transform and
+  only while a phase owns the arms. The previous mechanism mirrored the owner's swing keys onto the
+  support arm, which can only swing the empty hand through the air *beside* the sword — it read as
+  a casting animation on the empty hand (1ke, testing.md task 1). The solve runs in every phase
+  (attack / charge / guard / ready-sway); the **ready-sway is what makes the idle hold
+  two-handed**, so a drawn two-hander owns the arms whenever the player stands still (its earlier
+  one-frame `StopSway` cut in `1a4a1ba` was reverted for this reason — if the original sway bug
+  it masked returns, report it rather than re-cutting the sway). A support hand that already holds
+  its own rig (dual-wielded pairs, §5.5) is never stolen — that rig drives its own arm instead.
+  Both constants are play-test tunables.
 - **Robustness** — `WeaponAnimator` is a **single-owner phase machine** (attack / charge / guard /
   ready-sway; each phase owns the arms exactly once and releases on `End`/`OnDisable`), and the arm
   rest is always the model's local identity. Rapid attack spam, charge-cancel, and guard→attack

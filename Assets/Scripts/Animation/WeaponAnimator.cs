@@ -53,6 +53,23 @@ public sealed class WeaponAnimator : MonoBehaviour
     /// <summary>Seconds the guard takes to raise into its hold pose (eased grab-in).</summary>
     private const float GuardRaiseTime = 0.18f;
 
+    /// <summary>Two-hand grip (OffArm.Mirror): seconds the support hand takes to ease onto the
+    /// hilt at each phase entry, so the lift reads as a grab rather than a snap.</summary>
+    private const float TwoHandGripBlendIn = 0.18f;
+
+    /// <summary>Distance from the owner's fist down the hilt (weapon-local −Y = pommel end) where
+    /// the support hand grips. Tune to the block-model handle length at play-test.</summary>
+    private const float TwoHandGripDrop = 0.35f;
+
+    /// <summary>CCD iterations per frame. Each joint is rotated once per iteration toward the
+    /// target; with a tracked (frame-to-frame continuous) target, 3 already lands the hand on the
+    /// hilt without visible overshoot.</summary>
+    private const int TwoHandCcdIterations = 3;
+
+    /// <summary>Support-palm flip about the shaft axis (°): 180 stacks the two palms on opposite
+    /// sides of the hilt (natural grip). Drop to 0 at play-test if the fist reads twisted.</summary>
+    private const float TwoHandPalmFlipDeg = 180f;
+
     /// <summary>Capped attack-speed scale from the player's stats (1 → authored tempo).</summary>
     private float SpeedScale()
     {
@@ -63,7 +80,7 @@ public sealed class WeaponAnimator : MonoBehaviour
     private enum OffArm
     {
         None,    // weapon in one hand only (sword, dagger, hammer, casters, gauntlets each hand)
-        Mirror,  // two-hand grip — support arm copies the swing (greatsword, greataxe, warhammer, lance, katana)
+        Mirror,  // two-hand grip — support arm is solved onto the hilt (greatsword, greataxe, warhammer, lance, katana)
         Asym     // the two arms play different tracks (longbow: bow arm vs draw arm)
     }
 
@@ -358,8 +375,6 @@ public sealed class WeaponAnimator : MonoBehaviour
     private WeaponStowAnimator _stow;
     private Quaternion _swayShBase;
     private Quaternion _swayElBase;
-    private Quaternion _swayOtherShBase;
-    private Quaternion _swayOtherElBase;
     private float _swayGuard;
     private bool _swayActive;
 
@@ -386,6 +401,10 @@ public sealed class WeaponAnimator : MonoBehaviour
 
     /// <summary>True when THIS rig currently holds an AcquireArms claim on the player arms.</summary>
     private bool _ownsArms;
+
+    /// <summary>Two-hand grip ramp, 0 → 1 over <see cref="TwoHandGripBlendIn"/>. Reset at each
+    /// phase entry so the support hand eases onto the hilt instead of snapping to it.</summary>
+    private float _gripBlend;
 
     private static readonly HashSet<string> _leadLogged = new HashSet<string>();
 
@@ -569,6 +588,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         transform.localRotation = Quaternion.Euler(_baseEuler + aEuler + leadEuler);
         transform.localPosition = _basePos + aPos + new Vector3(0f, 0f, 0.02f * h * _pulse);
         transform.localScale = _baseScale * aScale;
+        SolveSupportGrip();
 
         if (_t >= _duration)
             End();
@@ -588,6 +608,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         transform.localRotation = Quaternion.Euler(_baseEuler + aEuler);
         transform.localPosition = _basePos + aPos;
         transform.localScale = _baseScale * aScale;
+        SolveSupportGrip();
     }
 
     /// <summary>Raise into the guard hold: the arm eases from rest to the weapon's guard pose and
@@ -604,11 +625,13 @@ public sealed class WeaponAnimator : MonoBehaviour
         transform.localRotation = Quaternion.Euler(_baseEuler);
         transform.localPosition = _basePos;
         transform.localScale = _baseScale;
+        SolveSupportGrip();
     }
 
     /// <summary>Apply the shoulder/elbow/wrist that the attack and charge phases share — arm (owner),
-    /// support arm by def mode, and the reflected left-hand mirror. Pulse = impact recoil (0 in idle
-    /// holds), h = heavy amplification, t = normalized time (needed for Asym support-arm sampling).</summary>
+    /// support arm by def mode (Asym keys it; Mirror's support grip is solved afterwards by
+    /// <see cref="SolveSupportGrip"/>), and the mirrored reflection of the owner keys. Pulse = impact
+    /// recoil (0 in idle holds), h = heavy amplification, t = normalized time (Asym support sampling).</summary>
     private void ApplyPose(PoseKey k, float m, float h, float pulse, float t)
     {
         if (_playerAnim != null) _playerAnim.PingArms();
@@ -634,13 +657,11 @@ public sealed class WeaponAnimator : MonoBehaviour
         switch (_def.Mode)
         {
             case OffArm.Mirror:
-                // Two-hand grip: the support arm mirrors the swing (yaw flipped side-to-side).
-                if (_otherShoulder != null)
-                    _otherShoulder.localRotation = _otherShBase * Quaternion.Euler(ClampShX(k.shX) * h, -k.shY * h * m, k.shZ * h * m);
-                if (_otherElbow != null)
-                    _otherElbow.localRotation = _otherElBase * Quaternion.Euler(el, 0f, 0f);
-                if (_otherWrist != null)
-                    _otherWrist.localRotation = _otherWrBase * Quaternion.Euler(-wr);
+                // Two-hand grip: the support arm is deliberately NOT keyed from the owner's swing
+                // (mirroring swings the empty hand through the AIR BESIDE the sword — it reads as
+                // casting). It is solved onto the hilt after this phase writes the weapon
+                // transform — see SolveSupportGrip, called from UpdateAttack/UpdateCharge/
+                // UpdateGuard/UpdateSway.
                 break;
 
             case OffArm.Asym:
@@ -743,6 +764,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         _otherShBase = Quaternion.identity;
         _otherElBase = Quaternion.identity;
         _otherWrBase = Quaternion.identity;
+        _gripBlend = 0f;
 
         Acquire();
     }
@@ -850,11 +872,7 @@ public sealed class WeaponAnimator : MonoBehaviour
         if (_ownerShoulder == null || _ownsArms) return;
         _swayShBase = Quaternion.identity;
         _swayElBase = Quaternion.identity;
-        if (_def.Mode == OffArm.Mirror)
-        {
-            _swayOtherShBase = Quaternion.identity;
-            _swayOtherElBase = Quaternion.identity;
-        }
+        _gripBlend = 0f;
         // 1im: same rule as CaptureRest - never re-base from a live frame. The sway only ever starts
         // from an idle rig, so the live pose IS the authored rest, but routing it through the shared
         // helper keeps one place that writes the rest and one place that reads it.
@@ -916,13 +934,6 @@ public sealed class WeaponAnimator : MonoBehaviour
             _ownerShoulder.localRotation = _swayShBase * Quaternion.Euler(sh);
         if (_ownerElbow != null)
             _ownerElbow.localRotation = _swayElBase * Quaternion.Euler(el, 0f, 0f);
-        if (_def.Mode == OffArm.Mirror)
-        {
-            if (_otherShoulder != null)
-                _otherShoulder.localRotation = _swayOtherShBase * Quaternion.Euler(sh.x, -sh.y, sh.z);
-            if (_otherElbow != null)
-                _otherElbow.localRotation = _swayOtherElBase * Quaternion.Euler(el, 0f, 0f);
-        }
 
         // Magic focuses stay lit while armed: loop the weapon-local accent with a slow soft pulse.
         if (_def.Accent != K_None && _def.Accent != K_Dual)
@@ -936,7 +947,82 @@ public sealed class WeaponAnimator : MonoBehaviour
             transform.localScale = _baseScale * aScale;
         }
 
-        StopSway();
+        // Two-hand grip last: owner arm + weapon transform are both this frame's now. (1a4a1ba
+        // ended this method with StopSway(), which released the arms every frame — the sway became
+        // a one-frame no-op that PlayerAnimator.LateUpdate overwrote, so a drawn two-hander hung
+        // one-handed. The sway must RUN for the idle grip to exist.)
+        SolveSupportGrip();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Two-hand grip (support arm)
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Pin the support hand onto the hilt below the owner's fist — the two-hand grip that
+    /// <see cref="OffArm.Mirror"/> defs (greatsword / warhammer / greataxe / katana / lance) ask
+    /// for. Mirrored keys could never do this: mirroring the owner's swing angles swings the empty
+    /// hand through the AIR BESIDE the sword (it reads as casting), while a grip is a world-space
+    /// CONTACT. So the support arm is solved, not keyed: two-joint CCD from the live shoulder and
+    /// elbow toward a point down the shaft from the owner's own fist, so the hand tracks the hilt
+    /// wherever the swing carries it, and the fist wraps it with a 180° palm flip about the shaft.
+    ///
+    /// Call order is the contract: ONLY after the phase wrote the owner arm (<see
+    /// cref="ApplyPose"/>) AND the weapon transform — both are inputs below, so an earlier call
+    /// would solve against last frame's hilt, a one-frame lag that shows exactly while the swing
+    /// is fast. Every call site is inside a phase (arms owned); PlayerAnimator.LateUpdate would
+    /// otherwise overwrite the support arm the moment the solve finished.
+    ///
+    /// Dual-wield: the support hand may hold its OWN rig (§5.5 allows pairing two copies of one
+    /// weapon). Never steal a hand that already grips a rig — bail, so each rig leaves the other
+    /// hand to its own owner-driven keys.
+    /// </summary>
+    private void SolveSupportGrip()
+    {
+        if (_def.Mode != OffArm.Mirror) return;
+        if (_ownerWrist == null || _otherShoulder == null || _otherElbow == null || _otherWrist == null)
+            return;
+        if (_otherWrist.GetComponentInChildren<WeaponRigHost>() != null) return;
+
+        _gripBlend = Mathf.MoveTowards(_gripBlend, 1f, Time.deltaTime / TwoHandGripBlendIn);
+        if (_gripBlend <= 0f) return;
+
+        // Block weapons are authored +Y-up (tip), so the pommel end — where the second hand stacks
+        // under the owner's grip — is down the shaft from the owner's own wrist, not from the rig
+        // root (the root's offset below the hand varies with the draw pose).
+        Vector3 shaftDown = -(transform.rotation * Vector3.up);
+        Vector3 target = _ownerWrist.position + shaftDown * TwoHandGripDrop;
+
+        Quaternion shBefore = _otherShoulder.localRotation;
+        Quaternion elBefore = _otherElbow.localRotation;
+        Quaternion wrBefore = _otherWrist.localRotation;
+
+        for (int i = 0; i < TwoHandCcdIterations; i++)
+        {
+            RotateJointToward(_otherElbow, _otherWrist.position, target);
+            RotateJointToward(_otherShoulder, _otherWrist.position, target);
+        }
+
+        _otherWrist.rotation = Quaternion.AngleAxis(TwoHandPalmFlipDeg, shaftDown) * _ownerWrist.rotation;
+
+        if (_gripBlend < 1f)
+        {
+            _otherShoulder.localRotation = Quaternion.Slerp(shBefore, _otherShoulder.localRotation, _gripBlend);
+            _otherElbow.localRotation = Quaternion.Slerp(elBefore, _otherElbow.localRotation, _gripBlend);
+            _otherWrist.localRotation = Quaternion.Slerp(wrBefore, _otherWrist.localRotation, _gripBlend);
+        }
+    }
+
+    /// <summary>One CCD step: rotate <paramref name="joint"/> (world space) so
+    /// <paramref name="endPos"/> swings toward <paramref name="target"/>. Zero-length inputs are
+    /// skipped — a degenerate arm (joint and end coincident) has no direction to rotate about.</summary>
+    private static void RotateJointToward(Transform joint, Vector3 endPos, Vector3 target)
+    {
+        Vector3 pivot = joint.position;
+        Vector3 from = endPos - pivot;
+        Vector3 to = target - pivot;
+        if (from.sqrMagnitude < 1e-6f || to.sqrMagnitude < 1e-6f) return;
+        joint.rotation = Quaternion.FromToRotation(from, to) * joint.rotation;
     }
 
     /// <summary>Idle shoulder-pitch guard so blades hold a ready stance rather than hanging limp.</summary>

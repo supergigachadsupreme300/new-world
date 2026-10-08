@@ -541,6 +541,17 @@
       instead of needing a restart. Note the guard's condition — "no phase owns the transform" — is
       also what keeps re-parenting correct: a re-parent rewrites the local pose, so the rest must be
       re-authorable, and an idle rig is exactly when that is safe.
+    - **A support-arm GRIP is a world-space contact, so it is solved, never keyed** (1ke).
+      `OffArm.Mirror`'s mirrored keys could only swing the empty hand through the air *beside* the
+      sword — the "casting animation" reported against testing.md task 1 — so `SolveSupportGrip`
+      CCD-pins the support hand onto the hilt instead. Two write-order facts make it correct and
+      must survive any refactor: the solve runs only AFTER the phase wrote both the owner arm and
+      the weapon transform (else it targets last frame's hilt, a lag that shows at swing speed), and
+      only while a phase owns the arms (else `PlayerAnimator.LateUpdate` overwrites it the same
+      frame). The *idle* half exists only because the ready-sway runs: the `StopSway()` that turned
+      the sway into a one-frame no-op (user's `1a4a1ba`) was the one-handed idle hang, and it was
+      reverted here — never re-add it as a "fix"; a sway bug gets a root-cause fix, because killing
+      the phase silently kills the grip with it.
 
 17. **A move is the one edit whose diff proves nothing, and it rots the docs that name what moved.**
     Three habits, each from a shipped failure:
