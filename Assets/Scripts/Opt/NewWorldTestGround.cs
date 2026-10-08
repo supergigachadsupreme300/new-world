@@ -2084,7 +2084,7 @@ private static string Describe(in SpellLook look)
 
           _boomDist[_boomHead] = Vector3.Distance(cam.transform.position, pp);
           _boomSpeed[_boomHead] = speed;
-          _boomYaw[_boomHead] = pivot.eulerAngles.y;
+          _boomYaw[_boomHead] = pivot.eulerAngles.y; // task 4 - camera boom yaw from pivot
           _boomRest[_boomHead] = mode.BoomRestLength;
           _boomApplied[_boomHead] = mode.BoomAppliedLength;
           // Clamped = the boom itself was shortened by the collision SphereCast, by more than float
