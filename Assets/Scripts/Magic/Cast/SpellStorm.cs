@@ -6,6 +6,12 @@ using UnityEngine;
 /// its radius for the spell's duration. Each strike flashes an element-styled bolt/burst, deals a
 /// burst of the spell's power inside a small radius, and applies its status through the shared
 /// pipeline. Strikes land with a small random stagger so the storm reads as chaotic, not pinging.
+/// <para><b>1kf: a Storm may also mount a persistent body</b> — the resolved
+/// <see cref="SpellLook.StormBodyModel"/> gates it: only an authored profile grants
+/// <see cref="StormBody.Funnel"/> (Firestorm alone), and that funnel spins its root 240 deg/s,
+/// the same spin the pre-1kc conflagration's <c>SpellZone</c> ran while it pulled. The other 13
+/// storms resolve <see cref="StormBody.None"/> and are byte-for-byte unchanged. Spin and build
+/// share ONE predicate — the body's presence — so they cannot drift apart.</para>
 /// </summary>
 public class SpellStorm : MonoBehaviour
 {
@@ -54,6 +60,13 @@ public class SpellStorm : MonoBehaviour
             _type = spell.Type;
         }
 
+        // 1kf: the authored funnel body mounts BEFORE the spawn flash, mirroring
+        // SpellZone.Initialize's BuildVisual-then-RingFlash order, so the two persistent-area
+        // deliveries read the same. Gated on the resolved axis — a spell-less storm's fallback
+        // look resolves None, and Radius/_color are only real when spell != null anyway.
+        if (_look.StormBodyModel == StormBody.Funnel)
+            SpellZoneModelBuilder.BuildFunnel(transform, Radius, SkillFx.SharedSpriteMaterial(_color));
+
         SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius, 0.5f, _look.Scale);
     }
 
@@ -64,8 +77,14 @@ public class SpellStorm : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-
         _age += Time.deltaTime;
+        // 1kf: spin only while the funnel exists — the exact gate SpellZone.Update used
+        // (PullSpeed > 0, i.e. the pulling-vortex funnels), so the pre-1kc conflagration model
+        // reproduces down to its 240 deg/s turn. Strikes are position-based, so a yaw of the root
+        // moves nothing they read (transform.position is unchanged by a self-rotation).
+        if (_look.StormBodyModel == StormBody.Funnel)
+            transform.Rotate(0f, 240f * Time.deltaTime, 0f, Space.Self);
+
         if (_age >= Lifetime)
         {
             Destroy(gameObject);

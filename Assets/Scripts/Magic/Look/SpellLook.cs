@@ -137,6 +137,32 @@ public enum ZoneBody
     VortexCircle = 2
 }
 
+/// <summary>Persistent-storm body family for a <c>SpellDelivery.Storm</c> spell (1kf) — what a storm
+/// mounts over its strike area while it lives. A drawn-only structural axis, resolved exactly like
+/// <see cref="ZoneBody"/>: no school family, no deterministic pick, and it never touches delivery —
+/// the spell stays a Storm however it looks (rule 13 / rule 20: 1kf reproduced the pre-1kc
+/// Conflagration tornado on Firestorm WITHOUT moving it to <c>SpellDelivery.Vortex</c>, which would
+/// have changed resolution, added the pull and lost the per-strike flashes). <see cref="Inherit"/>
+/// resolves to <see cref="None"/> — storms draw only their spawn ring and per-strike flashes unless
+/// a profile says otherwise — and only an authored profile may grant <see cref="Funnel"/>;
+/// Firestorm alone does (1kf).
+/// <para><b>Read by <c>SpellStorm</c> (builds the funnel and spins its root the 240 deg/s the
+/// pre-1kc <c>SpellZone</c> pulled-vortex spin) and by the QA spell band's bench, so the axis has
+/// an acceptance readout.</b> Placement/sizing come from the storm's own charge-scaled Radius;
+/// this axis is drawn-only and never touches delivery.</para></summary>
+public enum StormBody
+{
+    /// <summary>No authored opinion — <see cref="None"/> (the storm draws no persistent body).</summary>
+    Inherit = 0,
+    /// <summary>No body: only the spawn ring and the per-strike flashes — every Storm spell
+    /// resolves here unless a profile grants <see cref="Funnel"/> (other deliveries never read
+    /// this axis; their own body axis is <see cref="ZoneBody"/>).</summary>
+    None = 1,
+    /// <summary>The generic whirling pull funnel: 7 spinning rings + 6 orbiting debris blocks
+    /// (tornado/vortex) — the body Conflagration drew before 1kc, spinning with the storm root.</summary>
+    Funnel = 2
+}
+
 /// <summary>
 /// Hand-authored per-spell nudges on top of the deterministic look (1ib). Every field is a
 /// *multiplier or a sentinel*, never an absolute colour: a profile can shift a spell within its
@@ -168,6 +194,8 @@ public sealed class SpellLookProfile
     public SkyRockStyle SkyRock = SkyRockStyle.Inherit;
     [Tooltip("Persistent-zone body for a Zone/Vortex spell (1kc). Inherit = the Funnel pull funnel / ground disc.")]
     public ZoneBody ZoneBody = ZoneBody.Inherit;
+    [Tooltip("Persistent-storm body for a Storm spell (1kf). Inherit = none — spawn ring + strike flashes only.")]
+    public StormBody StormBody = StormBody.Inherit;
 }
 
 /// <summary>
@@ -254,12 +282,18 @@ public readonly struct SpellLook
     /// (<see cref="ZoneBody.Funnel"/> for every non-authored spell) because there is no
     /// deterministic pick for this axis.</summary>
     public readonly ZoneBody ZoneModel;
+    /// <summary>Persistent-storm body (1kf). Same write-only sentinel contract as
+    /// <see cref="ZoneModel"/>: a resolved look is always a real body
+    /// (<see cref="StormBody.None"/> for every spell but Firestorm) because there is no
+    /// deterministic pick for this axis.</summary>
+    public readonly StormBody StormBodyModel;
     /// <summary>True when an authored <see cref="SpellLookProfile"/> supplied at least one field.</summary>
     public readonly bool Authored;
 
     private SpellLook(Color core, Color edge, Color trail, float scale, float tempo,
         SpellImpactStyle impact, SpellCastStyle cast, ProjectileShape displayShape,
-        SkyRockStyle skyRock, SpellCastAnchor castAnchor, ZoneBody zoneModel, bool authored)
+        SkyRockStyle skyRock, SpellCastAnchor castAnchor, ZoneBody zoneModel,
+        StormBody stormBodyModel, bool authored)
     {
         Core = core;
         Edge = edge;
@@ -272,6 +306,7 @@ public readonly struct SpellLook
         SkyRock = skyRock;
         CastAnchor = castAnchor;
         ZoneModel = zoneModel;
+        StormBodyModel = stormBodyModel;
         Authored = authored;
     }
 
@@ -391,6 +426,12 @@ public readonly struct SpellLook
         // 1kc conflagration's rising vortex-circle. See ZoneBody's remarks.
         ZoneBody zoneModel = ZoneBody.Funnel;
 
+        // 1kf: the storm body follows the identical authored-only pattern with the opposite
+        // default — None (a Storm draws nothing persistent over its strike area) — so the other
+        // 13 storms stay byte-for-byte unchanged and only an authored profile (Firestorm's) can
+        // grant the pre-1kc conflagration funnel. See StormBody's remarks.
+        StormBody stormBody = StormBody.None;
+
         // 1jt: the cast anchor is derived from DELIVERY, not picked. A Summon is cast on yourself
         // (something appears where you stand); everything else is cast at something in front of you.
         // The authored profile below is the only thing that may override it, which is how the two
@@ -417,13 +458,14 @@ public readonly struct SpellLook
             if (p.DisplayShape != ProjectileShape.Auto) display = p.DisplayShape;
             if (p.SkyRock != SkyRockStyle.Inherit) skyRock = p.SkyRock;
             if (p.ZoneBody != ZoneBody.Inherit) zoneModel = p.ZoneBody;
+            if (p.StormBody != StormBody.Inherit) stormBody = p.StormBody;
         }
 
         Color baseColor = SchoolColor(type);
         Color core = Tint(baseColor, hueShift, satScale, valueScale);
         Color edge = EdgeFor(core, rC);
         return new SpellLook(core, edge, TrailColor(type), Mathf.Clamp(scale, 0.55f, 1.7f), Mathf.Clamp(tempo, 0.6f, 1.6f),
-            impact, cast, display, skyRock, castAnchor, zoneModel, authored);
+            impact, cast, display, skyRock, castAnchor, zoneModel, stormBody, authored);
     }
 
     /// <summary>
@@ -441,7 +483,8 @@ public readonly struct SpellLook
         Color baseColor = SchoolColor(type);
         ProjectileShape display = shape != ProjectileShape.Auto ? shape : Pick(fam.Shapes, 0.5f);
         return new SpellLook(baseColor, EdgeFor(baseColor, 0.5f), TrailColor(type), 1f, 1f,
-            fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, SpellCastAnchor.Front, ZoneBody.Funnel, false);
+            fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, SpellCastAnchor.Front, ZoneBody.Funnel,
+            StormBody.None, false);
     }
 
     // (1ig: `Fingerprint` was deleted here. 1ib built it as the 1ic audit's measuring instrument

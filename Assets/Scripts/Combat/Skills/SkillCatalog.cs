@@ -144,11 +144,16 @@ public static partial class SkillCatalog
     /// vortex-circle). Leaving every other profile field at its default — here by passing
     /// <see cref="SpellImpactStyle.Inherit"/> and <see cref="SpellCastStyle.Inherit"/> — is what
     /// keeps the spell's look byte-for-byte unchanged except for the new body axis.</para>
+    /// <para><b>1kf adds <paramref name="stormBody"/></b> — the persistent body a <c>Storm</c>
+    /// mounts over its strike area. Same sentinel contract: <c>Inherit</c> means none (spawn ring +
+    /// per-strike flashes only), and only Firestorm uses this argument (the pre-1kc conflagration
+    /// funnel, reproduced without touching its delivery).</para>
     /// </summary>
     private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
         ProjectileShape shape = ProjectileShape.Auto, SkyRockStyle skyrock = SkyRockStyle.Inherit,
-        SpellCastAnchor castAnchor = SpellCastAnchor.Inherit, ZoneBody zoneBody = ZoneBody.Inherit)
+        SpellCastAnchor castAnchor = SpellCastAnchor.Inherit, ZoneBody zoneBody = ZoneBody.Inherit,
+        StormBody stormBody = StormBody.Inherit)
         => new SpellLookProfile
         {
             Impact = impact,
@@ -161,7 +166,8 @@ public static partial class SkillCatalog
             DisplayShape = shape,
             SkyRock = skyrock,
             CastAnchor = castAnchor,
-            ZoneBody = zoneBody
+            ZoneBody = zoneBody,
+            StormBody = stormBody
         };
 
     private static SpellCastEffect Spell(string spellId, string spellName, DamageType type,
@@ -207,8 +213,9 @@ public static partial class SkillCatalog
         spell.BoltSplashRadius = boltSplashRadius;
         spell.SummonFiresForward = summonFiresForward;
         // 1ii: null (the default) means "fully deterministic from spell.id" — the resolver treats a
-        // profile that merely EXISTS as authored, so these 22 (16 here + 5 in SkillCatalog.Magic.cs;
-        // 21 before Conflagration's zone-body-only profile in 1kc) must be a deliberate list and not a
+        // profile that merely EXISTS as authored, so these 22 (16 here + 6 in SkillCatalog.Magic.cs;
+        // 21 before 1kf's Firestorm storm-body-only profile — both counts regex-measured, the older
+        // "21 (16 + 5...)" here was off by one) must be a deliberate list and not a
         // blanket default. Assigning a null here is the same as leaving the field at its default.
         spell.Look = look;
         return new SpellCastEffect { Spell = spell };

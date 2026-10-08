@@ -72,10 +72,10 @@ public static class SpellZoneModelBuilder
         ApplyShared(halo, sharedMat);
     }
 
-    /// <summary>The 1kc Conflagration/Firestorm body: a flat ground circle whose edge particles fly
+    /// <summary>The 1kc Conflagration body: a flat ground circle whose edge particles fly
     /// up in a vortex, converging as they rise. Authored on Conflagration alone
-    /// (<c>SpellLook.ZoneBody.VortexCircle</c>); every other zone keeps
-    /// <see cref="BuildFunnel"/>/<see cref="BuildGroundZone"/>. Two colours, both through the
+    /// (<c>SpellLook.ZoneBody.VortexCircle</c>). (1kf: Firestorm draws <see cref="BuildFunnel"/>
+    /// instead.) Two colours, both through the
     /// colour-keyed shared cache: the circle takes the spell's Core, the rising flames the hot end
     /// (<see cref="SpellLook.HotCore"/>) — the same hot-end choice SpellBeam's funnel makes.</summary>
     public static void BuildConflagration(Transform parent, float radius, Color core, Color hot)
