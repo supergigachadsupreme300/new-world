@@ -97,6 +97,41 @@ public sealed class PlayerAnimator : MonoBehaviour
         + "what is setting the on-screen rate.")]
     public float MaxCadence = 3.2f;
 
+    /// <summary>Arm gait scale per held weapon (0 = tight, 1 = full pump).</summary>
+    private struct ArmGait
+    {
+        public float SwingScale;
+        public float ElbowScale;
+        public float CrossScale;
+    }
+
+    private readonly System.Collections.Generic.Dictionary<string, ArmGait> _armGaits =
+        new System.Collections.Generic.Dictionary<string, ArmGait>
+        {
+            { "iron_sword",       new ArmGait { SwingScale = 0.95f, ElbowScale = 0.90f, CrossScale = 0.95f } },
+            { "dagger",           new ArmGait { SwingScale = 1.00f, ElbowScale = 0.95f, CrossScale = 1.00f } },
+            { "greatsword",       new ArmGait { SwingScale = 0.60f, ElbowScale = 0.55f, CrossScale = 0.50f } },
+            { "greataxe",         new ArmGait { SwingScale = 0.55f, ElbowScale = 0.50f, CrossScale = 0.45f } },
+            { "warhammer",        new ArmGait { SwingScale = 0.50f, ElbowScale = 0.45f, CrossScale = 0.40f } },
+            { "katana",           new ArmGait { SwingScale = 0.70f, ElbowScale = 0.60f, CrossScale = 0.60f } },
+            { "lance",            new ArmGait { SwingScale = 0.40f, ElbowScale = 0.35f, CrossScale = 0.30f } },
+            { "longbow",          new ArmGait { SwingScale = 0.80f, ElbowScale = 0.75f, CrossScale = 0.80f } },
+            { "staff",            new ArmGait { SwingScale = 0.85f, ElbowScale = 0.80f, CrossScale = 0.85f } },
+            { "holy_book",        new ArmGait { SwingScale = 0.85f, ElbowScale = 0.80f, CrossScale = 0.85f } },
+            { "bone_wand",        new ArmGait { SwingScale = 0.85f, ElbowScale = 0.80f, CrossScale = 0.85f } },
+            { "control_orb",      new ArmGait { SwingScale = 0.85f, ElbowScale = 0.80f, CrossScale = 0.85f } },
+            { "lute",             new ArmGait { SwingScale = 0.85f, ElbowScale = 0.80f, CrossScale = 0.85f } },
+            { "buckler",          new ArmGait { SwingScale = 0.30f, ElbowScale = 0.30f, CrossScale = 0.30f } },
+            { "round_shield",     new ArmGait { SwingScale = 0.25f, ElbowScale = 0.25f, CrossScale = 0.25f } },
+            { "tower_shield",     new ArmGait { SwingScale = 0.20f, ElbowScale = 0.20f, CrossScale = 0.20f } },
+            { "fist",             new ArmGait { SwingScale = 1.00f, ElbowScale = 0.95f, CrossScale = 1.00f } },
+            { "gauntlets",        new ArmGait { SwingScale = 1.00f, ElbowScale = 0.95f, CrossScale = 1.00f } },
+            { "throwing_hammer",  new ArmGait { SwingScale = 0.90f, ElbowScale = 0.85f, CrossScale = 0.90f } },
+        };
+    private readonly ArmGait _defaultArmGait = new ArmGait { SwingScale = 0.9f, ElbowScale = 0.85f, CrossScale = 0.9f };
+    private Combat.Weapons.CombatController _cc;
+    private Animation.WeaponStowAnimator _wstow;
+
     /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
     public void AcquireArms()
     {
@@ -148,6 +183,8 @@ public sealed class PlayerAnimator : MonoBehaviour
         // burst into the _phase integrator, so the seed is what keeps frame 1 honest.
         _lastRootPos = transform.position;
         _speedH = 0f;
+        _cc = GetComponentInParent<Combat.Weapons.CombatController>();
+        _wstow = GetComponentInParent<Animation.WeaponStowAnimator>();
     }
 
     private void LateUpdate()
@@ -279,10 +316,43 @@ public sealed class PlayerAnimator : MonoBehaviour
 
         if (!SuppressArms)
         {
-            if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armR, 0f, 0f);
-            if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armL, 0f, 0f);
-            if (_elbowR != null) _elbowR.localRotation = Quaternion.Euler(elbowR, 0f, 0f);
-            if (_elbowL != null) _elbowL.localRotation = Quaternion.Euler(elbowL, 0f, 0f);
+            // Apply per-weapon arm gaits when PlayerAnimator drives arms (walk/run). WeaponAnimator owns arms during attacks/guard/sway.
+            ArmGait gL = _defaultArmGait;
+            ArmGait gR = _defaultArmGait;
+            string lid = null;
+            string rid = null;
+            if (_cc != null)
+            {
+                // Get weapon ids from rigs if available (read via WeaponRigHost)
+                var lhost = _cc.LeftHand != null ? _cc.LeftHand.GetComponent<Combat.Weapons.WeaponRigHost>() : null;
+                var rhost = _cc.RightHand != null ? _cc.RightHand.GetComponent<Combat.Weapons.WeaponRigHost>() : null;
+                lid = lhost != null && lhost.Data != null ? lhost.Data.id : null;
+                rid = rhost != null && rhost.Data != null ? rhost.Data.id : null;
+                if (_cc.Wielding == Combat.Weapons.CombatController.WieldingState.TwoHand)
+                {
+                    string twoId = rid ?? lid;
+                    if (!string.IsNullOrEmpty(twoId) && _armGaits.TryGetValue(twoId, out var tg)) { gL = tg; gR = tg; }
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(lid) && _armGaits.TryGetValue(lid, out var lg)) gL = lg;
+                    if (!string.IsNullOrEmpty(rid) && _armGaits.TryGetValue(rid, out var rg)) gR = rg;
+                    // tighten left if holding shield
+                    if (lid == "buckler" || lid == "round_shield" || lid == "tower_shield")
+                    {
+                        gL.SwingScale *= 0.7f; gL.ElbowScale *= 0.7f; gL.CrossScale *= 0.7f;
+                    }
+                }
+            }
+            float cross = 0.35f;
+            float armLA = Mathf.Lerp(wArmL, rArmL, runBlend) * gL.SwingScale;
+            float armRA = Mathf.Lerp(wArmR, rArmR, runBlend) * gR.SwingScale;
+            float elbowLA = Mathf.Lerp(wElbowL, rElbowL, runBlend) * gL.ElbowScale;
+            float elbowRA = Mathf.Lerp(wElbowR, rElbowR, runBlend) * gR.ElbowScale;
+            if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armRA, 0f, 0f);
+            if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armLA, 0f, 0f);
+            if (_elbowR != null) _elbowR.localRotation = Quaternion.Euler(elbowRA, 0f, 0f);
+            if (_elbowL != null) _elbowL.localRotation = Quaternion.Euler(elbowLA, 0f, 0f);
         }
         // When SuppressArms is set, a WeaponAnimator fully owns the shoulders AND elbows
         // (windup/strike/charge pose tracks), so nothing is written here mid-attack.
