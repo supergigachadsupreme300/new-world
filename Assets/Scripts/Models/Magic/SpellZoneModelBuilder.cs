@@ -90,7 +90,7 @@ public static class SpellZoneModelBuilder
         disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
         ApplyShared(disc, coreMat);
 
-        const int embers = 16;
+        const int embers = 24;
         const float risesPerSecond = 0.45f;
         const float turnsPerRise = 1.6f;
         const float shrink = 0.72f;
