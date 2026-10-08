@@ -409,7 +409,7 @@ public partial class PlayerController
     /// <summary>1ka: authored forward offset for the flat casting halo, in metres — the same 0.5 m the
     /// projectile path preview uses as its muzzle, so the charge circle and the flight line start from
     /// one point. Play-test knob if the circle reads too close to or too far from the weapon.</summary>
-    private const float WeaponCastFrontOffset = 0.5f;
+    private const float WeaponCastFrontOffset = 0.5f; // task 5: in front of weapon (flat, world-up)
 
     /// <summary>One-shot expansion ring at the magic weapon on cast release.</summary>
     private void BurstCastingCircle(float charge)
