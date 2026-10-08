@@ -448,17 +448,16 @@ internal static class MagicProjectileModelBuilder
         var root = new GameObject(name).transform;
         
         Color deep = Color.Lerp(color, Color.black, 0.55f);
-        int wave = 3;
-        float waveZpos = 2;
+        int wave = 5;
         for(int i = 0; i < wave; i++)
         {
             float t = i / (float)(wave - 1);
             float s = Mathf.Lerp(0.08f, 0.04f, t);
             var cube = Primitive(PrimitiveType.Cube, "Wave" + i, root);
-            cube.localPosition = new Vector3(0f, t * 1.7f, waveZpos * 0.07f * i * i);
-            cube.localScale = new Vector3(2f, 1f, 0.5f);
-            cube.localRotation = Quaternion.Euler(45f * t, 0f, 0f);
-            Materialize(cube, shader, Color.Lerp(color, Color.black, t * 0.6f));
+            cube.localPosition = new Vector3(0f, 0.06f + t * 0.9f, t * 1.2f);
+            cube.localScale = new Vector3(2.2f - t * 0.6f, 0.8f + t * 0.4f, 0.5f - t * 0.2f);
+            cube.localRotation = Quaternion.Euler(30f * t, 0f, 0f);
+            Materialize(cube, shader, Color.Lerp(color, Color.white, t * 0.3f));
         }
         return root;
     }
