@@ -1,3 +1,38 @@
+## 1kd. AGENTS.md split: 138.9 KB -> 65.0 KB always-on, long case studies archived in LESSONS.md
+
+Two commits, one task. (a) `9b37d49` fixed ~160 runs of double-encoded mojibake in AGENTS.md
+(encoding-only character fixes; `⇒`, `×` and the em-dashes restored; 0 leftover mojibake groups,
+all 13 content checks pass, `?` count unchanged at 5). (b) The split: AGENTS.md keeps all 20 rules
+byte-verbatim for 13 of them (rules 1, 2, 4, 5, 6, 9, 10, 11, 15, 16, 18, 19, 20), while rules
+3/7/8/12/13/14/17 are condensed to invariant + habits (31.4 KB total) and their full texts moved
+verbatim to the new root `LESSONS.md` (106.7 KB) under `## §N` headings. Each condensed rule ends
+`**Case studies:** LESSONS.md §N`; a header note and a token-cost bullet in AGENTS.md point at the
+archive, and AGENTS.md stays authoritative (they disagree -> this file wins).
+
+Sizes: baseline 138,853 chars / 1463 lines -> AGENTS.md 65,040 chars / 716 lines, **-53%**;
+LESSONS.md 106,679 chars. Deviation from the approved plan: it estimated 30-35 KB for the new
+AGENTS.md; the condensed rules landed at 31.4 KB instead of the 15-21 KB estimate because every
+habit bullet keeps its concrete example (the example is what makes the habit catchable). A further
+trim of cond7/cond12 (~-8 KB) is possible if a bigger always-on cut is wanted.
+
+Verification: build + verify scripts, grep and reread; no build (rule 3), `StaticChecks.ps1` not
+applicable (no `.cs` touched). The verify asserts: all 20 rules present and in order; the 13 kept
+rules byte-identical to baseline (rule 1 differs only by its one added token bullet, checked by
+strip-and-compare); all 7 archived LESSONS sections byte-identical to their baseline rule sections;
+all 61 task ids present across AGENTS+LESSONS (set equality against the pre-split baseline, only
+`1kd` added); all 7 `LESSONS.md §N` pointers resolve to an existing heading in order; 0 mojibake
+markers in both outputs.
+    `skills: none applied` - editorial restructuring of repo markdown, no DCC/Unity artifact (rule 15).
+
+### 1kd-status
+- [x] Mojibake fix shipped as its own commit (`9b37d49`, encoding-only) - the split follows as a second commit per rule 1 (no amending).
+- [x] `LESSONS.md` created: verbatim §3/§7/§8/§12/§13/§14/§17 + header stating AGENTS.md is authoritative.
+- [x] AGENTS.md condensed; 13 kept rules byte-verbatim; 20 rules, numbering stable; token bullet + header pointer added.
+- [x] verify: structure, verbatim equality both directions, id set equality, § pointer targets, 0 mojibake - ALL PASSED.
+- [ ] Play-test: none - docs-only change, nothing renders or runs.
+- Follow-up (separate task, not started): `THINKING.md` and `PROGRESS.md` themselves carry pre-existing double-encoded em-dashes (`â€"`, `â†'`) from an earlier ANSI write - the same fix class as `9b37d49`, different files.
+- Follow-up (optional): trim the cond7/cond12 texts for a further ~8 KB of always-on savings.
+
 ## 1kc. Conflagration's model is now the firestorm — a circle whose edge particles rise in a vortex (testing.md task 6)
 
 The user asked to "change the model of conflagmath to firestorm, and setup a new model for
@@ -3035,7 +3070,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-06 (1ju). Read this first in a new session; then continue with the
+Last updated: 2026-10-08 (1kd). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

@@ -9,14 +9,14 @@ powershell -ExecutionPolicy Bypass -File tools\Write-Tree.ps1
 | | |
 |---|---|
 | Source of truth | `git ls-files` (untracked and `.gitignore`d paths cannot appear) |
-| Generated at commit | `522c881` (HEAD when written - the commit *before* the one this file lands in) |
-| Generated on | 2026-10-05 17:27 |
-| Tracked files | 1205 = 554 non-`.meta` + 651 `.meta` |
+| Generated at commit | `9b37d49` (HEAD when written - the commit *before* the one this file lands in) |
+| Generated on | 2026-10-08 08:16 |
+| Tracked files | 1204 = 554 non-`.meta` + 650 `.meta` |
 | C# files | 380 |
 
 Reading the tree:
 
-- `.meta` files are omitted everywhere. There are 651 of them and none carries
+- `.meta` files are omitted everywhere. There are 650 of them and none carries
   information a reader needs. Every `.cs` has a paired `.cs.meta` and every folder under
   `Assets/` has a folder meta - both currently hold - but **no check enforces them**:
   `tools\StaticChecks.ps1` does not mention `.meta` at all. Verify by hand:
@@ -241,9 +241,9 @@ regenerated to verify.
 │   │   │   │   └── SpellZone.cs
 │   │   │   ├── Fx/
 │   │   │   │   ├── CastingCircle.cs
-│   │   │   │   ├── ProjectileTrail.cs
 │   │   │   │   ├── SkillFx.cs
-│   │   │   │   └── SpellImpactFx.cs
+│   │   │   │   ├── SpellImpactFx.cs
+│   │   │   │   └── TrailStrip.cs
 │   │   │   ├── Look/
 │   │   │   │   └── SpellLook.cs
 │   │   │   ├── Ui/
@@ -545,15 +545,15 @@ regenerated to verify.
 ├── Assembly-CSharp-Editor.csproj
 ├── AzuriteConfig
 ├── country life.sln
-├── GAME_DESCRIPTION.md
 ├── GAME_DESCRIPTION.txt
 ├── game-design.md
 ├── GAMEPLAY_IMPROVEMENT_PLAN.txt
-├── HANDOFF-1in.md
 ├── InputSystem_Actions.inputactions
+├── LESSONS.md
 ├── magic-skills.md
 ├── PROGRESS.md
 ├── Readme.asset
+├── testing.md
 ├── THINKING.md
 └── TREE.md
 ```

@@ -1,3 +1,43 @@
+## 1kd. Splitting AGENTS.md: fix the encoding first (broken text hides broken boundaries), then archive (SHIPPED)
+
+SHIPPED - commit A `9b37d49` (encoding), commit B (the split). No play-test needed (docs only).
+
+**H1 (CONFIRMED - the mojibake was multi-round double-encoding; the naive fix corrupted an arrow).**
+AGENTS.md carried ~160 runs of `Ã…`-shaped double-encoding. A 7-round decode with a CP1252 fallback
+fixed 159 of them and turned `⇒` (U+21D2) into `?` on one line, because the fallback accepted a
+round whose bytes were NOT the original. Fix: `git checkout -- AGENTS.md` (throw the whole run away),
+re-run with two guards - reject any round where `cp.GetString(cp.GetBytes($s)) -ne $s` (the fallback
+was used), reject any next round whose bytes are not lossless, break on U+FFFD. Result: 160 runs
+fixed, 0 leftover mojibake groups, 13/13 content checks pass, `?` count 5 before == 5 after.
+
+**H2 (CONFIRMED - encoding had to be its own commit).** The split compares sections byte-for-byte;
+doing both in one commit would make the delta unreadable and lose the "encoding-only" claim.
+
+**H3 (CONFIRMED - the split is lossless).** The build script copies the 13 kept sections and the 7
+archived sections verbatim out of the pre-split file; verify.ps1 asserts kept == baseline, archived
+LESSONS text == baseline, id set equality (61 ids, only `1kd` added), 20 rules in order, all 7
+`§N` pointers resolve, 0 mojibake markers in both outputs. It FAILED twice on its own extraction
+bug (the LESSONS chunk included the heading's trailing blank line: +2 chars per section) and once on
+rule 1 (correctly differing by the added bullet, which the check didn't allow yet) - both fixed in
+the CHECK, not by touching content.
+
+**H4 (REJECTED - the 30-35 KB estimate was too optimistic).** Actual new AGENTS.md = 65,040 chars
+(-53%), because the condensed rules came to 31.4 KB instead of the estimated 15-21 KB: habit bullets
+kept their concrete examples. LESSONS.md = 106,679 chars. Reported as-is; a cond7/cond12 trim (~-8 KB)
+is the available follow-up.
+
+**H5 (CONFIRMED - PowerShell 5.1 reads a BOM-less .ps1 as ANSI, and my build script proved it).**
+The first build wrote `Â§` (2x AGENTS, 7x LESSONS) because `§` was a literal in `build.ps1`, which
+has no BOM. Caught by an encoding counter (C2/C3/EF/FFFD + `â€` bigram = 0 required), fixed by
+building the char from `[char]0x00A7`. Also checked the history: AGENTS.md never had a BOM
+(`HEAD~1` starts `23 20 50`), so commit A stripped nothing; only `ARCHITECTURE.md` and `TREE.md`
+carry BOMs in this repo.
+
+**H6 (OPEN - observation, out of scope here).** `THINKING.md` and `PROGRESS.md` themselves contain
+pre-existing double-encoded em-dashes (`â€"`) from an earlier ANSI write by some past tool. Same fix
+class as `9b37d49`, different files - filed as a follow-up in `1kd-status`, not fixed in this task
+(keeps the split diff readable).
+
 ## 1kc. Conflagration's model → firestorm (a circle with edge particles rising in a vortex) (testing.md task 6)
 
 OPEN until the play-test confirms the rising vortex-circle reads as a firestorm and all other Vortex
