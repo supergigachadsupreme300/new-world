@@ -1,3 +1,31 @@
+## 1km. SpellStorm CS0117: `SpellLook.StormBody` — the enum is file-scope, not a struct member
+
+CLOSED — same resolution-error family as 1kl; verified by grep + reread (rule 3, no build).
+Shipped as `1km`; play-test is the only remaining step.
+
+**H1 (CONFIRMED — `StormBody` is a top-level enum, `SpellLook` only carries the resolved value).**
+`Assets\Scripts\Magic\Look\SpellLook.cs` declares `public enum StormBody` at line 153 — file scope,
+no namespace, no enclosing type — and the `readonly struct SpellLook` holds `public readonly StormBody
+StormBodyModel` (line 289). `SpellStorm.cs:67/85` wrote `_look.StormBodyModel ==
+SpellLook.StormBody.Funnel`, i.e. it asked the struct for a nested type/member it never had. CS0117
+fires, exactly as reported. Rejected alternatives: (a) *the enum used to be nested and a move forgot
+the qualifier* — `StormBody` is 1kf-new, it shipped file-scope, so the caller was wrong from birth,
+not a move victim; (b) *`using static` or an alias could paper over it* — the correct fix is the bare
+`StormBody.Funnel`, which the same file's callees (`SpellLook.Resolve`'s `StormBody.None`, `Funnel`)
+already use; a `using` would only mask it. The two sites share the body-presence predicate the 1kf
+header comment promises ("Spin and build share ONE predicate"), so both must change together —
+anything that fixed only line 67 would leave Update spinning a funnel that Initialize never built.
+
+**H2 (CONFIRMED — the same phantom qualifier hid in crefs and `<c>` spans, the CS1574 warning class).**
+`<see cref="SpellLook.StormBody.Funnel"/>/<None>` in the SpellStorm class header (2 sites) and
+`<c>SpellLook.ZoneBody.VortexCircle</c>` in `SpellZoneModelBuilder.cs` (2 sites) — `ZoneBody` is ALSO
+top-level (same file, before `StormBody`). Crets warn, `<c>` spans never resolve at all, so none of
+the four blocked the build; they surfed only because the two real CS0117s named the same pattern.
+Sweep (rule 3): grep `SpellLook\.(ZoneBody|StormBody|…|CastFrontOffset|…)` across `Assets\Scripts` →
+after the fixes the only hits are real struct members (`StormBodyModel`, `CastFrontOffset = 1.8f`
+const, `DisplayShape` field), all verified to exist. A reader grepping "StormBody" now finds the enum
+declaration and the resolved-value field, and no text that claims the enum lives inside the struct.
+
 ## 1kl. PlayerAnimator compile errors: "Combat could not be found" / "weaponStowAnimator does not exist"
 
 CLOSED — error text fully explains the diff; verified by grep + reread (rule 3, no build). Fix

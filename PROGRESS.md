@@ -1,3 +1,31 @@
+## 1km. Follow-up compile fix: `SpellLook.StormBody` doesn't exist — `StormBody` is a top-level enum
+
+Follow-up to 1kl. The user pasted another CS0117 from `SpellStorm.cs`: "`SpellLook` does not
+contain a definition for `StormBody`". The `1kf` persistent-storm axis declared `public enum StormBody`
+at FILE scope in `SpellLook.cs` (line 153) and put a field `StormBodyModel` on the struct, but
+`SpellStorm.cs` compared `_look.StormBodyModel == SpellLook.StormBody.Funnel` as if the enum were
+NESTED in the struct — same phantom-qualifier family as 1kl's `Combat.Weapons.*` (folder vs namespace
+here; struct-member vs file-scope type).
+
+Fix: the two code sites (`SpellStorm.cs:67,85`) drop `SpellLook.` → `StormBody.Funnel`; the two
+`<see cref="SpellLook.StormBody.*">` crefs in the same class header become `StormBody.Funnel` /
+`StormBody.None` (CS1574 warnings, same defect). The same `SpellLook.ZoneBody.VortexCircle` phantom
+qualifier sat in two `<c>` doc spans in `SpellZoneModelBuilder.cs` (lines 10, 77) and was corrected
+to `ZoneBody.VortexCircle` during the sweep (rule 3: after the second error, sweep for a third —
+grep `SpellLook.(Zone|Storm|Impact|Cast|Anchor|Shape|Sky).*` found nothing else invalid; remaining
+`SpellLook.StormBodyModel` / `SpellLook.CastFrontOffset` / `SpellLook.DisplayShape` references are
+real struct members, verified).
+
+Docs: AGENTS.md / game-design.md unchanged (no convention or behaviour change — the resolved look
+still gates the funnel via `StormBodyModel` exactly as 1kf designed).
+
+### 1km-status
+- [x] `SpellStorm.cs`: two `SpellLook.StormBody.Funnel` comparisons → `StormBody.Funnel` (Initialize + Update, the shared body-presence predicate).
+- [x] `SpellStorm.cs` class header: two crefs `SpellLook.StormBody.Funnel` / `.None` → `StormBody.Funnel` / `StormBody.None`.
+- [x] `SpellZoneModelBuilder.cs`: two `<c>SpellLook.ZoneBody.VortexCircle</c>` doc spans → `ZoneBody.VortexCircle`.
+- [x] Grep sweep: 0 remaining invalid `SpellLook.<enum>` dereferences; the enum + struct field + const references all resolve.
+- [ ] Play-test (user, Unity): project compiles; cast Firestorm → the pre-1kc conflagration funnel mounts and spins 240 deg/s; the other 13 storms draw only their spawn ring + per-strike flashes.
+
 ## 1kl. Follow-up compile fix: `1kg`'s arm-gaits referenced namespaces that don't exist
 
 The user pasted two Unity console errors from `PlayerAnimator.cs`: "`Combat` could not be

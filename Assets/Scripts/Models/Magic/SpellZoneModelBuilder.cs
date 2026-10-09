@@ -7,7 +7,7 @@ using UnityEngine;
 /// <see cref="SkillFx.SharedSpriteMaterial"/> all unchanged.
 /// <para><b>1kc adds <see cref="BuildConflagration"/></b> — the Firestorm/Conflagration look (ground
 ///   circle + edge particles rising in a vortex), authored on Conflagration alone through
-///   <c>SpellLook.ZoneBody.VortexCircle</c>.</para></para>
+///   <c>ZoneBody.VortexCircle</c>.</para></para>
 /// </summary>
 public static class SpellZoneModelBuilder
 {
@@ -74,7 +74,7 @@ public static class SpellZoneModelBuilder
 
     /// <summary>The 1kc Conflagration body: a flat ground circle whose edge particles fly
     /// up in a vortex, converging as they rise. Authored on Conflagration alone
-    /// (<c>SpellLook.ZoneBody.VortexCircle</c>). (1kf: Firestorm draws <see cref="BuildFunnel"/>
+    /// (<c>ZoneBody.VortexCircle</c>). (1kf: Firestorm draws <see cref="BuildFunnel"/>
     /// instead.) Two colours, both through the
     /// colour-keyed shared cache: the circle takes the spell's Core, the rising flames the hot end
     /// (<see cref="SpellLook.HotCore"/>) — the same hot-end choice SpellBeam's funnel makes.</summary>
