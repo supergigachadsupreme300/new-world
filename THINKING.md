@@ -1,3 +1,40 @@
+## 1kq. 1ko's "the pitch commutes" proof was false — the composed view shifts the aim up to ~4.4° at the clamp
+
+The user kept 1ko live, skipped the Numpad2 lane again, and described the residual zoom as "the camera zoom up to
+behind player head then return" — the profile of a NEAR-ZERO clamp: the `SphereCast` starts at `pivotPos`, a pivot
+child at `(0, 1.5, 0)` on the player's centre (inside the CharacterController), with `CollisionMask = ~0`
+(CameraModeSwitch.cs:40,228), so a `hit.distance ≈ 0` collapses `_cachedFinalDist` toward `0.1f` and the boom snaps
+to just behind the player's head until the next 10 Hz re-cast clears it. That cast-path candidate is 1kr and stays
+deferred on the user's choice so the aim correction in this task is judged alone.
+
+**H1 (FALSIFIED — 1ko's "the pitch commutes with the -Rise/Distance bias" claim).** 1ko shipped
+`LookRotation(lookTarget - desired) * _pivot.localRotation` and argued that because LookRotation's right is
+horizontal and the pivot's world X is the same yawed axis, both rotations share one axis and commute, making the
+full-boom view exactly the pre-1ko `LookRotation(-up·Rise + pivot.forward·Distance)` at every pitch. The hole: the
+rotation about that axis applies to the whole basis, i.e. to the whole aim vector `-up·Rise + flatForward·Dist`,
+and `-up·Rise` is NOT along the rotation axis — it tilts into the aim. In the (flatForward, up) plane the composed
+forward is `(Dist cosθ + Rise sinθ, Dist sinθ − Rise cosθ)` against the old
+`(Dist cosθ, Dist sinθ − Rise)` — unequal for all θ ≠ 0. Worked at the 60° clamp (look-UP): new ≈ 50.4° vs old ≈
+54.3°, so the composed view reads LOWER; ~0.7° at 30°, ~4.4° at 60°, bit-identical only at level. Confirmed
+against the code path and by sign-checking both directions (look-down: ~0.5° high).
+
+**H2 (CONFIRMED — the view point must be built from the PITCHED boom, not composed).**
+`pitchedBoomEnd = lookTarget + up·Rise − pivot.forward·Dist` (the pre-1ko desired, unclamped). Then
+`lookTarget − (pivotPos + (pitchedBoomEnd − pivotPos)) = −up·Rise + pivot.forward·Dist`, bit-for-bit the pre-1ko
+view at full boom for every pitch — no composition, no normalization, nothing to go wrong. Under an active clamp
+the view boom becomes `(pitchedBoomEnd − pivotPos).normalized * finalDist` (the level cast's distance), reproducing
+the documented pull-in-while-clamped yaw; the two branches agree to sub-degree at clamp activation because the
+clamped boom is short. Guard `finalDist < targetDist` (not the cache sentinel) is written in terms of the actual
+clamp state. The position, the yaw-only boom, the level cast and the 10 Hz cadence are untouched, so 1ko's
+flat-ground invariant and 1ju's aim-from-unlagged-boom survive.
+
+**1kr OPEN (deferred by the user):** the reported "zoom up to behind player head then return" — the SphereCast
+starting inside the player's own capsule with `CollisionMask = ~0`. Candidate fix is a near-pad on the sweep (~0.8 m,
+CharacterController silhouette + cast radius) so no `hit.distance ≈ 0` source remains.
+
+STATUS: SHIPPED (1kq). Acceptance is the mouse-vertical look holding the pre-1ko pitch; the pinch is EXPECTED to
+persist until 1kr.
+
 ## 1ko. Camera momentary zoom while moving forward — boom geometry was pitch-coupled
 
 CONFIRMED-DERIVED (fix shipped as 1ko, but per rule 7 the acceptance still needs the user's
@@ -34,7 +71,10 @@ is exact: `Quaternion.LookRotation(-up·Rise + flatForward·Distance)` has a hor
 (no y in the aim base), so its local X is `R_yaw·X`. `_pivot.localRotation` IS `R_pitch` about the
 player's local X, also `R_yaw·X`. Two rotations about the same axis commute, so
 `R_yaw·R_−Δ·R_pitch == R_yaw·R_pitch·R_−Δ` — the new view equals the old
-`LookRotation(-up·Rise + pivot.forward·Distance)` at full boom for every pitch. `flatForward`
+`LookRotation(-up·Rise + pivot.forward·Distance)` at full boom for every pitch.
+**H3's proof was WRONG (falsified by re-derivation in §1kq): the rotation about the horizontal right also
+moves the `-up·Rise` term, which is not along the rotation axis, so the composition reads the aim LOWER by
+~0.7° at 30° pitch and ~4.4° at the 60° clamp, bit-identical only at level.** `flatForward`
 degenerates only if `|forward.y| == 1`, unreachable under the ±60° clamp and the cutscene's
 `SetLookRotation(0, 0)`.
 

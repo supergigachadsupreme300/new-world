@@ -250,15 +250,27 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // `lookTarget - desired` has no pivotPos term and no smoothed position in it - so this is
         // byte-identical to the old expression whenever the camera has caught up, and also
         // identical under a collision pull-in, and carries no lag at all when it has not.
-        // 1ko: right-multiplying the PIVOT's own local rotation restores the pitch the yaw-only boom
-        // removed. LookRotation's right vector is horizontal (the boom vector now has no y), and the
-        // pivot's WORLD X is the player's yawed X - the SAME axis - so the pitch commutes with the
-        // -Rise/Distance bias above and at full boom this is exactly the pre-1ko
-        // LookRotation(-up * Rise + pivot.forward * Distance) at EVERY pitch: the view pitches with
-        // the mouse exactly as before while the boom's distance no longer does. Under a collision
-        // pull-in the base swings toward the lookTarget just as pre-1ko; the pitch rides along.
+        // 1kq: the VIEW is re-derived from the PITCHED boom, exactly as pre-1ko, while the POSITION
+        // stays on the yaw-only boom (1ko). At full boom this is bit-for-bit the pre-1ko view
+        // -up * Rise + pivot.forward * Distance at EVERY pitch. 1ko shipped the view as
+        // LookRotation(lookTarget - desired) * _pivot.localRotation and claimed the pitch "commutes"
+        // with the -Rise/Distance bias; that claim is false (THINKING 1kq): the composition rotates
+        // the WHOLE aim vector - including the -up * Rise term - about the horizontal right, so at
+        // full boom it reads lower than pre-1ko by ~0.7 deg at 30 deg pitch and ~4.4 deg at the 60
+        // deg clamp (identical only at level). Building the view point from `pitchedBoomEnd` - and
+        // only shortening it to the clamp when a clamp is ACTIVE - lets the -up * Rise and right * off
+        // terms drop out of `lookTarget - viewPoint` untouched, exactly as the pre-1ko base was formed.
+        // Under a pull-in the shortened pitched direction still swings the base toward lookTarget
+        // (the documented clamp yaw), and nothing here reads the SMOOTHED camera position, so 1ju's
+        // aim-from-the-unlagged-boom invariant survives.
+        Vector3 pitchedBoomEnd = lookTarget
+            + Vector3.up * (ThirdPersonY - _pivot.localPosition.y)
+            - _pivot.forward * ThirdPersonDistance;
+        Vector3 viewBoom = finalDist < targetDist
+            ? (pitchedBoomEnd - pivotPos).normalized * finalDist
+            : pitchedBoomEnd - pivotPos;
         _camera.transform.rotation =
-            Quaternion.LookRotation(lookTarget - desired) * _pivot.localRotation;
+            Quaternion.LookRotation(lookTarget - (pivotPos + viewBoom));
     }
 
     /// <summary>

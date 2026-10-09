@@ -3313,10 +3313,13 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     Fix: the boom uses `pivot.forward` with `y = 0` (renormalised — unreachable degenerate, pitch is
     ±60°-clamped and the sole external pitch write is the cutscene `SetLookRotation(0, 0)`), so the
     sweep always rises 1.1 m over 6.5 m at every pitch and the rest length is the constant 6.65 m; the
-    pitch is re-injected into the **view** only via `LookRotation(lookTarget - desired) * _pivot.localRotation`.
-    Both factors rotate about the same horizontal (yaw-only) axis, so at full boom the view is exactly
-    the pre-1ko `LookRotation(-up · 1.1 + pivot.forward · 6.5)` at every pitch — framing and mouse-vertical
-    look bit-identical, level-gaze playback bit-identical — while 1ju's aim-from-unlagged-boom and the
+    pitch is re-injected into the **view** only. 1ko shipped that as `LookRotation(lookTarget - desired) * _pivot.localRotation`,
+    claiming the two rotations shared one horizontal (yaw-only) axis so the view was "exactly the pre-1ko
+    `LookRotation(-up · 1.1 + pivot.forward · 6.5)` at every pitch" — that claim was false (THINKING §1kq): the composition
+    rotates the WHOLE aim vector including `-up · Rise`, so the aim reads lower than pre-1ko by ~0.7° at 30° pitch and ~4.4°
+    at the 60° clamp, bit-identical only at level. **1kq** rebuilt the view from the pitched boom itself (`pitchedBoomEnd`,
+    shortened only under an active clamp), which is bit-for-bit the pre-1ko view at full boom at every pitch — mouse-vertical
+    look restored, level-gaze playback bit-identical — while 1ju's aim-from-unlagged-boom and the
     clamp pull-in yaw are preserved. The two 1jv survivors (position-smoother trail `v · SmoothTime`,
     boom swing with yaw) are deliberately not addressed and remain UNMEASURED: Numpad2 still names them
     if one is the residual cause.

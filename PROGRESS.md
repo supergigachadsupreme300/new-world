@@ -1,3 +1,44 @@
+## 1kq. Follow-up: 1ko's pitch-injection VIEW was wrong — aim shifted up to ~4.4° at the clamp (corrected to the exact pre-1ko view)
+
+Follow-up to 1ko (the camera zoom). The user chose to KEEP 1ko live, skip the Numpad2 lane again, and described the
+remaining symptom as **"the camera zoom up to behind player head then return"** — the profile of the `SphereCast`
+which starts at `pivotPos`, a pivot child at `(0, 1.5, 0)` on the player's centre (inside the CharacterController),
+with `CollisionMask = ~0` (`CameraModeSwitch.cs:40,228`): a near-zero `hit.distance` collapses `_cachedFinalDist`
+toward its `0.1f` floor and the boom snaps to just behind the player's head until the next 10 Hz re-cast clears it.
+That cast-path candidate is the deferred **1kr**; this task ships the aim correction alone so it is judged independently.
+
+While re-reading 1ko's view line to plan the 1kr cast fix, the shipped claim that "the pitch commutes with the
+−Rise/Distance bias, so at full boom the view is exactly the pre-1ko `LookRotation(-up*Rise + pivot.forward*Distance)`
+at every pitch" proved **wrong**. `LookRotation(lookTarget - desired) * _pivot.localRotation` rotates the WHOLE aim
+vector (including `-up * Rise`) about the horizontal right axis; `-up * Rise` is not along that axis, so it tilts
+into the aim. The composed view reads LOWER than pre-1ko by ~0.7° at 30° pitch and ~4.4° at the 60° clamp; it is
+bit-identical only at level (where `flatForward == pivot.forward` and the pivot rotation is identity).
+
+Fix (1kq): the view point is built from the PITCHED boom directly —
+`pitchedBoomEnd = lookTarget + up * Rise - pivot.forward * Distance` — and only shortened to the clamped distance
+when a clamp is ACTIVE (`viewBoom = finalDist < targetDist ? (pitchedBoomEnd - pivotPos).normalized * finalDist
+: pitchedBoomEnd - pivotPos`). At full boom `lookTarget - (pivotPos + (pitchedBoomEnd - pivotPos))` telescopes to
+`-up * Rise + pivot.forward * Distance`, bit-for-bit the pre-1ko view at EVERY pitch, with no composition and no
+normalization to drift. The position, the yaw-only boom and the level cast are untouched, so 1ko's flat-ground
+invariant and 1ju's aim-from-unlagged-boom both survive.
+
+Deliberately NOT changed: the collision cast — the "zoom up to behind player head" near-zero self-collision clamp is
+the 1kr candidate and stays deferred per the user's choice so this task's view correction is judged on its own.
+
+### 1kq-status
+- [x] `CameraModeSwitch.UpdateThirdPerson` view re-derived from the pitched boom; 1ko's false "commutes" comment (its
+      lines 253–259) replaced in the same pass; the 1ko claim corrected here, in `game-design.md` and in `THINKING.md` §1kq.
+- [x] Verified by grep + reread (no build, rule 3): `desired` / `toCam` / `targetDist` / `finalDist` still feed the cast,
+      the position `SmoothDamp` and `BoomAppliedLength`; the view now reads only `pitchedBoomEnd`, `pivotPos`,
+      `lookTarget`, `finalDist`, `targetDist`; the SMOOTHED `_camera.transform.position` is not read by the view (1ju
+      invariant). `CameraModeSwitch.cs` is outside the `StaticChecks.ps1` `$files` list, so no script run is mandated.
+- [x] Docs: `game-design.md` 1ko camera bullet corrected; `PROGRESS.md` 1ko claim flagged in place + this entry;
+      `THINKING.md` 1ko H3 marked WRONG + §1kq reasoning (rule 2).
+- [ ] **PLAY-TEST (user, Unity):** with 1ko still live, the acceptance for THIS task is the mouse-vertical look — look
+      up/down to the ±60° clamp and confirm the aim holds the pitch exactly as pre-1ko (no visible lowering of the
+      horizon while looking up). The "zoom up to behind player head then return" pinch is EXPECTED to persist: it is the
+      deferred 1kr cast candidate (the cast starting inside the player's own capsule), not this task's mechanism.
+
 ## 1ko. Camera momentary zoom while moving forward (W) — "pressing w to move forward then sometime the camera of player would bug and zoom in/out in a moment"
 
 Reported by the user; the third re-report of the 1jv/1jr camera family. Rule 7's Numpad2 boom-audit
@@ -29,6 +70,13 @@ bit-identical, only the boom's *distance* is decoupled. 1ju's aim-from-unlagged-
 clamp pull-in yaw (`lookTarget` reappearing while clamped) are both preserved. Level-gaze playback
 (right/forward at pitch 0) is also bit-identical, because yaw-only `flatForward == pivot.forward`
 there.
+
+> **1kq correction (shipped 1kq):** the claim above that the `* _pivot.localRotation` composition is
+> "exactly the pre-1ko view at every pitch" is FALSE. A rotation about the horizontal right also moves the
+> `-up · Rise` term (it is not along the rotation axis), so the composed view reads LOWER than pre-1ko by
+> ~0.7° at 30° pitch and ~4.4° at the 60° clamp, bit-identical only at level. 1kq rebuilt the view from the
+> pitched boom (`pitchedBoomEnd`, shortened only under an active clamp) so the full-boom view is again
+> bit-for-bit `-up · Rise + pivot.forward · Distance`. See `## 1kq` below.
 
 Deliberately NOT changed: the position `SmoothDamp` trail (`lag = v * SmoothTime`, 1jv candidate a)
 and the boom-swing-on-yaw (candidate b) are untouched and remain UNMEASURED — Numpad2 will still name
