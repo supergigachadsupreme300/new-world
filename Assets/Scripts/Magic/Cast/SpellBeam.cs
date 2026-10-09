@@ -395,6 +395,9 @@ public class SpellBeam : MonoBehaviour
         // re-derive per frame, because the beam must track the caster and sweep with the aim.
         // "Holding" is the steady extended beam — the debris keeps orbiting and the tip orb keeps its
         // soft glow throb below, so the beam is held, not frozen in place.
+        float tempo = _look != null ? _look.Tempo : 1f;
+        float scaleMul = _look != null ? _look.Scale : 1f;
+
         if (_body != null)
         {
             Vector3 mid = transform.position + Direction * (Length * 0.5f);
@@ -404,15 +407,30 @@ public class SpellBeam : MonoBehaviour
         }
         else if (_funnelChunks != null)
         {
-            // The discs and the leading ring keep their build scale; only the debris still MOVES —
-            // orbit only. Its per-chunk scale wobble is cut with the body breath, so the cone holds
-            // its silhouette while the swirl continues.
+            // Gentle axial bob + per-disc scale pulse for cone funnel (Flamethrower).
+            // Discs keep their authored scale except breathing; debris orbits as before.
+            float axialPhase = Time.time * 2.2f * tempo;
+            float axial = Mathf.Sin(axialPhase) * 0.05f;
+            for (int i = 0; i < FunnelChunks; i++)
+            {
+                int idx = i;
+                if (idx >= _funnelChunks.Length) break;
+                Transform t = _funnelChunks[idx];
+                if (t == null) continue;
+                float lenT = i / (float)Mathf.Max(1, FunnelChunks);
+                float discPhase = Time.time * 3.4f * tempo + i * 0.38f;
+                float ds = 1f + Mathf.Sin(discPhase) * 0.08f * scaleMul + (1f - lenT) * 0.03f * Mathf.Sin(discPhase * 1.1f);
+                Vector3 ls = t.localScale;
+                t.localScale = new Vector3(ls.x * ds, ls.y, ls.z * ds);
+                Vector3 lpDisc = t.localPosition;
+                t.localPosition = new Vector3(lpDisc.x, lpDisc.y, lpDisc.z + axial * lenT);
+            }
             for (int d = 0; d < FunnelDebris; d++)
             {
                 int idx = FunnelChunks + d;
                 Transform chunk = _funnelChunks[idx];
                 if (chunk == null) continue;
-                float ang = (70f + d * 55f) * Time.deltaTime * Mathf.Deg2Rad;
+                float ang = (70f + d * 55f) * Time.deltaTime * tempo * Mathf.Deg2Rad;
                 float cos = Mathf.Cos(ang), sin = Mathf.Sin(ang);
                 Vector3 lp = chunk.localPosition;
                 chunk.localPosition = new Vector3(
