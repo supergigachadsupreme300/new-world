@@ -1,3 +1,29 @@
+## 1kn. Follow-up compile fix: `_look != null` on a `SpellLook` struct — CS0019 in SpellBeam
+
+Follow-up to 1km/1kl (third pasted compile error). `f46fdca` (out-of-order `1kh`: "animation
+funnel / flamethrower funnel" tweaks) added two lines in `SpellBeam.PulseVisual`:
+`_look != null ? _look.Tempo : 1f` and `_look != null ? _look.Scale : 1f`. `SpellLook` is a
+`readonly struct` — never null, so `!= null` is a hard CS0019 ("operator '!=' cannot be applied to
+operands of type SpellLook and null"); it can never have compiled, so the error was dormant in the
+working tree, not a regression.
+
+Fix: direct reads — `float tempo = _look.Tempo; float scaleMul = _look.Scale;`. This is safe by
+construction and matches the siblings: `SpellCaster.Channels.cs:38-39` does
+`AddComponent<SpellBeam>()` then synchronously `Initialize(...)`, and `Initialize` resolves `_look`
+for a null spell too (`SpellLook.Resolve(DamageType.Arcane, ...)`), so `PulseVisual` (only reachable
+from `Update`) always sees a resolved look. The same unconditional reads are the established pattern
+in `SpellZone.cs:46`, `SpellStorm.cs:70`, `SpellSummon.cs:104`. The "1kb holds its size" comment
+above is untouched; the removed ternary's fallback `1f` only masked a default look that cannot occur.
+
+Docs: AGENTS.md / game-design.md unchanged. Sweep: grep `_look [!=]= null` / `SpellLook* null`
+across `Assets\Scripts` → 0 remaining.
+
+### 1kn-status
+- [x] Removed the two illegal `_look != null` ternaries in `SpellBeam.PulseVisual`; `tempo`/`scaleMul` now read the resolved look directly.
+- [x] Verified Initialize-always-before-Update (AddComponent + synchronous Initialize in `SpellCaster.Channels`); fallback look covers the null-spell path.
+- [x] Sweep: 0 remaining struct-vs-null look comparisons; siblings' unconditional `_look.Scale` reads confirm the convention.
+- [ ] Play-test (user, Unity): project compiles; Flamethrower's funnel keeps its gentle axial bob + per-disc scale pulse (the `1kh` feature this guard was added for), now driven by the real resolved look tempo/scale.
+
 ## 1km. Follow-up compile fix: `SpellLook.StormBody` doesn't exist — `StormBody` is a top-level enum
 
 Follow-up to 1kl. The user pasted another CS0117 from `SpellStorm.cs`: "`SpellLook` does not

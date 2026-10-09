@@ -395,8 +395,8 @@ public class SpellBeam : MonoBehaviour
         // re-derive per frame, because the beam must track the caster and sweep with the aim.
         // "Holding" is the steady extended beam — the debris keeps orbiting and the tip orb keeps its
         // soft glow throb below, so the beam is held, not frozen in place.
-        float tempo = _look != null ? _look.Tempo : 1f;
-        float scaleMul = _look != null ? _look.Scale : 1f;
+        float tempo = _look.Tempo;
+        float scaleMul = _look.Scale;
 
         if (_body != null)
         {

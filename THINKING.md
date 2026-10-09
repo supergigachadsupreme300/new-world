@@ -1,3 +1,35 @@
+## 1kn. SpellBeam CS0019: `_look != null` — SpellLook is a struct, the guard never compiled
+
+CLOSED — third of the pasted-error family (1kl PlayerAnimator namespaces, 1km SpellStorm enum
+qualifier, now this); verified by grep + reread (rule 3, no build). Shipped as `1kn`.
+
+**H1 (CONFIRMED — the ternary was born broken; the working tree never compiled since f46fdca).**
+`SpellBeam.cs:398-399` read `float tempo = _look != null ? _look.Tempo : 1f;` where
+`_look` is `private SpellLook _look` and `SpellLook` is a `readonly struct`. A value type has no
+null state, so `!= null` is an error the compiler rejects at the operator — CS0019, exactly the
+pasted text. Blame pinned both lines to `f46fdca`, the newest commit. Two readings were available:
+(a) *the author thought SpellLook was nullable/class* — impossible here, the field was declared
+`private SpellLook _look` in the same file since the beam first cached the look, and (b) *the author
+wanted a "look resolved yet?" check* — but there is no un-resolved state: `SpellCaster.Channels.cs`
+calls `AddComponent<SpellBeam>()` then `beam.Initialize(...)` synchronously in the same method, and
+`Initialize:125` resolves `SpellLook.Resolve(spell)` with an identity-less Arcane fallback when
+`spell == null`. `PulseVisual`'s only caller is `Update:224`, which cannot run before that
+assignment. The `1f` fallback therefore not only failed to compile, it had no reachable condition.
+
+**H2 (CONFIRMED — direct reads are the house pattern).** Every sibling cast class reads the resolved
+look unconditionally in the same fine-grained spots: `SpellZone.cs:46` `_look.Scale`,
+`SpellStorm.cs:70` `_look.Scale`, `SpellSummon.cs:104` `_look.Scale`, `SpellBeam.cs:128`
+`_look.Scale` in Initialize. The fix aligns `PulseVisual` with them rather than inventing a sentinel
+(no `default` spell exists that would make Tempo/Scale read 0, and even a default look only sways the
+pulse amplitude, never crashes). Rejected alternative: `_look.Tempo` per field against a
+`default(SpellLook)` check like `_look.Authored` — dead code for the same reason (Initialize always
+runs), and `Authored` exists for the QA readout, not as a runtime guard.
+
+Sweep (rule 3): `grep _look\s*[!=]=?\s*null` across `Assets\Scripts` → 0. The three pasted errors are
+three separate commits/ids (1kl/1km/1kn); each named one wrong assumption about a type — namespace
+existence, nesting, and nullability. All three were caught by the no-build discipline's sibling: read
+the declaration of the type before believing the caller's spelling.
+
 ## 1km. SpellStorm CS0117: `SpellLook.StormBody` — the enum is file-scope, not a struct member
 
 CLOSED — same resolution-error family as 1kl; verified by grep + reread (rule 3, no build).
