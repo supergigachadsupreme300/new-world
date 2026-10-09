@@ -3324,6 +3324,18 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     boom swing with yaw) are deliberately not addressed and remain UNMEASURED: Numpad2 still names them
     if one is the residual cause.
 
+- **The camera's own body never clamps the boom (1kr).** The user's post-1kq report was "the camera zoom up to
+    behind player head then return" — the `SphereCast` started at `pivotPos`, a pivot child at `(0, 1.5, 0)` on the
+    player's centre, i.e. INSIDE the `CharacterController` (0–2 m) with `CollisionMask = ~0`, so every sweep travelled
+    ~0.7 m through the player's own collider and a near-zero `hit.distance` collapsed the boom to the old 0.1 m floor
+    until the next 10 Hz re-cast cleared it. Fix: the sweep starts `_boomNearPad` past the pivot —
+    `CharacterController.radius` + cast radius + 0.1 m slack ≈ 0.8 m, DERIVED from the live controller in
+    `OnEnable`/`Setup` (`CacheCollisionNearPad`), never authored. The cache stays pivot-relative (`hit.distance + pad`),
+    so the turn-recast and `BoomAppliedLength` semantics are unchanged, and for any obstruction beyond the pad the clamp
+    is bit-identical to the old pivot-origin cast. Boundary: real head-height statics behind the player still pull the
+    camera in (correct cinematography, matches pre-1ko level gaze); masking out all dynamic bodies (pet/NPCs) was the
+    user's unselected option.
+
 - **The boom's distance is measured before anything is fixed (1jv).** Reported as "the camera is
     continuously bugging when moving" and "snaps in and out / zooms, everywhere even on flat open
     ground". Two mechanisms were derivable and needed different fixes, and the first hypothesis — the

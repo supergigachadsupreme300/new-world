@@ -1,3 +1,38 @@
+## 1kr. "The camera zoom up to behind player head then return" — the collision sweep starts inside the player's own body (CONFIRMED, near-pad shipped)
+
+The user kept 1kq, play-tested, and the pinch was STILL there — the expected confirmation that the cast path, not
+the (already corrected) aim path, is the live mechanism. Closed with a near-pad.
+
+**H1 (CONFIRMED — the SphereCast begins inside the player's own collider).** `UpdateThirdPerson` cast from `pivotPos`
+(the pivot is a child at `(0, 1.5, 0)`, on the player's centre axis, inside the `[RequireComponent]`
+`CharacterController` 0–2 m capsule) with `CollisionMask = ~0` (includes the player's own colliders). The 0.2 m
+sphere therefore travels through the player's own body for ~0.7 m on every cast; the overlap registers at
+`hit.distance ≈ 0`, `_cachedFinalDist = Mathf.Max(hit.distance − radius, 0.1f) → 0.1f`, and the boom snaps to ~0.1 m
+= "just behind the player's head", released by the next 10 Hz re-cast = "then return". Intermittent by construction
+(depends on the exact local geometry/animation pose at each 0.1 s). 1ko made it more frequent because the sweep is
+level at every pitch; pre-1ko a look-up sweep rose over the body/clutter band. Neither 1ko nor 1kq touched this path,
+so the user's "still" is exactly the prediction, not a new outlier.
+
+**H2 (REJECTED as the zoom's mechanism — the view composition was a VIEW shift, not a distance change).** §1kq proved
+the 1ko view was off by up to ~4.4°, but that shifts where the camera AIM looks, not how far back the boom is. The
+reported symptom is a DISTANCE/camera-position event; 1kq fixed the aim and shipped first on the user's choice so the
+two are judged independently — "still" after 1kq closes H1 against any residual view path.
+
+**H3 (FIX — derive a near-pad, never author it).** `_boomNearPad = CharacterController.radius (0.5) + CollisionRadius
+(0.2) + 0.1 m slack ≈ 0.8 m`, computed once in `OnEnable`/`Setup` from the live controller (`CacheCollisionNearPad`).
+The cast starts at `pivotPos + toCam * _boomNearPad` over `targetDist − pad`. Cache stays pivot-relative
+(`hit.distance + pad`), so `_cachedDir`/`turnedSinceCast`/`BoomAppliedLength` semantics are unchanged, and for any
+obstruction beyond the pad the clamp is bit-identical to the old origin cast: face at distance F, old
+`F − 2r` == new `(F − pad − r) + pad − r`. Floor raised to `_boomNearPad` so no clamp can report closer than the
+player's own body edge.
+
+Boundary: real head-height statics behind the player (trees, rocks, walls) still pull the camera in — correct
+cinematography, matches pre-1ko level gaze. Masking out all DYNAMIC bodies (pet/NPCs) was the user's unselected
+option; if a residual ~0.8 m pinch persists only beside a follower, that is the extension (1kr+). The 1jl
+"wall beside the player" play-test item is unchanged.
+
+STATUS: SHIPPED (1kr). Acceptance is the "zoom up to behind player head then return" being GONE on mixed terrain.
+
 ## 1kq. 1ko's "the pitch commutes" proof was false — the composed view shifts the aim up to ~4.4° at the clamp
 
 The user kept 1ko live, skipped the Numpad2 lane again, and described the residual zoom as "the camera zoom up to
@@ -28,12 +63,10 @@ clamped boom is short. Guard `finalDist < targetDist` (not the cache sentinel) i
 clamp state. The position, the yaw-only boom, the level cast and the 10 Hz cadence are untouched, so 1ko's
 flat-ground invariant and 1ju's aim-from-unlagged-boom survive.
 
-**1kr OPEN (deferred by the user):** the reported "zoom up to behind player head then return" — the SphereCast
-starting inside the player's own capsule with `CollisionMask = ~0`. Candidate fix is a near-pad on the sweep (~0.8 m,
-CharacterController silhouette + cast radius) so no `hit.distance ≈ 0` source remains.
+**1kr CONFIRMED and SHIPPED by the user's play-test — see §1kr above.** The post-1kq "still" was the prediction the
+   cast candidate was built on; the near-pad fix is implemented and committed, not merely a candidate.
 
-STATUS: SHIPPED (1kq). Acceptance is the mouse-vertical look holding the pre-1ko pitch; the pinch is EXPECTED to
-persist until 1kr.
+STATUS: SHIPPED (1kq). Acceptance is the mouse-vertical look holding the pre-1ko pitch; the pinch shipped as 1kr.
 
 ## 1ko. Camera momentary zoom while moving forward — boom geometry was pitch-coupled
 

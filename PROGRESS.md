@@ -1,3 +1,40 @@
+## 1kr. "The camera zoom up to behind player head then return" — the collision sweep started inside the player's own body (near-pad fix)
+
+1kq shipped the aim correction alone by the user's choice; the user play-tested and the pinch was still there
+("still") — exactly the expected 1kr candidate. Mechanism confirmed from the code: `CameraModeSwitch`'s `SphereCast`
+started at `pivotPos` — the pivot is a child at `(0, 1.5, 0)` on the player's centre (`PlayerController.Camera.cs:77`),
+i.e. inside the `CharacterController` (0–2 m, `[RequireComponent]` at `PlayerController.cs:6,26,138`) — and
+`CollisionMask = ~0` includes the player's own colliders (`CameraModeSwitch.cs:40`). The 0.2 m sphere's first ~0.7 m
+of every sweep travels THROUGH the player's own body; when that overlap registers at a near-zero `hit.distance`,
+`_cachedFinalDist` fell to the old `0.1f` floor and the boom snapped to just behind the player's head until the next
+10 Hz re-cast cleared it — "zoom in to behind the head, then return". 1ko made it more frequent because the sweep is
+level at every pitch (pre-1ko a look-up sweep rose over the body/clutter band).
+
+Fix (1kr): the sweep now starts `_boomNearPad` past the pivot — `CharacterController.radius` (0.5) + `CollisionRadius`
+(0.2) + 0.1 m slack ≈ 0.8 m — DERIVED from the live controller in `OnEnable`/`Setup` (`CacheCollisionNearPad`), never
+authored. The cache stays pivot-relative (`hit.distance + pad`), so the turn-recast and `BoomAppliedLength` semantics
+are unchanged, and for any obstruction beyond the pad the reported clamp is bit-identical to the old pivot-origin cast
+(`(faceDist − pad − radius) + pad − radius` = `faceDist − 2·radius`).
+
+Boundary stated: real head-height STATIC obstructions behind the player (trees, rocks, walls) still pull the camera —
+that is correct cinematography and matches pre-1ko level-gaze behaviour. The unselected option (per the user's 1kr
+scoping choice) was also masking all dynamic bodies (pet/NPCs) out of the camera mask.
+
+### 1kr-status
+- [x] `CameraModeSwitch` cast padded past the player's own body; `CacheCollisionNearPad` derives the pad; the
+      1jl/1ko/1kq comment blocks re-stated. `CameraModeSwitch.cs` is outside the `StaticChecks.ps1` `$files` list, so
+      no script run is mandated.
+- [x] Verified by grep + reread (no build, rule 3): the cast start is `pivotPos + toCam * _boomNearPad`; the cache stays
+      pivot-relative (`hit.distance + _boomNearPad − CollisionRadius`, floor `_boomNearPad`); `_cachedDir` /
+      `turnedSinceCast` / `finalDist` / `BoomRestLength` / `BoomAppliedLength` untouched; no other reader of the old
+      `0.1f` near-zero floor exists. For an obstruction at face distance F, old clamp `F − 2r` == new clamp
+      `(F − pad − r) + pad − r` — identical by algebra.
+- [x] Docs: `game-design.md` 1ko camera cluster gained a 1kr note; `PROGRESS.md` this entry; `THINKING.md` §1kr (rule 2).
+- [ ] **PLAY-TEST (user, Unity):** hold W past trees, rocks and the goblin pet on mixed terrain while looking around;
+      "zoom up to behind player head then return" must be GONE. A normal, gentler pull-in when a real tree/wall is
+      genuinely between the camera and the player is expected and correct. If a residual full pinch to ~0.8 m happens
+      ONLY beside a follower/pet, that is the unselected dynamic-body mask option — report it and 1kr+ extends the fix.
+
 ## 1kq. Follow-up: 1ko's pitch-injection VIEW was wrong — aim shifted up to ~4.4° at the clamp (corrected to the exact pre-1ko view)
 
 Follow-up to 1ko (the camera zoom). The user chose to KEEP 1ko live, skip the Numpad2 lane again, and described the
@@ -36,8 +73,8 @@ the 1kr candidate and stays deferred per the user's choice so this task's view c
       `THINKING.md` 1ko H3 marked WRONG + §1kq reasoning (rule 2).
 - [ ] **PLAY-TEST (user, Unity):** with 1ko still live, the acceptance for THIS task is the mouse-vertical look — look
       up/down to the ±60° clamp and confirm the aim holds the pitch exactly as pre-1ko (no visible lowering of the
-      horizon while looking up). The "zoom up to behind player head then return" pinch is EXPECTED to persist: it is the
-      deferred 1kr cast candidate (the cast starting inside the player's own capsule), not this task's mechanism.
+      horizon while looking up). **User result: "still"** — the pinch persisted as predicted, and per 1kq's own note the
+      aim change was judged separately; the pinch is the deferred 1kr cast candidate and shipped as 1kr.
 
 ## 1ko. Camera momentary zoom while moving forward (W) — "pressing w to move forward then sometime the camera of player would bug and zoom in/out in a moment"
 

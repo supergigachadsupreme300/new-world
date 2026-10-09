@@ -83,6 +83,16 @@ public sealed class CameraModeSwitch : MonoBehaviour
     // (rule 8: a tracker with no seed has a fictional first sample).
     private Vector3 _cachedDir = Vector3.zero;
 
+    // 1kr: how far past the pivot the collision sweep STARTS. The pivot is a child at the player's
+    // centre (0, 1.5, 0) and CollisionMask = ~0, so a SphereCast beginning at pivotPos sweeps its
+    // 0.2 m sphere through the player's OWN CharacterController on every cast; when that overlap
+    // registers at hit.distance ~ 0 the cache collapses to the old 0.1 m floor and the boom snaps
+    // to just behind the player's head until the next 10 Hz re-cast clears it - the "zoom up to
+    // behind player head then return". The pad = CharacterController.radius (0.5) + CollisionRadius
+    // (0.2) + 0.1 m slack, i.e. the sweep begins just past the player's own body silhouette. It is
+    // DERIVED from the live controller in OnEnable/Setup, never authored.
+    private float _boomNearPad = 0.8f;
+
     public Mode CurrentMode { get; private set; }
 
     private void OnEnable()
@@ -91,8 +101,17 @@ public sealed class CameraModeSwitch : MonoBehaviour
             _player = GetComponent<PlayerController>();
         if (_pivot == null && _player != null)
             _pivot = _player.PlayerCameraPivot;
+        CacheCollisionNearPad();
         CurrentMode = StartInFirstPerson ? Mode.First : Mode.Third;
         ApplyPlayerModelVisibility();
+    }
+
+    /// <summary>1kr: derive the collision near-pad from the player's own body silhouette so a cast
+    /// can never start inside it (see <see cref="_boomNearPad"/>).</summary>
+    private void CacheCollisionNearPad()
+    {
+        CharacterController cc = GetComponent<CharacterController>();
+        _boomNearPad = (cc != null ? cc.radius : 0.5f) + CollisionRadius + 0.1f;
     }
 
     /// <summary>Configure the switch to drive a specific camera around the player.</summary>
@@ -101,6 +120,7 @@ public sealed class CameraModeSwitch : MonoBehaviour
         _player = player;
         _camera = cam;
         _pivot = pivot;
+        CacheCollisionNearPad();
         if (cam != null)
             _follow = cam.GetComponent<CameraFollow>();
         ApplyCameraFollow();
@@ -174,8 +194,9 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // 1jl: shoulder offset, a LATERAL translation of the camera position AND the look-at point
         // by the same amount, so the view direction stays exactly the pre-1jl one (fwd * distance
         // - up * height) and the character simply sits off-centre instead of being re-centred.
-        // The collision cast still starts at pivotPos, so the lateral term is inside the direction
-        // it sweeps and a wall beside the player now pulls the camera in - a play-test item.
+        // The collision cast still sweeps along the yaw-only boom from just past the player's own body
+        // (1kr's near pad), so the lateral term stays inside the direction it sweeps and a wall
+        // beside the player now pulls the camera in - a play-test item.
         Vector3 lookTarget = pivotPos + _pivot.right * ThirdPersonSideOffset;
         // Place the camera behind the character's facing so we see the back, not the front.
         // 1ko: the boom's GEOMETRY is yaw-only now. It used `_pivot.forward`, so the PIVOT's pitch
@@ -225,9 +246,17 @@ public sealed class CameraModeSwitch : MonoBehaviour
         {
             _collisionTimer = CollisionCheckInterval;
             _cachedDir = toCam;
-            if (Physics.SphereCast(pivotPos, CollisionRadius, toCam,
-                    out RaycastHit hit, targetDist, CollisionMask, QueryTriggerInteraction.Ignore))
-                _cachedFinalDist = Mathf.Max(hit.distance - CollisionRadius, 0.1f);
+            // 1kr: the sweep STARTS _boomNearPad past the pivot, so the player's own colliders are
+            // never queried and cannot pinch the boom to ~0.1 m ("zoom up to behind player head then
+            // return"). The cache stays pivot-relative - hit.distance is measured from the padded
+            // start, so _cachedFinalDist adds the pad back - which keeps the turn-recast logic and
+            // the BoomAppliedLength semantics unchanged, and for any obstruction BEYOND the pad the
+            // reported clamp is bit-identical to the old pivot-origin cast (contact geometry shifts
+            // by exactly the pad).
+            float sweepDist = Mathf.Max(targetDist - _boomNearPad, 0f);
+            if (Physics.SphereCast(pivotPos + toCam * _boomNearPad, CollisionRadius, toCam,
+                    out RaycastHit hit, sweepDist, CollisionMask, QueryTriggerInteraction.Ignore))
+                _cachedFinalDist = Mathf.Max(hit.distance + _boomNearPad - CollisionRadius, _boomNearPad);
             else
                 _cachedFinalDist = -1f;
         }
