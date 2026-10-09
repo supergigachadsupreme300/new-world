@@ -146,7 +146,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     //
     // READ-ONLY (rule 7): it samples transforms and two numbers CameraModeSwitch publishes. It does
     // not rebuild, re-stamp, force a poll, teleport the player, or write anything the camera reads.
-    [Tooltip("QA (1jv): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Read-only by rule 7: samples transforms and reads two published floats, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
+    [Tooltip("QA (1jv, extended 1ks): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Section C-hitters (1ks) NAMES the collider each clamped frame was clamped by, from CameraModeSwitch's own cast, with the nearest distance - a name whose nearest distance sits at the ~0.8 m pad floor is a start-overlap (geometry glued to the player's back), which is the 'zoom up to behind the head' signature; a name at several metres is a real obstruction behind the player. Read-only by rule 7: samples transforms and reads published values, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
     public bool EnableBoomAudit = true;
     [Tooltip("QA (1jv): key that reports the third-person camera boom readout. Numpad2, chosen the way F13's / Numpad1's / Numpad8's were - by grepping all three Input System spellings ('Key.Numpad2', '.numpad2Key', '[Key.Numpad2]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jv: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 is this lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene. Numpad0 and Numpad3-Numpad9 are the free Numpads (this lane took Numpad2; the trail tooltip's older 'Numpad2-Numpad9 are free' was corrected in place in the same commit). See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
     public Key BoomAuditKey = Key.Numpad2;
@@ -164,6 +164,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private readonly float[] _boomApplied = new float[BoomWindow];
     private readonly bool[] _boomClamped = new bool[BoomWindow];
     private readonly float[] _boomYaw = new float[BoomWindow];
+    // 1ks: the hitter recorded per frame, from CameraModeSwitch's own cast (never re-derived here).
+    // Only meaningful on a clamped frame; the snapshot tallies these to name the clamp's mechanism.
+    private readonly string[] _boomHitName = new string[BoomWindow];
+    private readonly int[] _boomHitLayer = new int[BoomWindow];
+    private readonly float[] _boomHitDist = new float[BoomWindow];
     private Vector3 _boomLastPivot;
     private bool _boomSeen;
     private PlayerController _boomOwner;
@@ -2090,6 +2095,9 @@ private static string Describe(in SpellLook look)
           // Clamped = the boom itself was shortened by the collision SphereCast, by more than float
           // noise. Compared against the boom's OWN published rest length, not a magic constant.
           _boomClamped[_boomHead] = mode.BoomAppliedLength < mode.BoomRestLength - 0.01f;
+          _boomHitName[_boomHead] = mode.BoomLastHitName;
+          _boomHitLayer[_boomHead] = mode.BoomLastHitLayer;
+          _boomHitDist[_boomHead] = mode.BoomLastHitDistance;
           _boomHead = (_boomHead + 1) % BoomWindow;
           if (_boomFilled < BoomWindow) _boomFilled++;
       }
@@ -2177,6 +2185,42 @@ private static string Describe(in SpellLook look)
             .Append(" .. ").Append(appMax.ToString("0.00")).Append(" m, clamped on ")
             .Append(clampedFrames).Append('/').Append(_boomFilled).Append(" frames");
 
+          // 1ks: NAME the clamp's mechanism. A clamped frame's _cachedFinalDist came from a cast whose
+          // hit CameraModeSwitch published; tally those hits so the clamp count becomes a who, not a
+          // how many. Read-only: values are the source's own, recorded by TrackBoomFrame, never
+          // re-derived here. Printed as "name (layer) xN", most frequent first, up to four distinct
+          // hitters; a start-overlap shows a distance at the pad floor, the "behind the head" pinch.
+          if (clampedFrames > 0)
+          {
+              var hitCount = new Dictionary<string, int>();
+              var hitLayer = new Dictionary<string, int>();
+              var hitNear = new Dictionary<string, float>();
+              for (int n = 0; n < _boomFilled; n++)
+              {
+                  int i = (start + n) % BoomWindow;
+                  if (!_boomClamped[i]) continue;
+                  string nm = _boomHitName[i] ?? "(no hit recorded)";
+                  hitCount.TryGetValue(nm, out int c);
+                  hitCount[nm] = c + 1;
+                  hitLayer[nm] = _boomHitLayer[i];
+                  float d = _boomHitDist[i];
+                  if (!hitNear.TryGetValue(nm, out float dn) || d < dn) hitNear[nm] = d;
+              }
+              var ordered = new List<KeyValuePair<string, int>>(hitCount);
+              ordered.Sort((a, b) => b.Value.CompareTo(a.Value));
+              sb.Append("\n  C-hitters (clamped frames): ");
+              int shown = 0;
+              foreach (var kv in ordered)
+              {
+                  if (shown == 4) { sb.Append(", ..."); break; }
+                  if (shown > 0) sb.Append(", ");
+                  sb.Append('"').Append(kv.Key).Append("\" L").Append(hitLayer[kv.Key])
+                    .Append(" x").Append(kv.Value).Append(" nearest ")
+                    .Append(hitNear[kv.Key].ToString("0.00")).Append(" m");
+                  shown++;
+              }
+          }
+
           // The verdict. Each branch states the EVIDENCE it fired on, not a vibe about the numbers.
           if (movingFrames < _boomFilled * 0.25f)
           {
@@ -2189,6 +2233,8 @@ private static string Describe(in SpellLook look)
                 .Append(clampedFrames).Append(" frames, so the camera really is being pulled in and");
               sb.Append("\n    pushed out by terrain or props - not the smoother. 1ju makes this visible in the");
               sb.Append("\n    AIM on the same frame, because the aim now reads the unclamped boom position.");
+              sb.Append("\n    See C-hitters for the OBJECT that fires it (1ks): a name there with a");
+              sb.Append("\n    nearest distance at ~0.8 m is the start-overlap pinch, not a real wall.");
           }
           else if (distRange > 0.35f && yawTotal < 5f)
           {

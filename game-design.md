@@ -3336,6 +3336,15 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     camera in (correct cinematography, matches pre-1ko level gaze); masking out all dynamic bodies (pet/NPCs) was the
     user's unselected option.
 
+- **The boom lane now NAMES its clamp's mechanism (1ks).** After 1kr the user reported the pinch "still, everywhere",
+  so the open question was no longer *whether* the `SphereCast` clamps but *what* it hits. The Numpad2 lane previously
+  reported only a clamped-frame count. `CameraModeSwitch` now publishes `BoomLastHitName` / `BoomLastHitLayer` /
+  `BoomLastHitDistance` from the SAME cast that sets `_cachedFinalDist` (read-only; nothing reads them back), and the
+  lane tallies them per clamped frame and prints `C-hitters` ("name" L<layer> xN, nearest D m). A hitter whose nearest
+  distance sits at the ~0.8 m pad floor is a start-overlap (geometry glued to the player's back) — the "zoom up to
+  behind the head" signature — while a name at several metres is a real obstruction behind the player. This is
+  rule 7's measurement, shipped BEFORE the fix so the readout that justifies it stays in history.
+
 - **The boom's distance is measured before anything is fixed (1jv).** Reported as "the camera is
     continuously bugging when moving" and "snaps in and out / zooms, everywhere even on flat open
     ground". Two mechanisms were derivable and needed different fixes, and the first hypothesis — the

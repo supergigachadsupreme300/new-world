@@ -65,6 +65,27 @@ public sealed class CameraModeSwitch : MonoBehaviour
     /// moved) from "the camera is trailing past the boom's end" (this held).</summary>
     public float BoomAppliedLength { get; private set; }
 
+    /// <summary>1ks (QA, read-only): the NAME of the collider the LAST boom cast hit, or null when
+    /// that cast missed. Published from the same <c>SphereCast</c> that sets <c>_cachedFinalDist</c>, so
+    /// the Numpad2 boom lane can name the object that shortens the boom instead of only reporting that
+    /// a clamp happened. The clamp's mechanism has been the open question since 1ko - four fixes were
+    /// chosen without ever seeing which collider fires - so the AUDIT must name it. Updated only on a
+    /// re-cast (~10 Hz / 8 deg turn), i.e. it describes the cast the current <c>_cachedFinalDist</c>
+    /// came from; between casts it is the last cast's result, which is exactly the value that still
+    /// owns the clamp. Read-only: nothing reads it back to change behaviour.</summary>
+    public string BoomLastHitName { get; private set; }
+
+    /// <summary>1ks (QA, read-only): layer index of <see cref="BoomLastHitName"/>, or -1 when the last
+    /// cast missed. A layer says whether the clamp fired on static world geometry or on a dynamic body
+    /// (pet/NPC/item) without the lane having to interpret a name.</summary>
+    public int BoomLastHitLayer { get; private set; } = -1;
+
+    /// <summary>1ks (QA, read-only): distance from the PIVOT (already pad-corrected) at which
+    /// <see cref="BoomLastHitName"/> was hit, or -1 when the last cast missed. A value at/near
+    /// <c>_boomNearPad</c> is a start-overlap (geometry glued to the player's back), which collapses
+    /// the boom to the floor - the exact "zoom up to behind the head" signature.</summary>
+    public float BoomLastHitDistance { get; private set; } = -1f;
+
     // Perf (§OPT): terrain-collision SphereCast every frame in third person; re-run at ~10 Hz
     // and reuse the cached clamp distance between casts.
     private const float CollisionCheckInterval = 0.1f;
@@ -256,9 +277,22 @@ public sealed class CameraModeSwitch : MonoBehaviour
             float sweepDist = Mathf.Max(targetDist - _boomNearPad, 0f);
             if (Physics.SphereCast(pivotPos + toCam * _boomNearPad, CollisionRadius, toCam,
                     out RaycastHit hit, sweepDist, CollisionMask, QueryTriggerInteraction.Ignore))
+            {
                 _cachedFinalDist = Mathf.Max(hit.distance + _boomNearPad - CollisionRadius, _boomNearPad);
+                // 1ks: name the hitter so the lane's clamp count becomes a mechanism, not a count.
+                BoomLastHitName = hit.collider != null ? hit.collider.name : "(collider null)";
+                BoomLastHitLayer = hit.collider != null ? hit.collider.gameObject.layer : -1;
+                // Pivot-relative, same arithmetic as _cachedFinalDist, so a value at the floor reads
+                // as a start overlap rather than as a far obstruction.
+                BoomLastHitDistance = hit.distance + _boomNearPad;
+            }
             else
+            {
                 _cachedFinalDist = -1f;
+                BoomLastHitName = null;
+                BoomLastHitLayer = -1;
+                BoomLastHitDistance = -1f;
+            }
         }
         if (_cachedFinalDist >= 0f)
             finalDist = Mathf.Min(finalDist, _cachedFinalDist);

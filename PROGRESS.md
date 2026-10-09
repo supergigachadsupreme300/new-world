@@ -1,3 +1,42 @@
+## 1ks. Third-person camera pinch: the Numpad2 lane can now NAME the object that clamps the boom (measurement, rule 7)
+
+The user play-tested 1kr and the pinch is **"still, everywhere"**. Three camera fixes (1kh/1ko/1kq/1kr) were chosen
+from code review without ever seeing which collider the boom's `SphereCast` hits, so the open question is no longer
+*whether* the clamp is the mechanism — 1kr's near-pad already targets the one candidate that was derivable — but
+*what* is being hit. Rule 7: ship the measurement before the fix, as its own task, so the readout that justifies the
+fix stays in history. The existing Numpad2 boom lane reported rest/applied/measured boom lengths and a clamped-frame
+count, i.e. *that* a clamp happened and never *who* fired it.
+
+Change (1ks): `CameraModeSwitch` publishes a read-only last-hit triple set inside the SAME `SphereCast` that assigns
+`_cachedFinalDist` — `BoomLastHitName` (string, null on miss), `BoomLastHitLayer` (int, -1 on miss),
+`BoomLastHitDistance` (pivot-relative, -1 on miss; its arithmetic mirrors `_cachedFinalDist`). `NewWorldTestGround`
+records all three per frame in the boom ring and, in `SnapshotBoomAudit`, tallies the names over the clamped frames
+into a `C-hitters` line (`"name" L<layer> xN nearest D m`, up to four, most frequent first). Read-only: nothing reads
+the triple back; values are `CameraModeSwitch`'s own, recorded by `TrackBoomFrame`, never re-derived in the lane.
+
+How to read it: a hitter whose `nearest` sits at the ~0.8 m pad floor (`_boomNearPad` ≈ `CharacterController.radius` +
+cast radius + 0.1) is a **start-overlap** — geometry glued to the player's back, the "zoom up to behind the head"
+signature (the pad was sized for the body only, not for held/stowed equipment). A hitter at several metres is a real
+obstruction behind the player and the clamp is correct cinematography. This is a data-only catalog edit in the QA
+sense: it changes no gameplay and moves no counter.
+
+### 1ks-status
+- [x] `CameraModeSwitch`: `BoomLastHitName` / `BoomLastHitLayer` / `BoomLastHitDistance` published from the cast
+      (`CameraModeSwitch.cs`, after `BoomAppliedLength`); set on both the hit and miss branches. `CameraModeSwitch.cs`
+      is outside the `StaticChecks.ps1` `$files` list.
+- [x] `NewWorldTestGround`: `_boomHitName` / `_boomHitLayer` / `_boomHitDist` ring arrays declared beside the existing
+      boom arrays, fed in `TrackBoomFrame`, and tallied into a `C-hitters` line (plus a pointer to it in the
+      `COLLISION CLAMP` verdict). Tooltips for `EnableBoomAudit` extended. Ran
+      `tools\StaticChecks.ps1` -> **0 candidates** (NewWorldTestGround.cs braces 199/199, parens 1332/1332; check 8
+      green for Numpad2).
+- [x] Docs: `game-design.md` camera cluster gained a 1ks bullet; `PROGRESS.md` this entry; `THINKING.md` §1ks (rule 2).
+- [ ] **PLAY-TEST (user, Unity):** in third person, run W forward across the flat bench (and again past a tree / beside
+      the goblin pet) until the pinch happens, then press **Numpad2**. Report the **`C-hitters`** line verbatim: the
+      object name, its layer, the count, and the nearest distance. That line names the mechanism and the next task (1kt)
+      applies the fix to it — likely "ignore the player's own hierarchy / held equipment" if the nearest is at ~0.8 m.
+      If a clamped frame shows `(no hit recorded)`, the pinch is not the cast and the next task investigates the
+      smoother/boom-swing survivors instead.
+
 ## 1kr. "The camera zoom up to behind player head then return" — the collision sweep started inside the player's own body (near-pad fix)
 
 1kq shipped the aim correction alone by the user's choice; the user play-tested and the pinch was still there

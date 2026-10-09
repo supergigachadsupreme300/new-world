@@ -1,3 +1,39 @@
+## 1ks. The camera pinch "still, everywhere" — stop guessing, make the lane name the hitter (MEASUREMENT, OPEN)
+
+After 1kr the user reported the pinch **"still, everywhere"**. 1kh/1ko/1kq/1kr were all chosen from code review, and
+none was ever confirmed against a readout — the Numpad2 lane can say a `SphereCast` clamp happened but not what fired
+it, so every fix has been unfalsifiable by the tool built to falsify it. Rule 7 fixes the order of operations.
+
+**Ruled out (code only, no build):** the player's own `CharacterController` (1kr pads the cast start past it:
+`_boomNearPad` ≈ 0.8 m); the player model (parts carry **no** collider — `MapBuilder.MakePart`,
+`Legacy/MapBuilder/MapBuilder.cs:126` "no collider (the CharacterController owns collision)"); weapons
+(`WeaponModelBuilder` destroys their colliders); pets on flat ground (`GoblinPet.cs:110` / `PetController.cs:28` are
+~0.9 m tall, the boom starts at y ≈ 1.63); a second camera writer (only `CameraModeSwitch` writes the third-person
+transform). That leaves, unmeasured: the player's **held/stowed equipment** if any possessor leaves a collider on it
+(a back-stowed weapon whose collider survives would sit within the boom's rear band on *every* frame — the "everywhere"
+qualifier is exactly what a body-attached collider predicts), and any manual/tool collider parented to the camera
+(`ToolManager.ToolModels.cs:8`).
+
+**H1 (OPEN — a collider glued to the player is inside the padded band).** The 1kr pad was sized for the body
+(`CharacterController.radius + CollisionRadius + 0.1`), not for equipment the player carries. Any collider that
+sticks out past ~0.8 m behind the pivot on the boom axis re-enters the sweep and collapses `_cachedFinalDist` to the
+pad floor → "zoom up to behind the player head, then return". Predicts a cluster on one object name at a nearest
+distance of ~0.8 m.
+
+**H2 (OPEN — a real obstruction behind the player).** Trees/rocks/walls genuinely between the camera and the player
+clamp the boom, which is correct. Predicts names at several metres and no bug. If the user's "everywhere" is on truly
+open flat ground this should not fire — which is itself a finding.
+
+**H3 (OPEN — not the cast at all).** The 1jv survivors (position-smoother trail `v·SmoothTime`, boom swing with yaw)
+remain unmeasured. If clamped frames show `(no hit recorded)`, the pinch is one of these and the next task looks there.
+
+**Decision (1ks shipped):** publish the cast's hit (name / layer / pivot-relative distance) from `CameraModeSwitch`
+and tally it per clamped frame in the lane. The fix (1kt) is deliberately NOT in this commit — it is chosen from the
+`C-hitters` line the user reports, so the readout stays in history (rule 7). A fix chosen before the measurement is a
+guess; four have already been, and 1kr's near-pad was the only one that was even derivable from the source.
+
+STATUS: OPEN — measurement shipped, awaiting the user's `C-hitters` line from a pinch.
+
 ## 1kr. "The camera zoom up to behind player head then return" — the collision sweep starts inside the player's own body (CONFIRMED, near-pad shipped)
 
 The user kept 1kq, play-tested, and the pinch was STILL there — the expected confirmation that the cast path, not
