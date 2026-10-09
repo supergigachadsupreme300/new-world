@@ -1,3 +1,45 @@
+## 1ko. Camera momentary zoom while moving forward (W) — "pressing w to move forward then sometime the camera of player would bug and zoom in/out in a moment"
+
+Reported by the user; the third re-report of the 1jv/1jr camera family. Rule 7's Numpad2 boom-audit
+lane was still never run; the user chose a fix from code analysis over running it, which AGENTS.md
+rule 7 explicitly records as a guess until the readout confirms it. Candidate closed first: **no
+second camera writer** — `CameraModeSwitch` is `AddComponent`ed at runtime
+(`PlayerController.Camera.cs:102`); `ThirdPersonCamera` and `CameraFollow` appear in **zero** scene
+assets (their `.meta` GUIDs have 0 hits in `SampleScene.unity`); `CameraFollow` is disabled in third
+person; `ScreenShake` shakes a child rig, never the follow root. The mechanism chosen from the code:
+
+**The boom's geometry was PITCH-coupled.** `desired = lookTarget + up*Rise - pivot.forward*Distance`
+(Rise = `ThirdPersonY − pivot.localPosition.y` = 1.1 m) reads the pivot's `forward`, which carries
+the mouse pitch. Looking **down** cancels 1.1 m against `Distance·sin(pitch)`: rest length
+`√(Distance² + offset² + Rise²) − 14.3·sinθ` shrinks by up to ~1 m, and past ~9.7° the camera — and
+its `SphereCast` sweep — drops **below the pivot's height**, re-admitting **flat open ground** into
+the cast (1jv's falsification held at level view only). Walking forward while looking down therefore
+clamped and released the boom on terrain at the 10 Hz cast cadence: the momentary zoom. Location:
+`Assets\Scripts\Player\CameraModeSwitch.cs::UpdateThirdPerson`.
+
+Fix (1ko): the boom's geometry is now **yaw-only** — `flatForward` = `pivot.forward` with `y = 0`
+renormalised (safe: the ±60° look clamp and the single `SetLookRotation(0, 0)` cutscene call both
+rule out a vertical forward). Rest length is the constant 6.65 m at every pitch, and the sweep rises
+1.1 m over 6.5 m from the pivot, so flat ground can never clamp at any look angle. The pitch that was
+removed is re-injected into the **view** only: `LookRotation(lookTarget - desired) * _pivot.localRotation`.
+Because LookRotation's right vector is now horizontal and the pivot's world X is the same yawed axis,
+the pitch commutes with the −Rise/Distance bias, so at full boom the view is **exactly** the pre-1ko
+`LookRotation(-up*Rise + pivot.forward*Distance)` at every pitch — framing and mouse-vertical look
+bit-identical, only the boom's *distance* is decoupled. 1ju's aim-from-unlagged-boom and the
+clamp pull-in yaw (`lookTarget` reappearing while clamped) are both preserved. Level-gaze playback
+(right/forward at pitch 0) is also bit-identical, because yaw-only `flatForward == pivot.forward`
+there.
+
+Deliberately NOT changed: the position `SmoothDamp` trail (`lag = v * SmoothTime`, 1jv candidate a)
+and the boom-swing-on-yaw (candidate b) are untouched and remain UNMEASURED — Numpad2 will still name
+them if either is the residual cause; 1ko only eliminates the pitch-every-look-down mechanism.
+
+### 1ko-status
+- [x] `CameraModeSwitch.UpdateThirdPerson` rewritten: yaw-only boom + `_pivot.localRotation` pitch injection; comments updated in-place (1jv/1ju/1jr invariants re-stated against the new geometry).
+- [x] Verified by grep + reread (no build, rule 3): `pivot.forward` now feeds ONLY `flatForward`; `_pivot.localRotation` is written only as `Quaternion.Euler(_pitch, 0, 0)` / identity (`PlayerController.Camera.cs:29,56,78`); `SetLookRotation(0, 0)` is the sole external pitch write and is pitch 0; projectile aim reads the pivot's direction, never the camera position, so it is untouched. `CameraModeSwitch.cs` is outside the `StaticChecks.ps1` `$files` list, so no script run is mandated.
+- [x] Docs: `game-design.md` camera cluster gained a 1ko subsection (rule 2); `AGENTS.md` unchanged.
+- [ ] **PLAY-TEST (user, Unity):** the actual acceptance is the original report — hold W across flat ground while looking dead level, slightly down (grazing the terrain ahead), and fully down; the momentary in/out zoom must be gone in every variant. Then F5 first-person → unchanged; sprint S-walk → no zoom-in; and (1jv/1jr regression) turning while moving must still not zoom. If the zoom persists with the mouse dead level, report the Numpad2 readout verbatim — the smoother-trail and boom-swing candidates are still open and unmeasured.
+
 ## 1kn. Follow-up compile fix: `_look != null` on a `SpellLook` struct — CS0019 in SpellBeam
 
 Follow-up to 1km/1kl (third pasted compile error). `f46fdca` (out-of-order `1kh`: "animation

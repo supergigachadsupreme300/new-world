@@ -3303,6 +3303,24 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     term and the camera yaws toward it — is the same anti-pattern but a different trigger, so it is
     reported rather than bundled.
 
+- **The boom's distance is PITCH-independent (1ko).** The user re-reported the 1jv family as "pressing
+    W to move forward, sometimes the camera zooms in/out in a moment". Analysis: the boom geometry read
+    `pivot.forward`, which carries the mouse pitch, so looking down cancelled the 1.1 m rise against
+    `Distance · sin(pitch)` — rest length `√(6.5² + 0.9² + 1.1² − 14.3·sinθ)` shrank by up to ~1 m and,
+    past ~9.7° of look-down, the camera and its `SphereCast` dropped below the pivot, re-admitting flat
+    ground into the sweep (1jv's flat-ground falsification assumed a level view). Walking forward while
+    looking even slightly down therefore clamped/released the boom on terrain at the 10 Hz cast cadence.
+    Fix: the boom uses `pivot.forward` with `y = 0` (renormalised — unreachable degenerate, pitch is
+    ±60°-clamped and the sole external pitch write is the cutscene `SetLookRotation(0, 0)`), so the
+    sweep always rises 1.1 m over 6.5 m at every pitch and the rest length is the constant 6.65 m; the
+    pitch is re-injected into the **view** only via `LookRotation(lookTarget - desired) * _pivot.localRotation`.
+    Both factors rotate about the same horizontal (yaw-only) axis, so at full boom the view is exactly
+    the pre-1ko `LookRotation(-up · 1.1 + pivot.forward · 6.5)` at every pitch — framing and mouse-vertical
+    look bit-identical, level-gaze playback bit-identical — while 1ju's aim-from-unlagged-boom and the
+    clamp pull-in yaw are preserved. The two 1jv survivors (position-smoother trail `v · SmoothTime`,
+    boom swing with yaw) are deliberately not addressed and remain UNMEASURED: Numpad2 still names them
+    if one is the residual cause.
+
 - **The boom's distance is measured before anything is fixed (1jv).** Reported as "the camera is
     continuously bugging when moving" and "snaps in and out / zooms, everywhere even on flat open
     ground". Two mechanisms were derivable and needed different fixes, and the first hypothesis — the
@@ -3311,6 +3329,8 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     `SphereCast` sweeps along that boom from the pivot, so the ray climbs from ~1.5 m up to ~2.6 m and
     **never descends below the pivot's height** — flat ground cannot be in the sweep; the clamp needs a
     wall or a slope rising ≥ ~1.5 m within the boom's reach. The report's own qualifier excluded it.
+    (Level view only: while the boom carried the mouse pitch the sweep fell below the pivot past ~9.7°
+    of look-down — the 1ko mechanism that later fixes it.)
     The survivors are the position smoother changing the boom's *effective* length with movement
     direction (lag `v * SmoothTime`, see 1ju) and the boom swinging with mouse yaw. A rule-7 read-only
     lane separates them: **Numpad2**, `NewWorldTestGround`

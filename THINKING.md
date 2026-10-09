@@ -1,3 +1,47 @@
+## 1ko. Camera momentary zoom while moving forward — boom geometry was pitch-coupled
+
+CONFIRMED-DERIVED (fix shipped as 1ko, but per rule 7 the acceptance still needs the user's
+play-test; the readout that would have named this mechanism was never captured — the user chose a
+fix from code analysis over running Numpad2).
+
+**H1 (REJECTED — no second camera writer).** Candidate: `ThirdPersonCamera` or `CameraFollow` also
+writes the main camera's transform in third person, two late-updaters fighting → transient zoom.
+Grep + asset-GUID check: `ThirdPersonCamera` has zero code references (only a comment in
+`ScreenShake.cs`) and its `.meta` GUID `c3d8255...` appears in **zero** scene assets; `CameraFollow`
+GUID likewise 0; `CameraModeSwitch` GUID `eba7652e...` 0 too (it is `AddComponent`ed at runtime by
+`SetupPlayerCamera:102`). `CameraFollow` is disabled in third person. `ScreenShake` shakes a child
+rig (`Target`), never the follow root. No writer competition exists.
+
+**H2 (CONFIRMED — the boom length and its collision sweep depended on the mouse pitch).**
+`desired = lookTarget + up·Rise − pivot.forward·Distance` with Rise 1.1 m. `pivot.forward` carries
+the pivot's pitch (written only as `Euler(_pitch, 0, 0)` — `PlayerController.Camera.cs:29,56`), so
+the rest length is `√(6.5² + 0.9² + 1.1² − 14.3·sinθ)` = 6.65 m at level, down to ~5.65 m at the
+60° clamp, and the sweep's Y-below-pivot vanishes past θ ≈ 9.7°: `1.1 − 6.5·sinθ = 0`. Thus 1jv's
+flat-ground falsification ("the sweep never descends below the pivot" − the reason the clamp was
+ruled out) only holds at level view; looking down while walking re-admits flat ground into the cast,
+and the boom clamped/released on terrain at the 10 Hz `CollisionCheckInterval` cadence — a momentary
+zoom, exactly "sometimes, in a moment", triggered by the one direction the player looks while
+walking forward. The two candidates 1jv left open (smoother trail, boom swing with yaw) did not
+match "sometimes" as well: the trail is continuous with speed and the swing needs yaw.
+
+**H3 (fix design — make the boom yaw-only, re-inject pitch into the view).** Two invariants had to
+survive: (a) 1ju's aim-from-the-unlagged-boom (no smoothed position in the view) and (b) the
+documented clamp pull-in yaw (a wall pinning the boom must still swing the view). Decoupling the
+POSITION breaks (a) trivially? No — position decoupling keeps `lookTarget - desired` as the base
+(desired is still the unlagged boom), but the base would then have NO pitch, so the mouse-vertical
+look would die. The pitch must re-enter the view without re-entering the boom. Proof the composition
+is exact: `Quaternion.LookRotation(-up·Rise + flatForward·Distance)` has a horizontal right vector
+(no y in the aim base), so its local X is `R_yaw·X`. `_pivot.localRotation` IS `R_pitch` about the
+player's local X, also `R_yaw·X`. Two rotations about the same axis commute, so
+`R_yaw·R_−Δ·R_pitch == R_yaw·R_pitch·R_−Δ` — the new view equals the old
+`LookRotation(-up·Rise + pivot.forward·Distance)` at full boom for every pitch. `flatForward`
+degenerates only if `|forward.y| == 1`, unreachable under the ±60° clamp and the cutscene's
+`SetLookRotation(0, 0)`.
+
+**Deliberately open (rule 7):** candidates (a) smoother trail `v·SmoothTime` and (b) boom-swing
+remain unmeasured. If the user re-reports with the mouse held level, Numpad2's readout is the next
+move, not another guess.
+
 ## 1kn. SpellBeam CS0019: `_look != null` — SpellLook is a struct, the guard never compiled
 
 CLOSED — third of the pasted-error family (1kl PlayerAnimator namespaces, 1km SpellStorm enum

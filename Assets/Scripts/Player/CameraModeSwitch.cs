@@ -178,9 +178,25 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // it sweeps and a wall beside the player now pulls the camera in - a play-test item.
         Vector3 lookTarget = pivotPos + _pivot.right * ThirdPersonSideOffset;
         // Place the camera behind the character's facing so we see the back, not the front.
+        // 1ko: the boom's GEOMETRY is yaw-only now. It used `_pivot.forward`, so the PIVOT's pitch
+        // tipped the -forward * Distance term down: `up * Rise` (Rise = ThirdPersonY -
+        // pivot.localPosition.y = 1.1 m) cancelled against Distance * sin(pitch) and the rest length
+        // shrank by up to a metre the further the player looked down. Past ~9.7 deg of look-down the
+        // camera - and its collision sweep - dropped BELOW the pivot's height, which re-admitted flat
+        // open ground into the SphereCast (1jv's falsification assumed a level view), so the boom
+        // clamped and released on terrain exactly while walking forward and looking down: the reported
+        // momentary zoom. Stripping the vertical off the forward makes the sweep rise Rise over
+        // Distance from the pivot at EVERY pitch, so 1jv's flat-ground falsification holds for all
+        // pitches, and the rest length is the constant sqrt(Distance^2 + offset^2 + Rise^2) ~ 6.65 m.
+        // Pitch is unrecoverable here only if |forward.y| == 1, which the +-60 deg look clamp and the
+        // single SetLookRotation(0, 0) cutscene call both rule out. The pitch that was removed is
+        // re-injected into the VIEW below, never into the distance.
+        Vector3 flatForward = _pivot.forward;
+        flatForward.y = 0f;
+        flatForward.Normalize();
         Vector3 desired = lookTarget
             + Vector3.up * (ThirdPersonY - _pivot.localPosition.y)
-            - _pivot.forward * ThirdPersonDistance;
+            - flatForward * ThirdPersonDistance;
 
         // Terrain / wall collision: pull the camera forward if it would be inside geometry.
         // The SphereCast runs at ~10 Hz; the cached clamp distance is reused between casts so
@@ -194,9 +210,10 @@ public sealed class CameraModeSwitch : MonoBehaviour
 
         // A cached DISTANCE is only meaningful along the direction it was measured on, and `toCam`
         // is that direction. 1ju: `toCam` changes when the player TURNS only - it is built from
-        // `desired - pivotPos`, and the pivotPos term cancels, so it depends solely on the pivot's
-        // ORIENTATION and the three constants. Strafing is pure translation and leaves it exactly
-        // invariant (an earlier version of this comment claimed otherwise, and was wrong).
+        // `desired - pivotPos`, the pivotPos term cancels, and after 1ko the boom is yaw-only, so
+        // it depends on the pivot's YAW and the three constants (never its pitch, never its
+        // translation). Strafing is pure translation and leaves it exactly invariant (a comment
+        // from before 1ju claimed otherwise, and was wrong).
         // Re-measure whenever the boom has swung more
         // than RecastOnTurnDegrees since the last cast: otherwise a clamp taken "straight back" gets
         // applied to "back and to the left", which reads as the camera randomly zooming in precisely
@@ -233,7 +250,15 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // `lookTarget - desired` has no pivotPos term and no smoothed position in it - so this is
         // byte-identical to the old expression whenever the camera has caught up, and also
         // identical under a collision pull-in, and carries no lag at all when it has not.
-        _camera.transform.rotation = Quaternion.LookRotation(lookTarget - desired);
+        // 1ko: right-multiplying the PIVOT's own local rotation restores the pitch the yaw-only boom
+        // removed. LookRotation's right vector is horizontal (the boom vector now has no y), and the
+        // pivot's WORLD X is the player's yawed X - the SAME axis - so the pitch commutes with the
+        // -Rise/Distance bias above and at full boom this is exactly the pre-1ko
+        // LookRotation(-up * Rise + pivot.forward * Distance) at EVERY pitch: the view pitches with
+        // the mouse exactly as before while the boom's distance no longer does. Under a collision
+        // pull-in the base swings toward the lookTarget just as pre-1ko; the pitch rides along.
+        _camera.transform.rotation =
+            Quaternion.LookRotation(lookTarget - desired) * _pivot.localRotation;
     }
 
     /// <summary>
