@@ -1,3 +1,33 @@
+## 1kl. Follow-up compile fix: `1kg`'s arm-gaits referenced namespaces that don't exist
+
+The user pasted two Unity console errors from `PlayerAnimator.cs`: "`Combat` could not be
+found" and "`WeaponStowAnimator` does not exist". Grep showed why: `4983bc6` (the `1kg` per-weapon
+arm-gaits commit) wrote `Combat.Weapons.CombatController`, `Combat.Weapons.WeaponRigHost` and
+`Animation.WeaponStowAnimator` as if those namespaces existed — but this codebase deploys every
+class in the **global namespace** (only `CountryLife.Helpers` exists, in 2 misc files). There is a
+`Combat/Weapons/` *folder* and an `Animation/` *folder*, which is presumably how the qualifier was
+invented. The same phantom-qualifier pattern sat in two `<see cref="Combat.Skills.SummonedAlly"/>`
+doc comments in `SummonModelBuilder.cs` (CS1574 warnings, same class of defect).
+
+Fix (7 sites in `PlayerAnimator.cs` + 2 crefs): strip the qualifiers — `CombatController`,
+`WeaponRigHost`, `WeaponStowAnimator`, `SummonedAlly` all resolve in the global namespace. Grep
+confirms no other `.cs` references a `Combat.` / `Animation.` namespace and no duplicate type names
+exist to create ambiguity. Unqualified `Animation` would otherwise be ambiguous with
+`UnityEngine.Animation`, which is exactly why the qualifier was there — removal to bare names is
+the fix. `_wstow` stays assigned-but-unread (matching its introduction in 1kg; not a compile error).
+
+Docs: AGENTS.md / game-design.md unchanged (no convention or behaviour change). Id note per rule 8:
+git has pushed task ids 1kf–1kk out of order — HEAD's newest `## 1..` heading in PROGRESS.md was
+`1ke` while commits labelled 1kf…1kk already exist in history — so those ids are left as-is and
+this task takes `1kl`.
+
+### 1kl-status
+- [x] Removed the four phantom `Combat.Weapons.` / `Animation.` qualifiers at 7 sites in `PlayerAnimator.cs` (fields `_cc`/`_wstow`, the two `OnEnable` lookups, both `WeaponRigHost` casts, the `WieldingState` comparison).
+- [x] Fixed the two `Combat.Skills.SummonedAlly` crefs in `SummonModelBuilder.cs` to bare `SummonedAlly`.
+- [x] Grep sweep: 0 remaining `Combat.Weapons.` / `Animation.Weapon` / `Combat.Skills.` references; 3 unique type declarations confirmed.
+- [ ] Play-test (user, Unity): project compiles; walk/run arm-swing scales by held weapon (the 1kg feature), two-hand shares the gait, shield tightens the left arm.
+- [ ] Note: `_wstow` is still read nowhere — flag if that turns out to be a half-finished idea from 1kg, not a field kept for a later task.
+
 ## 1ke. Greatsword two-hand grip: support hand solved onto the hilt; ready-sway restored (testing.md task 1)
 
 The user's item: a two-hander is "held with one hand and casting animation on the other empty

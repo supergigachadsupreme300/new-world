@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// The summon family's bodies: the totem, the following familiar's ground circle, and (since 1je)
-/// the <see cref="Combat.Skills.SummonedAlly"/> combat construct.
+/// the <see cref="SummonedAlly"/> combat construct.
 /// <para>The totem and the circle were extracted verbatim from <c>Magic/Cast/SpellSummon.cs</c> in
 /// <b>1jd</b>. Before that the geometry lived inside the gameplay component, so "summon model"
 /// matched nothing under <c>Models/</c> while the model itself had been shipping the whole time -
@@ -117,7 +117,7 @@ public static class SummonModelBuilder
         public Renderer[] Renderers;
     }
 
-    /// <summary>The combat ally (<see cref="Combat.Skills.SummonedAlly"/>) - a levitating construct.
+    /// <summary>The combat ally (<see cref="SummonedAlly"/>) - a levitating construct.
     /// <para><b>Why it hovers rather than walks.</b> The component moves with
     /// <c>MoveToward</c> + <c>Face</c> and has no animator, no rig and no walk cycle, so a bipedal
     /// skeleton would slide across the ground looking broken. A hovering body reads correctly from

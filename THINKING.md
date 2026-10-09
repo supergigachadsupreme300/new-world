@@ -1,3 +1,37 @@
+## 1kl. PlayerAnimator compile errors: "Combat could not be found" / "weaponStowAnimator does not exist"
+
+CLOSED — error text fully explains the diff; verified by grep + reread (rule 3, no build). Fix
+shipped as `1kl`; nothing left open here (play-test is the only remaining step).
+
+**H1 (CONFIRMED — both errors are phantom NAMESPACE qualifiers, one commit).** The two pasted
+errors are exactly what CS0234/CS0246 print when a name is qualified against a namespace that does
+not exist: `Combat.Weapons.CombatController` ("type or namespace 'Combat' could not be found") and
+`Animation.WeaponStowAnimator` ("does not exist in the namespace 'Animation'"). `git blame` pinned
+all seven offending sites to `4983bc6`, the `1kg` arm-gaits commit. The trap: `Combat/Weapons/` and
+`Animation/` are FOLDERS here, and folder ~ namespace is the most natural thing to assume — but this
+codebase's only namespace declaration is `CountryLife.Helpers` (2 misc files). Every weapon/animation
+class sits in the global namespace. I did NOT check whether `Animation.WeaponStowAnimator` could
+mean "nested type of `UnityEngine.Animation`" — it cannot, `WeaponStowAnimator` is a MonoBehaviour
+declared at file scope in `Assets\Scripts\Animation\WeaponStowAnimator.cs`. The fix is stripping the
+qualifier to the bare type; both bare names are unique (one declaration each across `Assets\Scripts`).
+Wrong alternative rejected: adding `using Combat.Weapons;` etc. would fail, the namespaces don't
+exist — only removing the qualifier is legal.
+
+**H2 (CONFIRMED — same defect family rides in crefs).** The `<see cref="Combat.Skills.SummonedAlly"/>`
+doc comments in `SummonModelBuilder.cs` (2 sites) hit the same phantom namespace; they only warned
+(CS1574) instead of erroring, which is why the sweep turned them up alongside the real errors rather
+than Unity surfacing them. Pattern applied (rule 3: after the second error, sweep for a third):
+grep `Combat\.Weapons\.|Animation\.Weapon|Combat\.Skills\.` across `Assets\Scripts` → exactly the 9
+sites fixed, nothing else references these namespaces.
+
+**Numbering (rule 8).** PROGRESS.md's newest recorded id is `1ke`, but git already carries commits
+labelled 1kf…1kk pushed out of order (no PROGRESS headings for them). Renumbering is off the table
+(rule 1 forbids amends), so this task takes `1kl` and the out-of-order ids are recorded as-is.
+
+**Rejected hypothesis — line endings / encoding.** `.meta`-level suspicion raised by the mixed LF/CRLF
+notice in `git diff --stat`; irrelevant — the diff is the 9 qualifier sites, nothing encoding-shaped,
+and the errors are C# resolution errors not bytes.
+
 ## 1ke. Greatsword two-hand grip: mirroring can't make a contact, and the idle half is the user's own StopSway (testing.md task 1)
 
 OPEN until the play-test confirms (a) the grip reads as two hands ON the hilt in idle and during

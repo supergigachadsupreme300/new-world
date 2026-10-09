@@ -129,8 +129,8 @@ public sealed class PlayerAnimator : MonoBehaviour
             { "throwing_hammer",  new ArmGait { SwingScale = 0.90f, ElbowScale = 0.85f, CrossScale = 0.90f } },
         };
     private readonly ArmGait _defaultArmGait = new ArmGait { SwingScale = 0.9f, ElbowScale = 0.85f, CrossScale = 0.9f };
-    private Combat.Weapons.CombatController _cc;
-    private Animation.WeaponStowAnimator _wstow;
+    private CombatController _cc;
+    private WeaponStowAnimator _wstow;
 
     /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
     public void AcquireArms()
@@ -183,8 +183,8 @@ public sealed class PlayerAnimator : MonoBehaviour
         // burst into the _phase integrator, so the seed is what keeps frame 1 honest.
         _lastRootPos = transform.position;
         _speedH = 0f;
-        _cc = GetComponentInParent<Combat.Weapons.CombatController>();
-        _wstow = GetComponentInParent<Animation.WeaponStowAnimator>();
+        _cc = GetComponentInParent<CombatController>();
+        _wstow = GetComponentInParent<WeaponStowAnimator>();
     }
 
     private void LateUpdate()
@@ -324,11 +324,11 @@ public sealed class PlayerAnimator : MonoBehaviour
             if (_cc != null)
             {
                 // Get weapon ids from rigs if available (read via WeaponRigHost)
-                var lhost = _cc.LeftHand != null ? _cc.LeftHand.GetComponent<Combat.Weapons.WeaponRigHost>() : null;
-                var rhost = _cc.RightHand != null ? _cc.RightHand.GetComponent<Combat.Weapons.WeaponRigHost>() : null;
+                var lhost = _cc.LeftHand != null ? _cc.LeftHand.GetComponent<WeaponRigHost>() : null;
+                var rhost = _cc.RightHand != null ? _cc.RightHand.GetComponent<WeaponRigHost>() : null;
                 lid = lhost != null && lhost.Data != null ? lhost.Data.id : null;
                 rid = rhost != null && rhost.Data != null ? rhost.Data.id : null;
-                if (_cc.Wielding == Combat.Weapons.CombatController.WieldingState.TwoHand)
+                if (_cc.Wielding == CombatController.WieldingState.TwoHand)
                 {
                     string twoId = rid ?? lid;
                     if (!string.IsNullOrEmpty(twoId) && _armGaits.TryGetValue(twoId, out var tg)) { gL = tg; gR = tg; }
