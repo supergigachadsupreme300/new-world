@@ -1396,7 +1396,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   0.46→0.40 female; seated 0.38→0.34; sit `Torso` 0.42/0.46→0.37/0.40, `Chest` 0.44→0.39) and the
   whole model runs +8% (`PlayerModelScale = 1.08f`) on every root's `localScale`/position — feet are
   re-planted with the same factor in `ApplyRaceLook`. Hitbox unchanged (CharacterController / `RaceRig`
-  own collision; the +8% is visual only).
+  own collision; the +8% is visual only). *Torso sizes superseded by 1ku.*
 - **Faceted ball joints at limb pivots (1dy)**: a plain faceted `"Joint"`-profile sphere sits at each
   shoulder / elbow / hip / knee pivot (`JShoulder`/`JElbow`/`JHip`/`JKnee`, so no animator/weapon name
   collisions). It rotates with the pivot, inherits race-ratio pivot scaling, and is colored to match
@@ -1447,6 +1447,17 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   Waist taper + shoulder slope both ride the finer 8-band (9-row) torso lattice (`bands = 8` local to
   BuildTorso — other parts still share the 7-band ellipsoid grid). Height still spans y ±0.5 so
   `size.y` scales it exactly like the old cube/ellipsoid.
+- **Uniform, fuller torso (1ku)**: the gender size split is gone — one shape per stance. Standing `Body`
+  0.46×0.90×0.34 @ center 0.13 (spans torso-local [−0.32, 0.58]); seated `Body` 0.36×0.68×0.30 @ 0.25
+  (spans [−0.09, 0.59]); sit `Torso` 0.42×0.40×0.30 (was `female ? 0.37 : 0.40` tall) + `Chest`
+  0.41×0.32×0.28. The shared `BuildTorso` silhouettes (W/dB lattice, 1e8 crown/dome) are untouched —
+  only each instance's `size` moved, so the pivot-reach arithmetic above shifts with it: standing
+  shoulder pivots t≈0.78 → 0.74 on W 0.68 → world **0.313** (both genders), the ±0.28 ball still caps
+  ~3 cm; seated pivots t≈0.87 → 0.82 on W~0.62 → world ~0.223; sit `Chest` shoulders t≈0.44 on W 0.64 →
+  world **0.262**. The raised crown (standing top 0.53 → 0.58) reaches the head base but is narrower
+  than the head there → hidden, no poke. Female geometry (skirt + hem, hair band / back / ponytails) is
+  KEPT — the WIP's temporary `if (false)` scaffolding was reverted (gender is a live feature behind the
+  `SelectGender` UI). Sizes supersede the 1e4/1e8 and 1dy figures in this section.
 - **Torso silhouette actually renders (1e7 routing fix, 1e8 closes the crown band)**: `BuildEllipsoid`
   remapped the three torso ids (`"Body"`/`"SitTorso"`/`"Chest"`) to the plain-ellipsoid fallback
   BEFORE `Generate` could reach its `BuildTorso` branch (they are never in `_profiles`), so the 1e2/1e4

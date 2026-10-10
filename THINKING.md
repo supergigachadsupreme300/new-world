@@ -1,3 +1,34 @@
+## 1ku. Torso-shape task found in the working tree — bigger, gender-uniform, female look kept (SHIPPED)
+
+The user said "continue yesterday work" and pointed at an UNCOMMITTED `PlayerModelBuilder.cs` edit (no task
+id, untouched by fatigue: `git diff HEAD` showed the only dirty file). The edit changed the standing `Body`
+size and flipped `if (female)` → `if (false)` in four places. Task id: enumerated `^## 1k.` headings — the
+next free id after 1ks is 1ku; **1kt is deliberately skipped** because the 1ks entry already documents "the
+next task (1kt)" as the camera `C-hitters` fix, and rule 8 forbids renumbering.
+
+**H1 (kept) — the female blocks are scaffolding, not a feature removal.** The user confirmed to keep the
+female look: female is a live feature behind `UIManager.MainMenu.SelectGender` (grep: 36 files reference
+`PlayerGender`/`ActiveGender`; `SaveManager` persists it). Deleting the skirt/hair would have shipped a
+gender that looks identical to male — a silent feature loss. Decision: revert all four `if (false)` to
+`if (female)`.
+
+**H2 (confirmed) — the intent is a uniform, bigger torso, not a numeric accident.** `(0.46, 0.90, 0.34)` is
+±: width +4.5% (0.44 → 0.46), height +12.5% (0.80 → 0.90), depth +6.25% (0.32 → 0.34). The proportions
+look hand-picked. User confirmed "uniform + keep size" and approved proportional seated/sit.
+Seated `(0.34,0.60,0.28)` → `(0.36,0.68,0.30)`; sit `Torso` → `(0.42,0.40,0.30)` (was `female?0.37:0.40`
+tall), `Chest` → `(0.41,0.32,0.28)`. All `MakePart` sizes — no mesh or pivot change.
+
+**H3 (verified by reread — clearance).** The `"Body"`/`"SitTorso"`/`"Chest"` silhouettes are cached,
+size-independent meshes; only `localScale` moved. Pivots/neck/head are FIXED torso-local positions, so I
+re-derived the spans: standing top 0.53 → 0.58 (crown now touches the head base, but head half-width 0.133
+> crown 0.092 → hidden); shoulder shelf `0.68·0.46 = 0.313` still ≥ ball 0.28 (caps stay). Female skirt
+half-depth 0.15 vs new body half-depth ~0.156 → ~6 mm sliver to look for in play-test. Seated crown still
+< seated neck radius.
+
+Verdict: shipped as 1ku. Verification: grep + reread + brace 22/22 + StaticChecks 0 candidates (incidental
+— the file is outside the script's `$files` list). No build, per rule 3. Play-test items listed in the
+1ku-status block.
+
 ## 1ks. The camera pinch "still, everywhere" — stop guessing, make the lane name the hitter (MEASUREMENT, OPEN)
 
 After 1kr the user reported the pinch **"still, everywhere"**. 1kh/1ko/1kq/1kr were all chosen from code review, and

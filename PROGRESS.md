@@ -1,3 +1,45 @@
+## 1ku. Full-bodied gender-uniform player torso — restore the female look, bigger torso on all three stances
+
+Continuation of a WIP found in the working tree: `PlayerModelBuilder.cs` was edited (a torso-shape
+experiment) but never committed, no task id. User direction: **keep the female look**, and make the torso
+bigger AND gender-uniform on standing / seated / sit. (Id note: 1kt stays RESERVED for the 1ks camera
+`C-hitters` fix the 1ks entry documents — this unrelated task takes 1ku, rule 8.)
+
+- Standing: `Body` `(female ? 0.40 : 0.44, 0.80, 0.32)` → **0.46 × 0.90 × 0.34** (gender split removed).
+- Seated: `Body` `(0.34, 0.60, 0.28)` → **0.36 × 0.68 × 0.30** (proportional to the standing change).
+- Sit: `Torso` `(female ? 0.37 : 0.40, 0.36, 0.28)` → **0.42 × 0.40 × 0.30** (uniform); `Chest`
+  `(0.39, 0.28, 0.26)` → **0.41 × 0.32 × 0.28**.
+- Female geometry (skirt + hem, hair back/band + ponytails) RESTORED: the WIP's four `if (false)` blocks
+  revert to `if (female)` — gender is a live feature (`UIManager.MainMenu.SelectGender` →
+  `MapBuilder.ActiveGender`), so a female player must keep skirt/side-hair.
+
+Clearance re-check (grep + reread, rule 3 — no build): the `BuildTorso` silhouettes (W/dB lattice) are
+size-independent and unchanged; pivots/head/neck are fixed torso-local positions, so only spans move.
+- Standing shoulder shelf: `0.68 · 0.46 = 0.313` ≥ ball ±0.28 → ~3 cm cap (intended "visible cap").
+- Seated shoulders at t≈0.82 on W~0.62 → world ~0.223 vs ball ±0.24 → ~1.7 cm cap.
+- Sit `Chest` shoulders at t≈0.44 on W 0.64 → world 0.262 vs ball ±0.25 → ~1 cm cap.
+- Raised crown (standing top 0.53 → 0.58) reaches the head base but is hidden inside it (head half-width
+  0.133 > crown 0.092) — no poke through the chin.
+- Standing female skirt half-depth 0.15 vs body half-depth ~0.156 → ~6 mm sliver at the depth max — flag
+  for play-test.
+
+### 1ku-status
+- [x] `PlayerModelBuilder.cs`: standing uniform 0.46/0.90/0.34; seated 0.36/0.68/0.30; sit `Torso`
+      0.42/0.40/0.30 + `Chest` 0.41/0.32/0.28; all four `if (false)` scaffolding blocks → `if (female)`.
+- [x] Verified by grep + reread (no build, rule 3): no `if (false)` remains; the three size literals are
+      the only consumers of the `"Body"`/`"SitTorso"`/`"Chest"` profiles (grep = 3 hits, all here);
+      braces 22/22, parens untouched by the literal-only edit. `PlayerModelBuilder.cs` sits OUTSIDE the
+      `StaticChecks.ps1` `$files` list, so its mandatory coverage is grep + reread; the run still passed
+      **0 candidates** on the tracked set.
+- [x] Docs: `game-design.md` §3.5 gained a 1ku bullet + a supersede note on the 1dy sizes; `PROGRESS.md`
+      this entry; `THINKING.md` §1ku (rule 2).
+- [ ] **PLAY-TEST (user, Unity):** standing male + female read as ONE fuller torso (no gender size split);
+      shoulder balls still cap out of the 1e8 dome; seated/sit ~8–12% bigger with car-cutscene / chair
+      fits not clipping (`PlayerModelScale` is the one-line revert if they do); female skirt still covers
+      the pelvis on all three stances; standing crown shows nothing through the head/chin; first-person
+      arms / hands / weapons (layer 7) unaffected.
+- [ ] The 1kt camera fix remains OPEN, awaiting the 1ks `C-hitters` play-test readout.
+
 ## 1ks. Third-person camera pinch: the Numpad2 lane can now NAME the object that clamps the boom (measurement, rule 7)
 
 The user play-tested 1kr and the pinch is **"still, everywhere"**. Three camera fixes (1kh/1ko/1kq/1kr) were chosen
