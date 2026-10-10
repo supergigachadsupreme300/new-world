@@ -32,8 +32,10 @@ public sealed class CameraModeSwitch : MonoBehaviour
     public float ThirdPersonY = 2.6f;
     [Tooltip("Lateral offset of the third-person camera in metres. Positive = to the player's RIGHT, negative = to the LEFT, 0 = the pre-1jl centred look. Added as pivot.right * this to BOTH the camera position and the look-at point, so the view direction is unchanged and the character sits off-centre (over the shoulder). Offsetting only the position would not move the character on screen: the camera would just rotate to keep re-centring it. First person is unaffected - it orbits the pivot with no offset. This moves FRAMING only: nothing that flies is derived from the camera's position (the projectile aim is a direction off the look pivot, see SpellCaster.StraightFlightDirection), so raising it cannot bend a shot.")]
     public float ThirdPersonSideOffset = 0.9f;
-    [Tooltip("Position smoothing seconds for the third-person camera. 1ju: this now affects POSITION only - the view direction is derived from the unlagged boom position, so smoothing can no longer steer the camera's aim. 1kx: the smoothed offset's LENGTH is capped at the boom's rest length each frame, so this eases how the camera swings but can no longer lengthen the boom while the player walks away from it (the forward zoom-out). Raising it makes the follow/swing heavier without turning the view or zooming.")]
+    [Tooltip("Position smoothing seconds for the third-person camera. 1ju: this now affects POSITION only - the view direction is derived from the unlagged boom position, so smoothing can no longer steer the camera's aim. 1kx: the smoothed offset's LENGTH is capped at the boom's rest length each frame, so this eases how the camera swings but can no longer lengthen the boom while the player walks away from it (the forward zoom-out). 1kz: Time.deltaTime fed to the smoother is clamped so a large hitch cannot produce a single-frame catch-up jump; collision and aim remain unaffected. Raising it makes the follow/swing heavier without turning the view or zooming.")]
     public float SmoothTime = 0.15f;
+    [Tooltip("Maximum deltaTime (s) used by the position smoother. Prevents hitch frames from creating a huge one-frame catch-up (1kz). 0.033 ≈ 30 fps.")]
+    public float MaxFollowDeltaTime = 0.033f;
 
     [Header("Collision")]
     [Tooltip("Layers the third-person camera should be pushed out of (terrain/walls).")]
@@ -302,25 +304,17 @@ public sealed class CameraModeSwitch : MonoBehaviour
         desired = pivotPos + toCam * finalDist;
 
         Vector3 smoothedPos = Vector3.SmoothDamp(
-            _camera.transform.position, desired, ref _velocity, SmoothTime);
-        // 1kx: cap the follow lag's LENGTH. The position smoother trails the camera BEHIND the
-        // boom's end while the player moves AWAY from it, so at walk/sprint the camera sat
-        // v * SmoothTime past the rest boom - 0.75 m at 5 m/s, 1.5 m at 10 m/s (1jv candidate a).
-        // That reads as a zoom-out and it is largest moving FORWARD: the lag is horizontal and the
-        // boom is nearly horizontal, so it adds almost the full lag to the pivot distance
-        // (~0.99 * 0.75 m = 0.74 m), whereas strafing trails sideways and adds only ~0.14 m (the
-        // Pythagoras term), and moving BACKWARD trails SHORT of the end - the mirror case, a
-        // zoom-in. That direction split is the report's own discriminator ("only when moving
-        // forward, not backward or the sides"). The DIRECTION is still eased, but the camera may
-        // never sit farther from the pivot than the boom's own rest length `targetDist`: the rest
-        // boom is the true maximum, the collision clamp only ever makes it shorter
-        // (finalDist <= targetDist), and a distance ABOVE rest can only be the trail. So this
-        // removes the movement zoom without touching the collision pull-in or the smoothed swing.
-        Vector3 camOffset = smoothedPos - pivotPos;
-        float camLen = camOffset.magnitude;
-        if (camLen > targetDist && camLen > 1e-4f)
-            smoothedPos = pivotPos + camOffset * (targetDist / camLen);
-        _camera.transform.position = smoothedPos;
+            _camera.transform.position, desired, ref _velocity, SmoothTime,
+            Mathf.Infinity, Time.deltaTime);
+        // 1kz: clamp deltaTime fed to the follow smoother. On a hitch (large Time.deltaTime),
+        // SmoothDamp computes a very large catch-up in a single frame, which can make the camera
+        // jump past the intended boom length before the 1kx length cap or produce an excursion on
+        // that frame. Capping dt to a reasonable follow rate (30 fps) prevents the frame-pinned
+        // zoom while keeping the easing direction the same; collision and aim are unaffected.
+        float followDt = Mathf.Min(Time.deltaTime, MaxFollowDeltaTime);
+        Vector3 smoothedPos = Vector3.SmoothDamp(
+            _camera.transform.position, desired, ref _velocity, SmoothTime,
+            Mathf.Infinity, followDt);
         // 1ju: aim from `desired`, NOT from the smoothed position. SmoothDamp leaves the camera
         // trailing the player, and a strafe is the one ordinary motion that puts a LATERAL
         // component in that trail - running forward trails along the view axis (pitch only),
