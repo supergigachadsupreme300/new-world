@@ -146,7 +146,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     //
     // READ-ONLY (rule 7): it samples transforms and two numbers CameraModeSwitch publishes. It does
     // not rebuild, re-stamp, force a poll, teleport the player, or write anything the camera reads.
-    [Tooltip("QA (1jv, extended 1ks): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Section C-hitters (1ks) NAMES the collider each clamped frame was clamped by, from CameraModeSwitch's own cast, with the nearest distance - a name whose nearest distance sits at the ~0.8 m pad floor is a start-overlap (geometry glued to the player's back), which is the 'zoom up to behind the head' signature; a name at several metres is a real obstruction behind the player. Read-only by rule 7: samples transforms and reads published values, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
+    [Tooltip("QA (1jv, extended 1ks): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Section C-hitters (1ks) NAMES the collider each clamped frame was clamped by, from CameraModeSwitch's own cast, with the nearest distance - a name whose nearest distance sits at the ~0.8 m pad floor is a start-overlap (geometry glued to the player's back), which is the 'zoom up to behind the head' signature; a name at several metres is a real obstruction behind the player. Section C-pitch (1kw) answers a SECOND report on the same camera - 'the camera rises and lowers when the player looks up/down' - by measuring, over the same window, the look pitch, the camera's height above the pivot (a range that moves = a real BODY climb; a held range = pitch-invariant position) and the pivot's viewport Y (the character sliding out of centre = the FRAME sliding while the view tracks the look). Read-only by rule 7: samples transforms and reads published values, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
     public bool EnableBoomAudit = true;
     [Tooltip("QA (1jv): key that reports the third-person camera boom readout. Numpad2, chosen the way F13's / Numpad1's / Numpad8's were - by grepping all three Input System spellings ('Key.Numpad2', '.numpad2Key', '[Key.Numpad2]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jv: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 is this lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene. Numpad0 and Numpad3-Numpad9 are the free Numpads (this lane took Numpad2; the trail tooltip's older 'Numpad2-Numpad9 are free' was corrected in place in the same commit). See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
     public Key BoomAuditKey = Key.Numpad2;
@@ -169,6 +169,18 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private readonly string[] _boomHitName = new string[BoomWindow];
     private readonly int[] _boomHitLayer = new int[BoomWindow];
     private readonly float[] _boomHitDist = new float[BoomWindow];
+    // 1kw: pitch-climb probe for the same window. The user reports "the camera rises and lowers when
+    // the player looks up/down"; the code provably keeps the BODY height pitch-invariant (desired.y
+    // is pivot.y + (ThirdPersonY - pivot.localPosition.y), a constant - see CameraModeSwitch), so the
+    // measurement must separate "the camera BODY climbed" (real position coupling, height range moves)
+    // from "the FRAME slid" (the character left centre-frame while the view tracked the look, 1kq). 
+    // Three read-only samples per frame: look pitch deg (+ = down, PlayerController.LookPitch), the
+    // camera's height above the pivot (constant 1.10 m when nothing clamps/trails), and the pivot's
+    // viewport Y (0.50 = character centred, the "does the character stay put" figure). Nothing writes
+    // back; the snapshot reports the range of each over the same window as the boom numbers.
+    private readonly float[] _boomPitch = new float[BoomWindow];
+    private readonly float[] _boomCamH = new float[BoomWindow];
+    private readonly float[] _boomPivSy = new float[BoomWindow];
     private Vector3 _boomLastPivot;
     private bool _boomSeen;
     private PlayerController _boomOwner;
@@ -2098,6 +2110,12 @@ private static string Describe(in SpellLook look)
           _boomHitName[_boomHead] = mode.BoomLastHitName;
           _boomHitLayer[_boomHead] = mode.BoomLastHitLayer;
           _boomHitDist[_boomHead] = mode.BoomLastHitDistance;
+          // 1kw: pitch-climb samples. All three are read-only; the snapshot reports their RANGE over
+          // the window so one Numpad2 press after "aim up, aim down, move" separates a body climb
+          // (camH moves) from a frame slide (pivot's viewport Y moves, camH holds).
+          _boomPitch[_boomHead] = ctrl.LookPitch;
+          _boomCamH[_boomHead] = cam.transform.position.y - pp.y;
+          _boomPivSy[_boomHead] = cam.WorldToViewportPoint(pp).y;
           _boomHead = (_boomHead + 1) % BoomWindow;
           if (_boomFilled < BoomWindow) _boomFilled++;
       }
@@ -2142,6 +2160,9 @@ private static string Describe(in SpellLook look)
           float dMin = float.MaxValue, dMax = 0f, peakStep = 0f;
           float restMin = float.MaxValue, restMax = 0f;
           float appMin = float.MaxValue, appMax = 0f;
+          float pitchMin = float.MaxValue, pitchMax = float.MinValue;
+          float hMin = float.MaxValue, hMax = float.MinValue;
+          float syMin = float.MaxValue, syMax = float.MinValue;
           float peakSpeed = 0f, movingFrames = 0f;
           int clampedFrames = 0, restMoving = 0;
           float prevD = 0f, prevYaw = 0f, yawTotal = 0f;
@@ -2157,6 +2178,16 @@ private static string Describe(in SpellLook look)
               if (r > restMax) restMax = r;
               if (a < appMin) appMin = a;
               if (a > appMax) appMax = a;
+              // 1kw: the pitch-climb ranges ride the same walk.
+              float p = _boomPitch[i];
+              if (p < pitchMin) pitchMin = p;
+              if (p > pitchMax) pitchMax = p;
+              float h = _boomCamH[i];
+              if (h < hMin) hMin = h;
+              if (h > hMax) hMax = h;
+              float sy = _boomPivSy[i];
+              if (sy < syMin) syMin = sy;
+              if (sy > syMax) syMax = sy;
               if (_boomClamped[i]) clampedFrames++;
               // A frame counts as "moving" on a threshold well above transform noise, so a standing
               // player cannot manufacture a finding (rule 7: gate the classifier on its own width).
@@ -2219,6 +2250,44 @@ private static string Describe(in SpellLook look)
                     .Append(hitNear[kv.Key].ToString("0.00")).Append(" m");
                   shown++;
               }
+          }
+
+          // 1kw: name the pitch-climb mechanism ("camera rises and lowers when the player looks
+          // up/down"). The BODY height is provably pitch-invariant (desired.y = pivot.y + a constant,
+          // 1ko), so a 'climb' can only be a real position coupling the code does not explain, or the
+          // FRAME sliding (the view tracks the look from a virtual pitched base - 1kq - so the
+          // character leaves centre-frame while the camera body stays put). The three ranges separate
+          // them; a verdict fires only when the player actually varied the look, gate the classifier
+          // on the width of its own test (rule 7).
+          float pitchRange = pitchMax - pitchMin;
+          float hRange = hMax - hMin;
+          sb.Append("\n  C-pitch (1kw): look ").Append(pitchMin.ToString("0")).Append("..")
+            .Append(pitchMax.ToString("0")).Append(" deg (+ = down), cam-above-pivot ")
+            .Append(hMin.ToString("0.00")).Append("..").Append(hMax.ToString("0.00")).Append(" m (rest 1.10),")
+            .Append(" pivot screen-Y ").Append(syMin.ToString("0.00")).Append("..").Append(syMax.ToString("0.00"))
+            .Append(" (0.50 = centred)");
+          sb.Append("\n        verdict: ");
+          if (pitchRange < 15f)
+          {
+              sb.Append("NOT REPRODUCED - the look changed only ").Append(pitchRange.ToString("0"))
+                .Append(" deg, so nothing here can answer the report. Aim up AND down while walking,")
+                .Append(" then press again.");
+          }
+          else if (hRange <= 0.05f)
+          {
+              sb.Append("BODY DID NOT CLIMB. The camera's height above the pivot held ")
+                .Append(hMin.ToString("0.00")).Append("..").Append(hMax.ToString("0.00")).Append(" m while the look")
+                .Append(" moved ").Append(pitchRange.ToString("0")).Append(" deg, so the camera POSITION is");
+              sb.Append("\n        pitch-invariant (1ko) and the 'rise/lower' is the FRAME: the character slid")
+                .Append(" screen-Y ").Append(syMin.ToString("0.00")).Append("..").Append(syMax.ToString("0.00"))
+                .Append(" (0.50 = centred) while the view tracked the look (1kq).");
+          }
+          else
+          {
+              sb.Append("BODY CLIMBED. Camera height moved ").Append(hRange.ToString("0.00"))
+                .Append(" m (").Append(hMin.ToString("0.00")).Append("..").Append(hMax.ToString("0.00"))
+                .Append(" m) over the window, so a real position coupling exists that the camera code");
+              sb.Append("\n        does not explain - report these numbers and the next task targets that figure.");
           }
 
           // The verdict. Each branch states the EVIDENCE it fired on, not a vibe about the numbers.

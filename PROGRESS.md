@@ -1,3 +1,49 @@
+## 1kw. "The camera rises and lowers when the player looks up/down" — measured before it is fixed (rule 7)
+
+The user asked to fix the third-person camera: **"the camera also rise and lower depend on when player lookup/down"**,
+confirmed by follow-up as third person with the view *physically* climbing/dropping (not merely tilting). Code review
+cannot reproduce that as a position change, so — rule 7 — the measurement ships first, as its own task, and the fix
+follows from the readout instead of from a guess (the four earlier camera fixes 1kh/1ko/1kq/1kr were each chosen
+without ever seeing the mechanism).
+
+What the code says (grep + reread, no build): `CameraModeSwitch.UpdateThirdPerson`'s position target is
+`desired = lookTarget + up · (ThirdPersonY − pivot.localPosition.y) − flatForward · 6.5`, and `flatForward` has its
+vertical stripped (1ko) — so `desired.y = pivot.y + 1.1 = playerRoot.y + 2.6` at **every** pitch. The pivot's yaw
+lives on the player root, its pitch only on `CameraPivot.localRotation` (moves no position); `LookPitch`'s only
+consumer outside the camera is the model's torso lean (1e9). `ThirdPersonCamera.cs` is referenced by nothing and
+the scene's `CameraFollow` is overwritten and disabled in third person — no second writer. So the camera BODY
+cannot climb, which leaves two mechanisms the readout separates:
+
+- **BODY CLIMBED** — a real position coupling that code review missed; the height range is the finding.
+- **FRAME SLIDE** — the 1kq view is built from a virtual *pitched* base (`pitchedBoomEnd`) that detaches from the
+  camera's real (yaw-only) position, so the character slides out of centre-frame as the look moves; that reads as
+  the camera climbing while the body never moves.
+
+Change (1kw): the Numpad2 boom lane (`TrackBoomFrame`, read-only) now records three more samples per frame into the
+same 120-frame window — `ctrl.LookPitch` (deg, + = down), `cam.transform.position.y − pivot.y` (rest 1.10 m) and
+`cam.WorldToViewportPoint(pivot.position).y` (0.50 = character centred) — and `SnapshotBoomAudit` prints a
+`C-pitch (1kw)` line with each range plus a verdict gated on a ≥ 15° look movement (a reading with little pitch
+movement says nothing — gate the classifier on the width of its own test). Height range ≤ 0.05 m → `BODY DID NOT
+CLIMB` with the screen-Y slide quoted; height range > 0.05 m → `BODY CLIMBED` with the figure; pitch range < 15° →
+`NOT REPRODUCED`. Same key, same window, same third-person premise gate; no new key binding (check 8 untouched).
+
+### 1kw-status
+- [x] `NewWorldTestGround.cs`: three ring arrays (`_boomPitch` / `_boomCamH` / `_boomPivSy`) declared beside the
+      1ks hitter arrays; fed in `TrackBoomFrame` after the hitter triple; min/max accumulated in
+      `SnapshotBoomAudit`'s existing ring walk; `C-pitch` section + gated verdict printed after `C-hitters`;
+      `EnableBoomAudit` tooltip extended with the 1kw section.
+- [x] Ran `tools\StaticChecks.ps1` -> **0 candidates** (NewWorldTestGround.cs braces 202/202, parens 1397/1397;
+      check 8 green — still 7 lane keys, Numpad2 single-owner, no new key added).
+- [x] Docs: `game-design.md` camera cluster gained a 1kw bullet; `PROGRESS.md` this entry; `THINKING.md` §1kw
+      (rule 2).
+- [ ] **PLAY-TEST (user, Unity):** in third person with `EnableFpsStats` on, walk and AIM UP and DOWN for a
+      couple of seconds, then press **Numpad2**. Report the whole **`C-pitch`** line: the look range, the
+      `cam-above-pivot` range, the `pivot screen-Y` range and the verdict. `BODY DID NOT CLIMB` + a moving
+      screen-Y says the climb is the frame and the fix keeps the character framed; `BODY CLIMBED` gives the
+      position figure the fix targets. The same press also prints the 1ks **`C-hitters`** line for the pinch —
+      capture both in one report if possible. `1kt` stays RESERVED for the pinch fix; the climb fix takes
+      the next free id.
+
 ## 1kv. Trapezium torso — reshape the silhouette (which a resize cannot do) and revert 1ku's sizes
 
 User play-tested 1ku: the torso is **too big**, and its shape "not changed at all". The second half is the
@@ -3464,14 +3510,15 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-08 (1kd). Read this first in a new session; then continue with the
+Last updated: 2026-10-10 (1kw). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded. **1ju is the newest task and is not yet play-tested** - a strafe
-must not yaw the view (1ju), and 1jt's casting-circle placement is still open underneath it.
+for the reasoning it recorded. **Open play-test items (newest first):** 1kw wants the Numpad2
+`C-pitch` line (pitch vs camera-height vs pivot screen-Y) and the 1ks `C-hitters` line for the
+camera; 1kv wants a torso bulk/shape verdict; 1ko/1kq/1kr/1ks all gate on the pinch evidence.
 
 ## 1ik. Frame-budget attribution lane (F2) â€” shipped, NOT verified
 

@@ -29,6 +29,47 @@ Verdict: shipped as 1ku. Verification: grep + reread + brace 22/22 + StaticCheck
 — the file is outside the script's `$files` list). No build, per rule 3. Play-test items listed in the
 1ku-status block.
 
+## 1kw. "The camera rises and lowers when the player looks up/down" — which mechanism? (OPEN — measurement shipped, verdict pending play-test)
+
+**H1 (falsified by reread) — the camera BODY position is pitch-coupled.** The old pre-1ko boom used
+`- _pivot.forward * Distance`, so pitch tipped the position and could drop it below the pivot. Current code
+does not: `flatForward.y = 0; flatForward.Normalize();` (1ko) makes `desired = lookTarget + up·Rise −
+flatForward·6.5` yaw-only, and `desired.y = pivot.y + (ThirdPersonY − pivot.localPosition.y) = pivot.y + 1.1`.
+`pivot` is a child of the player root at (0,1.5,0) (`PlayerController.Camera.cs:77`), its yaw on the root
+(`transform.rotation = Euler(0,_yaw,0)` — lines 20/27/54), its pitch only on `localRotation` (moves no
+position). World camera height = playerRoot.y + 2.6 at every pitch. **Rejected.**
+
+**H2 (falsified) — a second camera writer.** Found `Assets/Scripts/Player/Controller/ThirdPersonCamera.cs` — a
+classic pitch-coupled orbit: `desiredCamPos = pivotPos − rot(_pitch,_yaw)·forward·finalDistance` (its position
+moves with pitch) and an unpadded `SphereCast` from `pivotPos`. But grep: only its own declaration and one
+comment reference it — never attached (scene Main Camera carries only AudioListener/Camera/URP-data/CameraFollow)
+and never AddComponent'd. **Rejected as dead.**
+
+**H3 (falsified) — the scene's CameraFollow rides along.** Scene Main Camera has a serialized `CameraFollow`
+(Target 1560784579, Offset (0,1.5,−4)). But `SetupPlayerCamera` overwrites Target=_cameraPivot, Offset=zero,
+SmoothSpeed=20, and `CameraModeSwitch.ApplyCameraFollow` disables it in third person. **Rejected.**
+
+**H4 (falsified) — LookPitch drives a position.** Only consumer outside the camera: `PlayerAnimator:224` torso
+lean (`lookTilt`), a model animation; it never moves the pivot or root. **Rejected.**
+
+**H5 (kept, is the measurement's target) — the climb is the FRAME, not the body.** The 1kq VIEW is built from a
+virtual pitched base: `viewBoom = pitchedBoomEnd − pivotPos`, `pitchedBoomEnd = lookTarget + up·1.1 −
+pivot.forward·6.5`. The `pivot.forward` carries the pitch, and `pitchedBoomEnd` sits 5.6 m above/below the pivot
+at the ±60° clamp — but the CAMERA still renders from the yaw-only position. So looking up/down rotates the frame
+about a virtual point that is NOT the camera: the character slides out of centre-frame. To a player that reads as
+"the camera climbed". The numbers that discriminate: camera-height-above-pivot range (body, must hold ≈1.10 m) vs
+pivot viewport-Y range (frame, 0.50 = centred, must move with pitch). If the user genuinely reports a position
+climb and the height range MOVES, H5 is wrong and the readout names the real coupling — both outcomes are
+readable from one `C-pitch` line.
+
+**H6 (dead end, recorded) — pinch-as-climb.** A clamp pulls the camera from 1.10 → ~0.13 above the pivot, i.e. a
+positon drop. But the clamp is yaw-only (`toCam` has no pitch), so it cannot fire on look pitch; it stays the 1ks
+`C-hitters` question, not this one.
+
+Verdict (OPEN): 1kw ships the read-only `C-pitch` measurement inside Numpad2 (pitch, cam-height, viewport-Y
+ranges over the same 120-frame window, verdict gated on ≥ 15° of look). The fix is a separate task AFTER the
+readout names the mechanism. No build per rule 3; verification = StaticChecks 0 candidates + grep + reread.
+
 ## 1kv. Trapezium torso — the shape is W·size, so a resize cannot change it (SHIPPED)
 
 **H1 (confirmed) — the shape lives in BuildTorso, not in size.** 1ku "didn't change the shape" because world

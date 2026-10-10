@@ -3368,6 +3368,21 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   behind the head" signature — while a name at several metres is a real obstruction behind the player. This is
   rule 7's measurement, shipped BEFORE the fix so the readout that justifies it stays in history.
 
+- **The camera's rise/lower with look pitch is measured before it is fixed (1kw).** The user's report — "the camera
+  also rise and lower depend on when player lookup/down" (third person, the view *physically* climbing/dropping) —
+  does not reproduce in the position code: `CameraModeSwitch`'s `desired` is `lookTarget + up · (ThirdPersonY −
+  pivot.localPosition.y) − flatForward · ThirdPersonDistance`, and `flatForward` has its vertical stripped (1ko), so
+  camera height = player root + 2.6 m at EVERY pitch; the pivot's yaw sits on the player root and its pitch only on
+  `CameraPivot.localRotation`, which moves no position, and `LookPitch`'s sole consumer outside the camera is the
+  model's torso lean (1e9). The camera BODY therefore cannot climb — so either a position coupling exists that code
+  review did not find (the measurement names it), or the climb is the FRAME: the 1kq view is built from a virtual
+  *pitched* base detached from the camera's real position, so the character slides out of centre-frame as the look
+  moves — which reads as the camera climbing. The Numpad2 lane (same window, same premise gate, read-only) now
+  records look pitch, camera-height-above-pivot (rest 1.10 m) and the pivot's viewport Y, and prints `C-pitch` with
+  a verdict gated on a ≥ 15° look movement: `BODY DID NOT CLIMB` (height held within 0.05 m → the slide is the
+  frame, screen-Y range quoted), `BODY CLIMBED` (height moved → report the figure), or `NOT REPRODUCED`. Rule 7's
+  measurement, shipped before the fix.
+
 - **The boom's distance is measured before anything is fixed (1jv).** Reported as "the camera is
     continuously bugging when moving" and "snaps in and out / zooms, everywhere even on flat open
     ground". Two mechanisms were derivable and needed different fixes, and the first hypothesis — the
