@@ -235,12 +235,27 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // Pitch is unrecoverable here only if |forward.y| == 1, which the +-60 deg look clamp and the
         // single SetLookRotation(0, 0) cutscene call both rule out. The pitch that was removed is
         // re-injected into the VIEW below, never into the distance.
+        // 1kz+: blend vertical offset based on look pitch so camera moves "over head" when looking up
+        // and lower when looking down. Keep yaw-only horizontal boom.
+        float lookPitch = _controller != null ? _controller.LookPitch : 0f;
+        // LookPitch: positive = looking down? check common: in this codebase LookPitch is used as-is
+        // Map: looking up (more negative if typical) or see existing. But blend both ways.
+        float pitchNorm = lookPitch / 60f; // approx clamp range
+        float targetY = Mathf.Lerp(ThirdPersonY, ThirdPersonY + 0.8f, Mathf.Clamp01(-pitchNorm)); // up
+        float targetDist = Mathf.Lerp(ThirdPersonDistance, ThirdPersonDistance * 0.8f, Mathf.Clamp01(-pitchNorm)); // closer when looking up
+        // also allow going slightly lower when looking down
+        if (pitchNorm > 0f)
+        {
+            targetY = Mathf.Lerp(ThirdPersonY, ThirdPersonY - 0.4f, Mathf.Clamp01(pitchNorm));
+            targetDist = Mathf.Lerp(ThirdPersonDistance, ThirdPersonDistance * 1.1f, Mathf.Clamp01(pitchNorm));
+        }
+
         Vector3 flatForward = _pivot.forward;
         flatForward.y = 0f;
         flatForward.Normalize();
         Vector3 desired = lookTarget
-            + Vector3.up * (ThirdPersonY - _pivot.localPosition.y)
-            - flatForward * ThirdPersonDistance;
+            + Vector3.up * (targetY - _pivot.localPosition.y)
+            - flatForward * targetDist;
 
         // Terrain / wall collision: pull the camera forward if it would be inside geometry.
         // The SphereCast runs at ~10 Hz; the cached clamp distance is reused between casts so
