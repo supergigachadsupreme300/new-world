@@ -1,3 +1,43 @@
+## 1ky. The boom lane learned the lag clue and lost the numpad dependency — measurement only (rule 7)
+
+The user's newest discriminator — **"i dont have numpad fam, but it seems to be only happen when the
+game is lagging"** — does two things. It disqualifies the only trigger the 1jv/1ks/1kw measurement had
+(`BoomAuditKey = Numpad2`, and the user owns no numpad), and it names FRAME TIME as the condition the
+readout must record. Both are measurement work, so this task extends the lane and changes no camera
+code (rule 7: measure first, fix as its own task).
+
+Change (read-only, all in `NewWorldTestGround.cs`):
+- `BoomAuditKey` default `Numpad2 -> Key.P` (verified free across all three Input System spellings
+  before the move; the next task only quotes the numbers) and the tooltip's key map updated to say so.
+- A per-sample `_boomDt` column (the frame's `Time.deltaTime` — the exact value the camera's smoother
+  and its 10 Hz recast timer consume, not a re-derivation).
+- A new `D-hitch (1ky)` section and a `FRAME-PINNED (1ky)` verdict: the worst hitch frame of the
+  window, the camera-to-pivot step INTO that frame versus the smooth-frame max step, and whether that
+  frame was a clamp. A verdict fires only when the peak frame's distance step exceeds both 0.05 m and
+  the smooth-frame max + 0.02 m and the frame was not clamped — so "the camera moved on a lag frame"
+  is an evidence statement, not a vibe.
+
+### 1ky-status
+- [x] `NewWorldTestGround.cs`: key rebind; `_boomDt` recorded in `TrackBoomFrame`; snapshot walks it,
+      prints `D-hitch (1ky)`, and the verdict chain gained the `FRAME-PINNED (1ky)` branch first among
+      the mechanism branches (after the moving-gate premise).
+- [x] Key freed: `Key.P` / `.pKey` / `[Key.P]` all absent from `Assets\Scripts` except TypingMinigame's
+      alphabet array (not a binding). Check 8 re-run confirms the lane-report; 0 other bindings.
+- [x] Verified by grep + reread (no build, rule 3): `_boomDt` allocated and read only through its ring
+      index; `smoothStepMax`/`hitchStepMax`/`peakDt*` declared before the walk and consumed after it;
+      `TrackBoomFrame` still writes `Time.deltaTime` every frame alongside the other samples, so a
+      clamped frame and its frame-time are the same index. `StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — measurement-lane instrumentation, no installed skill governs it; the
+      Unity skills cannot verify here (rule 15).
+- [x] Docs: `PROGRESS.md` this entry; `THINKING.md` §1ky; `game-design.md` camera cluster note; the
+      1kx play-test step updated to the new key.
+- [ ] **PLAY-TEST (user, Unity):** in third person, run **W** until a lag hitch (a chunk-streaming or
+      build stutter) happens, then press **P** — the `D-hitch (1ky)` line reports that window's peak
+      frame time and the camera's step on it, and the `D verdict` will say FRAME-PINNED only if the
+      excursion really sat on the lag frame. Paste the `B controls` / `C measure` / `D-hitch` /
+      `D verdict` lines back. If you cannot reproduce a hitch, press P after any 1–2 s of normal
+      running instead — the lane reports "no hitch in this window" and that is still a data point.
+
 ## 1kx. Third-person camera "still bugged … only when moving forward" — the follow smoother was lengthening the boom (1jv candidate a)
 
 Reported by the user as the same camera family after 1kh/1ko/1kq/1kr/1ks/1kw, now with a **direction
@@ -39,9 +79,9 @@ invariant is unaffected — the view never read the smoothed position.
       camera must no longer pull back / zoom out; the character stays at the same size and framing. Then
       confirm the two non-regressions the report also named: **S** (backward), **A/D** (strafe) and turning
       while moving are unchanged; a wall behind the player still pulls the camera in; F5 first person is
-      untouched. If any distance change survives, press **Numpad2** while holding W with the mouse still and
-      report the `C measure` + `D verdict` lines — after this fix the D verdict should no longer say
-      POSITION SMOOTHER.
+      untouched. If any distance change survives, press **P** (the lane's key; 1ky rebinds it from the
+      unreachable Numpad2) while holding W with the mouse still and report the `C measure` + `D verdict`
+      lines — after this fix the D verdict should no longer say POSITION SMOOTHER.
 
 ## 1kw. "The camera rises and lowers when the player looks up/down" — measured before it is fixed (rule 7)
 
@@ -3555,13 +3595,16 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-10 (1kw). Read this first in a new session; then continue with the
+Last updated: 2026-10-10 (1ky). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded. **Open play-test items (newest first):** 1kw wants the Numpad2
+for the reasoning it recorded. **Open play-test items (newest first):** the camera boom lane
+`BoomAuditKey` is **P** (was Numpad2; the user has no numpad - 1ky rebind), pressing P after a
+lag hitch reports `D-hitch` (peak frame time + camera step on it) and a `FRAME-PINNED` verdict
+the next fix decision quotes; 1ky also wants the 1kx W/sprint verdict (zoom gone), the 1kw
 `C-pitch` line (pitch vs camera-height vs pivot screen-Y) and the 1ks `C-hitters` line for the
 camera; 1kv wants a torso bulk/shape verdict; 1ko/1kq/1kr/1ks all gate on the pinch evidence.
 

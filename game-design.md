@@ -3344,8 +3344,8 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     shortened only under an active clamp), which is bit-for-bit the pre-1ko view at full boom at every pitch — mouse-vertical
     look restored, level-gaze playback bit-identical — while 1ju's aim-from-unlagged-boom and the
     clamp pull-in yaw are preserved. Of the two 1jv survivors, the position-smoother trail (`v · SmoothTime`)
-    was later fixed by **1kx** (the length cap above); the boom-swing-with-yaw survivor remains, and Numpad2
-    still names it if it is the residual cause.
+    was later fixed by **1kx** (the length cap above); the boom-swing-with-yaw survivor remains, and the lane key
+    (default **P** since 1ky) still names it if it is the residual cause.
 
 - **The camera's own body never clamps the boom (1kr).** The user's post-1kq report was "the camera zoom up to
     behind player head then return" — the `SphereCast` started at `pivotPos`, a pivot child at `(0, 1.5, 0)` on the
@@ -3377,7 +3377,7 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   model's torso lean (1e9). The camera BODY therefore cannot climb — so either a position coupling exists that code
   review did not find (the measurement names it), or the climb is the FRAME: the 1kq view is built from a virtual
   *pitched* base detached from the camera's real position, so the character slides out of centre-frame as the look
-  moves — which reads as the camera climbing. The Numpad2 lane (same window, same premise gate, read-only) now
+  moves — which reads as the camera climbing. The boom lane (same window, same premise gate, read-only) now
   records look pitch, camera-height-above-pivot (rest 1.10 m) and the pivot's viewport Y, and prints `C-pitch` with
   a verdict gated on a ≥ 15° look movement: `BODY DID NOT CLIMB` (height held within 0.05 m → the slide is the
   frame, screen-Y range quoted), `BODY CLIMBED` (height moved → report the figure), or `NOT REPRODUCED`. Rule 7's
@@ -3397,6 +3397,18 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     (`finalDist ≤ targetDist`), so a distance *above* rest can only be the trail — and a pull-in (`< rest`) is
     untouched. 1ju's aim-from-`desired` invariant is unaffected, because the view never read the smoothed position.
 
+- **The boom lane records the lag itself, and the key works without a numpad (1ky).** The user's newest
+    discriminator — the camera "only happen[s] when the game is lagging" — is a claim about FRAME TIME, and
+    the lane's only trigger sat on **Numpad2**, a key the user does not own. Two measurement changes: the lane
+    key moved to **`Key.P`** (checked free across all three Input System spellings before the move), and each
+    sample now records that frame's `Time.deltaTime` — the exact value the camera's `SmoothDamp` and its 10 Hz
+    recast timer consume. The readout prints `D-hitch`: the window's worst frame time, the camera-to-pivot step
+    INTO that frame vs the smooth-frame max step, and whether it was a clamp. A `FRAME-PINNED` verdict fires
+    only when the peak-hitch frame's step exceeds 0.05 m and the smooth max + 0.02 m and is not a clamp — i.e.
+    an excursion that provably sat on the lag frame, in the position path, rather than in boom geometry or the
+    SphereCast. Packaging for the fundamental next question: the readout is the evidence the fix decision needs,
+    so it shipped as measurement only, before any further camera change.
+
 - **The boom's distance is measured before anything is fixed (1jv).** Reported as "the camera is
     continuously bugging when moving" and "snaps in and out / zooms, everywhere even on flat open
     ground". Two mechanisms were derivable and needed different fixes, and the first hypothesis — the
@@ -3410,14 +3422,15 @@ Three measured findings drive it, and one of them contradicts the obvious readin
     The survivors are the position smoother changing the boom's *effective* length with movement
     direction (lag `v * SmoothTime`, see 1ju — **fixed by 1kx**, the length cap above) and the boom
     swinging with mouse yaw. A rule-7 read-only
-    lane separates them: **Numpad2**, `NewWorldTestGround`
-    `EnableBoomAudit`/`BoomAuditKey`. `CameraModeSwitch` publishes the boom's two lengths —
+    lane separates them: **the boom lane**, `NewWorldTestGround`
+    `EnableBoomAudit`/`BoomAuditKey` (default **P** — rebind came in 1ky, the key was Numpad2 before the
+    user had no numpad). `CameraModeSwitch` publishes the boom's two lengths —
     `BoomRestLength` (from `targetDist`) and `BoomAppliedLength` (from `finalDist`) — so the lane
     can tell "held length, distance grew" (the smoother trailing past the boom's end) from "length
     shortened" (the clamp) instead of re-deriving the boom vector (rule 8: no second spelling). The
     readout's D verdict names a mechanism off the **controls** (player speed + mouse-yaw total over
     a 120-frame trailing window), not off the size of the movement. Succeeded by 1kx, which fixed the
-    smoother-trail branch on the user's direction discriminator; Numpad2 still confirms it.
+    smoother-trail branch on the user's direction discriminator; the lane key (P since 1ky) still confirms it.
 
   **Reported, not fixed:** `Player/ThirdPersonCamera.cs` is a second, **dead** class carrying the same
   anti-pattern (`Quaternion.LookRotation(pivotPos - transform.position)` at `RotationSmoothTime`,

@@ -1,3 +1,36 @@
+## 1ky. "Only happens when the game is lagging" — and the numpad is missing (OPEN — measurement shipped, verdict pending play-test)
+
+A rule-7 measurement task, not a fix. The user's newest discriminator for the same camera family is
+**frame time** — the bug shows up when the game lags — and the only trigger the existing lane had
+(`BoomAuditKey = Numpad2`) sits on a key the user **does not own**. Two consequences, both measurement:
+
+**C1 — the readout was unreachable by its own audience.** A lane nobody can fire is not a lane; a
+"Numpad2 free" grep was true in the codebase but false in the user's hands. Rebind decision: `Key.P`
+(default), verified free across all three Input System spellings (`Key.P` / `.pKey` / `[Key.P]`) by
+grep before the move, with the known caveat that letters are rebindable as skill keys — a user-bound P
+would snapshot the lane while casting, a collision on their binds, not on the lane's key. (Rule 14's
+three-spelling lesson, applied to a KEY: a "free" claim must enumerate every spelling, and here the
+additional spelling is "reachable by the person who must press it".)
+
+**C2 — the lane could not answer a lag question.** `TrackBoomFrame` samples distance/speed/yaw/clamp
+but never the frame time those samples were taken on, so a window containing a hitch was
+indistinguishable from any other window. Added `_boomDt` (the frame's `Time.deltaTime` — the exact
+value the camera's `SmoothDamp` and its 10 Hz recast timer consume, not a re-derivation) and a
+`D-hitch` section that reports the window's **worst frame time**, the camera-to-pivot step INTO that
+frame, and whether it was a clamp, against the smooth-frame max step. A separate `FRAME-PINNED`
+verdict fires only under an evidence gate: peak frame is a real hitch (> `BoomHitchDt` = 0.05 s, i.e.
+under 20 fps), the peak frame's step exceeds both 0.05 m and smooth-max + 0.02 m, and that frame was
+not clamped. That gate is wider than the arithmetic noise inside the classification (rule 7's
+gate-width rule): distance samples are good to ~mm, and 0.02 m is an order of magnitude above that.
+
+**Why a verdict was NOT shipped:** the mechanisms in play on a hitch are several, and the numbers
+choose between them — (a) `SmoothDamp`+the 1kx cap against a large `Time.deltaTime` (catch-up snap,
+one frame, then settled); (b) the recast timer expiring during the slow frame and clamping on freshly
+streamed chunk colliders (`C-hitters` would show the object); (c) the player's own `CharacterController
+.Move` lurching on a hitch frame and the camera following. The verdict branch names only the case the
+data supports. `STATUS: OPEN` — shipped as measurement per rule 7, awaiting the P-press readout after
+a hitch.
+
 ## 1kx. Camera "only bugged moving forward" — the direction split names the smoother (CONFIRMED, length cap shipped)
 
 The user re-reported the camera family and gave the discriminator the lane was built for: **forward only,

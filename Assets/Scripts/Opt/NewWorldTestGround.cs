@@ -146,10 +146,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
     //
     // READ-ONLY (rule 7): it samples transforms and two numbers CameraModeSwitch publishes. It does
     // not rebuild, re-stamp, force a poll, teleport the player, or write anything the camera reads.
-    [Tooltip("QA (1jv, extended 1ks): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Section C-hitters (1ks) NAMES the collider each clamped frame was clamped by, from CameraModeSwitch's own cast, with the nearest distance - a name whose nearest distance sits at the ~0.8 m pad floor is a start-overlap (geometry glued to the player's back), which is the 'zoom up to behind the head' signature; a name at several metres is a real obstruction behind the player. Section C-pitch (1kw) answers a SECOND report on the same camera - 'the camera rises and lowers when the player looks up/down' - by measuring, over the same window, the look pitch, the camera's height above the pivot (a range that moves = a real BODY climb; a held range = pitch-invariant position) and the pivot's viewport Y (the character sliding out of centre = the FRAME sliding while the view tracks the look). Read-only by rule 7: samples transforms and reads published values, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
+    [Tooltip("QA (1jv, extended 1ks): press BoomAuditKey for a read-only measurement of the third-person camera's boom - is the camera's distance from the player actually changing while moving, and what drives it. Reported as 'the camera is continuously bugging when moving' and 'snaps in and out / zooms, everywhere even on flat open ground'. Section A checks the PREMISE (third person + this camera), because in first person the camera snaps to the pivot and every later number would describe a camera that cannot zoom. Section B is the control: the player's speed and mouse-yaw total over the window, because a distance that moves only while the player is turning is the boom swinging, which is expected, not a defect. Section C is the measurement: measured camera-to-pivot distance against the boom's own two published lengths (rest and post-collision) - a shorter applied length is the collision clamp, a held length with a growing distance is the position smoother trailing past the boom's end. Section C-hitters (1ks) NAMES the collider each clamped frame was clamped by, from CameraModeSwitch's own cast, with the nearest distance - a name whose nearest distance sits at the ~0.8 m pad floor is a start-overlap (geometry glued to the player's back), which is the 'zoom up to behind the head' signature; a name at several metres is a real obstruction behind the player. Section C-pitch (1kw) answers a SECOND report on the same camera - 'the camera rises and lowers when the player looks up/down' - by measuring, over the same window, the look pitch, the camera's height above the pivot (a range that moves = a real BODY climb; a held range = pitch-invariant position) and the pivot's viewport Y (the character sliding out of centre = the FRAME sliding while the view tracks the look). Section D-hitch (1ky) answers the user's newest clue - 'it only happens when the game is lagging' - by recording each sample's Time.deltaTime and reporting the window's worst frame and the camera's step on it; a D verdict FRAME-PINNED fires when that step dwarfs every smooth-frame step and the frame was not a clamp, pinning the excursion to the position path's frame-time behaviour. Read-only by rule 7: samples transforms and reads published values, spawns nothing, changes nothing, and reports the window that ended on the frame the key was pressed. Needs EnableFpsStats on to display.")]
     public bool EnableBoomAudit = true;
-    [Tooltip("QA (1jv): key that reports the third-person camera boom readout. Numpad2, chosen the way F13's / Numpad1's / Numpad8's were - by grepping all three Input System spellings ('Key.Numpad2', '.numpad2Key', '[Key.Numpad2]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jv: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 is this lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene. Numpad0 and Numpad3-Numpad9 are the free Numpads (this lane took Numpad2; the trail tooltip's older 'Numpad2-Numpad9 are free' was corrected in place in the same commit). See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
-    public Key BoomAuditKey = Key.Numpad2;
+    [Tooltip("QA (1jv): key that reports the third-person camera boom readout. Numpad2, chosen the way F13's / Numpad1's / Numpad8's were - by grepping all three Input System spellings ('Key.Numpad2', '.numpad2Key', '[Key.Numpad2]') across Assets\\Scripts and confirming zero hits, with F1 as the positive control proving the property-name spelling really is searched. The full map as of 1jv: F1 is the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 this lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene. Numpad0 and Numpad3-Numpad9 are the free Numpads. See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key. 1ky: this lane's default moved Numpad2 -> Key.P because the user has NO numpad, which made the readout untriggerable by its own audience; P was checked free across all three spellings (Keyboard property, indexer, indirection) before the move. Note letters are rebindable as skill keys elsewhere, so pressing P with a skill bound to it would also snapshot the lane - that collision is on the user's binds, not the lane's key.")]
+    public Key BoomAuditKey = Key.P;
     private string _boomAuditText;
 
     // Trailing window for the boom readout. A single frame cannot catch a transient, and 'snaps in
@@ -181,6 +181,14 @@ public sealed class NewWorldTestGround : MonoBehaviour
     private readonly float[] _boomPitch = new float[BoomWindow];
     private readonly float[] _boomCamH = new float[BoomWindow];
     private readonly float[] _boomPivSy = new float[BoomWindow];
+    // 1ky: the frame time each sample was taken on (Time.deltaTime - the exact value the camera's own
+    // smoother and its 10 Hz collision timer consumed), so a report can ask whether an excursion SITS
+    // on a lag frame. "It only happens when the game is lagging" is the user's newest clue, and without
+    // the dt column a window that happens to contain a hitch cannot answer it.
+    private readonly float[] _boomDt = new float[BoomWindow];
+    // A frame at or below 20 fps. Steady vsync frames are ~0.017 s; a sample above this is a real
+    // hitch, and the dt-dependent behaviour (SmoothDamp, the recast timer) changes right there.
+    private const float BoomHitchDt = 0.05f;
     private Vector3 _boomLastPivot;
     private bool _boomSeen;
     private PlayerController _boomOwner;
@@ -2101,6 +2109,7 @@ private static string Describe(in SpellLook look)
 
           _boomDist[_boomHead] = Vector3.Distance(cam.transform.position, pp);
           _boomSpeed[_boomHead] = speed;
+          _boomDt[_boomHead] = Time.deltaTime;
           _boomYaw[_boomHead] = pivot.eulerAngles.y; // task 4 - camera boom yaw from pivot
           _boomRest[_boomHead] = mode.BoomRestLength;
           _boomApplied[_boomHead] = mode.BoomAppliedLength;
@@ -2167,6 +2176,11 @@ private static string Describe(in SpellLook look)
           int clampedFrames = 0, restMoving = 0;
           float prevD = 0f, prevYaw = 0f, yawTotal = 0f;
           bool havePrev = false;
+          // 1ky: what the window's worst frame looked like, and how hitches compare to smooth frames.
+          float peakDt = 0f, peakDtStep = 0f, peakDtDist = 0f, peakDtRest = 0f, peakDtApplied = 0f;
+          bool peakDtClamped = false;
+          int hitchFrames = 0;
+          float smoothStepMax = 0f, hitchStepMax = 0f;
 
           for (int n = 0; n < _boomFilled; n++)
           {
@@ -2199,6 +2213,17 @@ private static string Describe(in SpellLook look)
                   float dy = Mathf.Abs(Mathf.DeltaAngle(prevYaw, _boomYaw[i]));
                   yawTotal += dy;
                   if (dy < 0.5f) restMoving++;
+                  // 1ky: split the same step by the frame's own dt, so an excursion that happens only
+                  // on a hitch becomes visible instead of vanishing into the window-wide range.
+                  float dtf = _boomDt[i];
+                  if (dtf > peakDt)
+                  {
+                      peakDt = dtf; peakDtStep = step;
+                      peakDtDist = d; peakDtRest = r; peakDtApplied = a;
+                      peakDtClamped = _boomClamped[i];
+                  }
+                  if (dtf > BoomHitchDt) { hitchFrames++; if (step > hitchStepMax) hitchStepMax = step; }
+                  else if (step > smoothStepMax) smoothStepMax = step;
               }
               prevD = d; prevYaw = _boomYaw[i]; havePrev = true;
           }
@@ -2290,11 +2315,43 @@ private static string Describe(in SpellLook look)
               sb.Append("\n        does not explain - report these numbers and the next task targets that figure.");
           }
 
+          // 1ky: name the lag premise. "It only happens when the game is lagging" is the user's newest
+          // clue, and this is the first report that can answer it: the window's worst frame time, how
+          // many samples were real hitches, and what the camera did ON the worst one - its step into
+          // that frame, and whether that frame was a clamp - versus the best smooth-frame step. Numbers,
+          // not a verdict: the D verdict below still names the dominant mechanism across the window.
+          sb.Append("\n  D-hitch (1ky): peak frame ").Append(peakDt.ToString("0.00")).Append(" s, hitches")
+            .Append(" (frames > ").Append(BoomHitchDt.ToString("0.00")).Append(" s) ")
+            .Append(hitchFrames).Append('/').Append(_boomFilled);
+          if (peakDt > BoomHitchDt)
+          {
+              sb.Append("\n    on the peak frame: camera-to-pivot step ").Append(peakDtStep.ToString("0.00"))
+                .Append(" m (hitch-frame max ").Append(hitchStepMax.ToString("0.00"))
+                .Append(", smooth-frame max ").Append(smoothStepMax.ToString("0.00")).Append(" m), dist ")
+                .Append(peakDtDist.ToString("0.00")).Append(" vs rest ").Append(peakDtRest.ToString("0.00"))
+                .Append(", applied ").Append(peakDtApplied.ToString("0.00"))
+                .Append(", clamp ").Append(peakDtClamped ? "YES" : "no");
+          }
+          else
+          {
+              sb.Append("\n    no hitch in this window - press P again right AFTER a lag hitch to catch one.");
+          }
+
           // The verdict. Each branch states the EVIDENCE it fired on, not a vibe about the numbers.
           if (movingFrames < _boomFilled * 0.25f)
           {
               sb.Append("\n  D verdict: NOT REPRODUCED - under a quarter of the window had the player");
               sb.Append("\n    moving, so a distance that held proves nothing. Run and turn, then re-press.");
+          }
+          else if (peakDt > BoomHitchDt && peakDtStep > 0.05f
+                   && peakDtStep > smoothStepMax + 0.02f && !peakDtClamped)
+          {
+              sb.Append("\n  D verdict: FRAME-PINNED (1ky). The camera-to-pivot distance moved ")
+                .Append(peakDtStep.ToString("0.00")).Append(" m ON the ").Append(peakDt.ToString("0.00"))
+                .Append(" s hitch frame, while smooth frames moved at most ").Append(smoothStepMax.ToString("0.00"))
+                .Append(" m and the frame was not a clamp - so the excursion sits on the lag itself,");
+              sb.Append("\n    in the POSITION path (SmoothDamp + the 1kx cap, both fed Time.deltaTime), not in");
+              sb.Append("\n    the boom geometry or the SphereCast. Report these numbers to the next task.");
           }
           else if (clampedFrames > _boomFilled * 0.10f)
           {
