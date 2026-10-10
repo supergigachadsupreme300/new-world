@@ -2215,6 +2215,13 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   halo and the path preview sit on, so the flight trajectory passes through the circle's heart. The
   pre-cast **path preview** mirrors the exact launch (`SpellCaster.FireProjectile` ↔
   `PlayerController.UpdatePathPreview` share the same origin math).
+- **1l1: while a projectile spell aims, the shot itself is held at that muzzle** — the spell's own body
+  (the same `MagicProjectileModelBuilder` geometry and resolved look a live cast wears, so it is the
+  bolt that will fly, not a stand-in), grown by the caster's `SizeScale(charge)` ladder so it visibly
+  enlarges as the charge builds. It is hidden the instant the cast releases, so the real projectile
+  appears exactly where and how big the hold showed it. Only Projectile-delivery magic gets it; a spell
+  with an authored `CastEffectPrefab` is skipped (the launch would wear the prefab, which the preview
+  cannot build). `ChargedProjectilePreview.cs`, driven by `PlayerController`.
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
   tinted by the spell's resolved core colour (1ij), matching the projectile **ray** colour (1iq turned
   that shared charge readout from a cone into a ray) so a charge reads in one colour from aim to release.

@@ -282,6 +282,7 @@ public partial class PlayerController
                 HideAoePreview();
                 HideCastingCircle();
                 HidePathPreview();
+                HideChargedProjectile();
                 combat?.EndCharge(false);
             }
             else
@@ -327,6 +328,7 @@ public partial class PlayerController
                 UpdateAoePreview(previewLevel);
                 UpdateCastingCircle(previewLevel);
                 UpdatePathPreview(previewLevel, armedSpell);
+                UpdateChargedProjectile(previewLevel, armedSpell);
 
                 bool lmbUp = !GameInput.IsMobile && Mouse.current != null &&
                              (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed);
@@ -340,6 +342,7 @@ public partial class PlayerController
                     _chargeDrained = 0f;
                     combat?.EndCharge(true);
                     HidePathPreview();
+                    HideChargedProjectile();
                     if (MagicWheelUI.HasArmedMagic())
                     {
                         bool previewShown = _aoePreview != null && _aoePreview.IsActive;

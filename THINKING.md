@@ -1,3 +1,45 @@
+## 1l1. Held projectile preview while charging (SHIPPED)
+
+User: "when charging a spell with projectile, i want the projectile to appear infront where the root of
+the predict ray and enlarge with charging too." Three questions: which point, which size ladder, and
+how to end it.
+
+**Q1 — which point.** Two candidate muzzles existed: the flat casting halo's `WeaponCastPoint`
+(hand.forward flattened + 0.5 m) and the path preview's root (`hand.position + fwd*0.5`, `fwd` =
+`StraightFlightDirection`). The user said "the root of the predict ray", so the path-preview root wins.
+It also happens to be exactly where `SpellCaster.FireProjectile` spawns (`origin.position + fwd*0.5`,
+`origin` = the magic weapon GO = `MagicHand()`), so hold and launch share the muzzle for free. Verified
+the origin identity by reading `SkillProfile.BuildContext` (`Origin = WeaponSkillExecutor.transform`,
+which `WeaponRigBuilder` puts on the same `go` stored as `combat.RightHand`) — no child-of-hand offset.
+
+**Q2 — which size ladder.** The launch scale is `SizeScale(charge) * mods.RadiusMult`
+(`SpellCaster.Cast.cs:139`), where `mods.RadiusMult = ctx.SizeScale = 1 + (level-1)*0.02`. The charge
+factor is the thing the user watches grow, and it is readable from the caster (`SizeScale` is public
+since 1ir). The skill-level factor is a per-skill constant, has no accessible context in
+PlayerController, and re-deriving it would be rule 8's second spelling — so it is omitted and
+documented, exactly as the sibling beam preview omits the identical factor for its reach. Effect: at
+high skill levels the released bolt is slightly larger than the hold; reported as a play-test item.
+
+**Q3 — how to end it, and where it lives.** The body must not coexist with the real bolt, so the caller
+hides it on release — placed before `ReleaseArmedCast` in the lmbUp path, so the fired projectile
+appears where the hold was. New singleton `ChargedProjectilePreview` (mirroring `CastingCircle` /
+`ProjectilePathPreview`), not a `CastingCircle` mode: the halo is a flat ring identity and the body is
+the spell's own geometry — different concepts, different components.
+
+**Why reuse `MagicProjectileModelBuilder` (the rule-19 question).** That builder's three callers include
+two things that never move (the QA bench pedestals, the turret bolt), and 1jg's bug was an in-flight
+trail emitted *inside* the builder for all three. This does the opposite: it calls the builder for
+SHAPE only (render-only, colliders stripped) and adds no per-frame emission — the per-frame work is a
+transform write in the driving component. So the rule-19 trap is not re-entered.
+
+**Rejected alternatives.** (a) A hand-drawn stand-in body — rejected: it would be a second spelling of
+"what does this spell look like" (rule 13). (b) Showing it only while RMB is held — rejected as a
+narrower read than the halo/ray, which both show for the whole aim; a charge-0 body is a truthful
+"this is the shot at minimum". (c) Putting it in `CastingCircle` — rejected (different concept, Q3).
+
+**Verdict:** SHIPPED. `STATUS: SHIPPED — placement, charge growth and the release handoff are play-test
+items; the skill-level size under-report is known and stated`.
+
 ## 1l0. Torso "abit thinner" — which lever, and how much before the shoulders detach (SHIPPED)
 
 The request is one line and has two open questions: *which* torso, and *which axis*. Reasoning:

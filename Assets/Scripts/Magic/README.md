@@ -8,7 +8,7 @@ spell pipeline.
 | Folder | Owns | Start here |
 |---|---|---|
 | `Look/` | the single source of a spell's visual identity | **`SpellLook.Resolve(spell)`** — impact/cast/body style, colour, scale. Every consumer resolves through this; do not re-derive a spell's look anywhere else. |
-| `Fx/` | what a spell **emits** | `SpellImpactFx.Spawn` (pooled flash; its *shapes* are `../Models/Magic/MagicImpactModelBuilder.cs`), `SkillFx.FallRock` / `SkillFx.BuildRockBody` (the falling rock and its SkyRock styles), `SkillFx.SlashFlash`, `SkillFx.RingFlash` (shared hit reactions — not spell identities; their geometry is `../Models/Magic/SkillFxModelBuilder.cs`), `CastingCircle` (geometry in `../Models/Magic/CastingCircleModelBuilder.cs`) |
+| `Fx/` | what a spell **emits** | `SpellImpactFx.Spawn` (pooled flash; its *shapes* are `../Models/Magic/MagicImpactModelBuilder.cs`), `SkillFx.FallRock` / `SkillFx.BuildRockBody` (the falling rock and its SkyRock styles), `SkillFx.SlashFlash`, `SkillFx.RingFlash` (shared hit reactions — not spell identities; their geometry is `../Models/Magic/SkillFxModelBuilder.cs`), `CastingCircle` (geometry in `../Models/Magic/CastingCircleModelBuilder.cs`), `ChargedProjectilePreview` (1l1 — the held shot body while a projectile spell aims; geometry from `../Models/Magic/MagicProjectileModelBuilder.cs`, the same builder a live cast uses) |
 | `Cast/` | the spell pipeline | `SpellCaster` + its partials, `SpellData` (the ScriptableObject every spell is authored on), the delivery components `SpellEffect` / `SpellZone` / `SpellStorm` / `SpellTornado` / `SpellSummon` / `SpellBeam`, and `SpellDoT` |
 | `Ui/` | the two screens that read all of the above | `MagicWheelUI` (in-game picker), `MagicTestMatrix` (the QA bench that mounts the real builders so a visual change has a readout) |
 
@@ -22,6 +22,9 @@ the shape builders are no longer buried in the class that happens to spawn them:
   `BuildProjectileBody` and their 10-shape switch used to be `static` methods inside the *casting*
   class, so a bench that only wanted to show a body had to pretend to cast a spell. `SpellCaster`
   still calls it, and `MagicTestMatrix` / the QA bench call it too, so what you change is what you see.
+  **1l1 added a third caller shape:** `Fx/ChargedProjectilePreview` holds this same body at the muzzle
+  while a projectile spell charges, so the pre-release shot and the fired one cannot disagree about
+  shape or colour. The builder owns the shape only — the preview adds no per-frame effect to it.
 - **Impact flash shapes** (Burst, Ring, Sphere, Cross, Shards, Bloom, Pillar) —
   `MagicImpactModelBuilder`, in `../Models/Magic/MagicImpactModelBuilder.cs` (1jb). Only the *shapes*
   moved: `SpellImpactFx.Spawn` and the pooled `ImpactFlash` still own the budget, growth, tumble and

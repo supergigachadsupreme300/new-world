@@ -644,9 +644,10 @@
     the reason is the factory's other callers, which are all static.** 1jg added an in-flight voxel trail
     (**1jq replaced it** with `TrailStrip`, still in `Assets\Scripts\Magic\Fx\`, a single camera-facing
     quad strip; the placement rule below is unchanged and is what made the rewrite a drop-in) and the obvious home was
-    `MagicProjectileModelBuilder.AttachDefaultProjectileVisual`, where every projectile body is born. It has **three** callers and only one is a projectile in flight: the other
-    two are `NewWorldTestGround`'s spell band (every castable spell drawn as a **motionless pedestal**)
-    and `SpellCaster.DecorateProjectile` (a summoned turret's bolt, which never flies). A trail emitted
+    `MagicProjectileModelBuilder.AttachDefaultProjectileVisual`, where every projectile body is born. It has **four** callers and only one is a projectile in flight: the other
+    three are `NewWorldTestGround`'s spell band (every castable spell drawn as a **motionless pedestal**),
+    `SpellCaster.DecorateProjectile` (a summoned turret's bolt, which never flies), and 1l1's
+    `ChargedProjectilePreview` (the held shot body, static by design and drawn only while aiming). A trail emitted
     there is a row of cubes hanging in mid-air on a pedestal that never moves - the exact artifact 1gb
     was filed for, rebuilt somewhere new. Two habits:
     - **Before putting behaviour in a builder, count the builder's callers and ask how many of them
@@ -725,3 +726,13 @@
       drifted by the player's whole walk-up and still read as two derivations of one point. (1ka: the
       point moved from the ground to a flat position at the weapon, but the shared-derivation
       invariant is unchanged.)
+- **A preview of a thing that will MOVE must be built by that thing's own factory and placed through
+      its own derivation - only a constant, documented factor may differ.** `ChargedProjectilePreview`
+      (1l1) shows the armed projectile's held body by calling the same `MagicProjectileModelBuilder` a
+      live cast uses (rule 13's one look resolver) at the same muzzle `FireProjectile` spawns at, so the
+      hold cannot disagree with the shot; the one permitted divergence is the skill-level `RadiusMult`
+      the launch also folds in, which is omitted and *stated* (rule 8 - a second spelling of that ladder
+      would be worse than a documented constant). A hand-drawn stand-in would drift from the fired bolt
+      the moment a shape changed. **This is not rule 19's trap:** the shared factory owns SHAPE only and
+      the preview adds no per-frame emission to it - the per-frame work is a transform write in the
+      preview component, not inside the builder.

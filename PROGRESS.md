@@ -1,3 +1,47 @@
+## 1l1. Held projectile preview — the shot appears at the predict-ray root and grows with charge
+
+User: "when charging a spell with projectile, i want the projectile to appear infront where the root of
+the predict ray and enlarge with charging too." (rule 15: no installed skill governs a runtime Unity
+preview; the Unity skills cannot build or verify here — `skills: none applied`.)
+
+New `Assets/Scripts/Magic/Fx/ChargedProjectilePreview.cs` — a render-only singleton (no `SpellEffect`,
+no collider) that shows the armed spell's own projectile BODY while a `SpellDelivery.Projectile` spell
+aims. The body is built by the SAME `MagicProjectileModelBuilder` a live cast uses (rule 13's one
+look resolver), so the hold is the bolt that will fly, and it is placed at the projectile muzzle —
+`hand.position + fwd * 0.5f` with `fwd = SpellCaster.StraightFlightDirection`, i.e. the exact point
+`SpellCaster.FireProjectile` spawns at and `UpdatePathPreview` starts its ray from — scaled by the
+caster's own `SizeScale(charge)` ladder (rule 8: called, not re-derived), so it grows with the charge.
+The caller hides it the instant the cast releases (before `ReleaseArmedCast`), so the real projectile
+appears exactly where and how big the hold showed it.
+
+- Wired in `PlayerController.Combat.cs`: `UpdateChargedProjectile(charge, armedSpell)` /
+  `HideChargedProjectile()` / `ChargedProjPreview()`, plus the field in `PlayerController.cs`.
+- Wired in `PlayerController.Interactions.cs`: refreshed each aim frame after `UpdatePathPreview`;
+  hidden on the `ShouldCancelCharge` teardown and on LMB release, alongside the path preview.
+- Gated to Projectile delivery only; a spell with an authored `SpellData.CastEffectPrefab` is skipped
+  (the launch would wear the prefab, which the preview cannot build). No spell sets that field today.
+- The launch's skill-level `RadiusMult` (`SkillContext.SizeScale`) is NOT mirrored — a per-skill
+  constant with no accessible context in PlayerController, and re-deriving it would be rule 8's second
+  spelling. Same honest under-report the beam path preview documents; at high skill levels the released
+  bolt is slightly larger than the hold.
+
+### 1l1-status
+- [x] `ChargedProjectilePreview.cs` (+`.meta`) added; produced by the shared model builder, not art.
+- [x] Verified by grep + reread (no build, rule 3): muzzle identity confirmed via
+      `SkillProfile.BuildContext` (`Origin = WeaponSkillExecutor.transform` = `combat.RightHand`); the
+      scale is `SizeScale(charge)` matching `SpellCaster.Cast.cs:139`; the release LMB path hides the
+      preview before `ReleaseArmedCast`; both `_aiming = false` sites hide it. `StaticChecks.ps1` →
+      **0 candidates** (edited files outside its `$files` list; sanity run only).
+- [x] `skills: none applied` — a runtime Unity preview; no artifact any installed skill governs, and the
+      Unity skills cannot verify here (rule 15).
+- [x] Docs: `game-design.md` §3.8.2 gained the 1l1 bullet; `PROGRESS.md` this entry; `THINKING.md` §1l1.
+- [ ] **PLAY-TEST (user, Unity):** arm a projectile spell (firebolt/frostbolt/etc.), hold LMB + RMB — the
+      projectile body appears in front of the weapon at the predict-ray root and **grows with the charge**;
+      release — the fired bolt appears at the same spot and size; cancel (open a menu / switch weapon) —
+      the held body disappears; beam/zone/summon spells and ranged weapons show no held body. Confirm the
+      body is the same shape/colour as the fired bolt, and note if the (skill-level) size under-report is
+      noticeable at a high-level spell.
+
 ## 1l0. Torso a bit thinner — width + depth only, all three stances (size.y untouched)
 
 User: "adjust the torso to be abit thinner" (rule 15: no installed skill governs editing procedural

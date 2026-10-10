@@ -607,6 +607,59 @@ public partial class PlayerController
         return _pathPreview;
     }
 
+    /// <summary>
+    /// Show/refresh the held projectile body while a <see cref="SpellDelivery.Projectile"/> spell aims.
+    ///
+    /// <para><b>1l1: the hold IS the shot.</b> The body is built from the armed spell's resolved look
+    /// (the same <see cref="MagicProjectileModelBuilder"/> a live cast uses), placed at the projectile
+    /// muzzle — <c>hand.position + fwd * 0.5f</c>, the SAME point <see cref="UpdatePathPreview"/> starts
+    /// its ray from and <c>SpellCaster.FireProjectile</c> spawns at — and scaled by the caster's own
+    /// <see cref="SpellCaster.SizeScale"/> charge ladder, so it grows with the charge and the released
+    /// bolt appears exactly where and how big this showed it.</para>
+    ///
+    /// <para>Only Projectile-delivery magic gets it; beam/zone/summon/instant and ranged weapons keep
+    /// their own feedback. A spell with an authored <see cref="SpellData.CastEffectPrefab"/> is skipped
+    /// because the launch would wear that prefab, not the generated body this can build — showing a body
+    /// that then changes on release would be a lie about the shot. (No spell sets that field today.)</para>
+    ///
+    /// <para><b>Scale is read, never re-derived (rule 8).</b> <c>SizeScale</c> is called on the caster.
+    /// With no caster there is no ladder to read; the honest answer is to hide, following the beam
+    /// branch above rather than inventing a fallback constant. The launch's skill-level <c>RadiusMult</c>
+    /// (the wheel's <c>SkillContext.SizeScale</c>) is omitted for lack of a skill context here — the same
+    /// honest under-report the beam preview documents, so at high skill levels the released bolt is
+    /// slightly larger than the held preview.</para>
+    /// </summary>
+    private void UpdateChargedProjectile(float charge, SpellData armedSpell)
+    {
+        if (armedSpell == null || armedSpell.Delivery != SpellDelivery.Projectile
+            || armedSpell.CastEffectPrefab != null)
+        {
+            HideChargedProjectile();
+            return;
+        }
+        var combat = CombatCached;
+        var hand = MagicHand(combat);
+        var caster = SpellCasterRef;
+        if (hand == null || caster == null) { HideChargedProjectile(); return; }
+
+        Vector3 pos = hand.transform.position;
+        Vector3 fwd = SpellCaster.StraightFlightDirection(MainCam, PlayerCameraPivot, hand.transform.forward);
+        ChargedProjPreview().Show(pos + fwd * 0.5f, fwd, caster.SizeScale(charge), armedSpell);
+    }
+
+    private void HideChargedProjectile()
+    {
+        if (_chargedProjPreview != null)
+            _chargedProjPreview.Hide();
+    }
+
+    private ChargedProjectilePreview ChargedProjPreview()
+    {
+        if (_chargedProjPreview == null)
+            _chargedProjPreview = ChargedProjectilePreview.Instance;
+        return _chargedProjPreview;
+    }
+
     /// <summary>Returns the equipped hand holding a magic weapon, or null.</summary>
     private GameObject MagicHand(CombatController combat)
     {

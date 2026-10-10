@@ -102,6 +102,7 @@ public bool IgnoreInput { get; private set; }
     private AoeAimPreview _aoePreview;
     private CastingCircle _castingCircle;
     private ProjectilePathPreview _pathPreview;
+    private ChargedProjectilePreview _chargedProjPreview;
     private CameraModeSwitch _cameraMode;
 
     // Per-hand dual-wield charge accumulators (ranged in one of the two hands keeps its draw).
