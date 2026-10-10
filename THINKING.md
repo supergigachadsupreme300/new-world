@@ -1,3 +1,46 @@
+## 1kx. Camera "only bugged moving forward" — the direction split names the smoother (CONFIRMED, length cap shipped)
+
+The user re-reported the camera family and gave the discriminator the lane was built for: **forward only,
+not backward or the sides**. That is a claim about *movement direction*, and it collapses the candidate
+space before any new lane is written.
+
+**H1 (rejected) — pitch-coupled boom (1ko).** The boom is yaw-only (`flatForward.y = 0`); `desired.y =
+pivot.y + 1.1` at every pitch. Cannot be direction-dependent. Already fixed and, per the report, still not
+the cause. Rejected.
+
+**H2 (rejected) — collision clamp (1ks branch).** `toCam = (desired − pivotPos).normalized`, and
+`desired − pivotPos` cancels the `pivotPos` term, so the cast direction depends only on the pivot's
+**yaw** and three constants — never on movement. The clamp fires identically forward, backward and
+sideways. A forward-only report falsifies it as the mechanism (the `C-hitters` lane still exists if a
+clamp appears). Rejected.
+
+**H3 (rejected) — boom swing with mouse yaw (1jr/1jv candidate b).** Requires turning; the report says
+"only when moving forward", mouse-independent. Rejected.
+
+**H4 (CONFIRMED) — the position smoother trails the camera past the boom's end, and the trail is largest
+forward.** `Vector3.SmoothDamp(current, desired, …)` lags a moving target by `v · SmoothTime` (0.75 m at
+`MoveSpeed` 5, 1.5 m sprinting). The camera therefore sits *behind* `desired` = farther from the pivot
+than the rest boom, a zoom-out. The added distance is the boom-axis projection of the horizontal lag,
+`toCam · flatForward`:
+- **forward** — lag ∥ `flatForward`, `|toCam · flatForward| = 6.5/√(6.5²+0.9²+1.1²) ≈ 0.986` →
+  **+0.74 m** (walk) / **+1.48 m** (sprint);
+- **strafe** — lag ⊥ boom, projection ≈ `0.9/6.65 = 0.135`, plus the Pythagoras term → **~0.14 m**;
+- **backward** — lag ∥ `−flatForward` → the camera trails *short* of the end → **−0.74 m** (a zoom-in).
+
+So the sign and magnitude split forward/backward/side, which is exactly the report. This is 1jv's
+candidate (a), untouched by every intervening fix (1ju removed the lag's *steering* of the aim, not its
+*length* effect).
+
+**Fix (1kx).** Cap the smoothed offset's length at `targetDist` (the rest boom). The rest boom is the
+true maximum: the collision clamp only shortens (`finalDist ≤ targetDist`), so any distance above rest is
+necessarily the trail, and a pull-in stays untouched. Only the length is capped — the DIRECTION still
+comes from `SmoothDamp`, so turning feel is preserved — and the view/rotation path never read
+`smoothedPos`, so 1ju's invariant holds. (Backward's zoom-in is left in place: the user reported it as
+fine, and pinning the length both ways would make collision pull-in/release snap.)
+
+STATUS: SHIPPED (1kx). Verification = grep + reread + `StaticChecks.ps1` 0 candidates; no build (rule 3).
+Acceptance is the 1kx-status play-test: no zoom on W, no regression on S/A/D/turn/wall/F5.
+
 ## 1ku. Torso-shape task found in the working tree — bigger, gender-uniform, female look kept (SHIPPED)
 
 The user said "continue yesterday work" and pointed at an UNCOMMITTED `PlayerModelBuilder.cs` edit (no task

@@ -1,3 +1,48 @@
+## 1kx. Third-person camera "still bugged … only when moving forward" — the follow smoother was lengthening the boom (1jv candidate a)
+
+Reported by the user as the same camera family after 1kh/1ko/1kq/1kr/1ks/1kw, now with a **direction
+discriminator**: the bug is "not when going backward or to the sides, only when the player is moving
+forward". That split is the deciding evidence the lane was built to produce, and it names 1jv's
+surviving candidate (a), which no previous fix touched.
+
+Mechanism (code, no build): `UpdateThirdPerson` sets the camera position with
+`Vector3.SmoothDamp(current, desired, ref _velocity, SmoothTime)`. `desired` is the boom end
+`pivotPos + toCam · finalDist`; a smoother **trails a moving target**, so while the player walks the
+camera sits `v · SmoothTime` BEHIND `desired` — i.e. **past** the boom's end — at walk `0.75 m`,
+sprint `1.5 m`. That extension reads as a zoom-out. Because the lag is horizontal and the boom is nearly
+horizontal, moving **forward** adds almost the full lag to the pivot distance
+(`toCam · flatForward ≈ −0.986` → `0.74 m`), **strafing** trails sideways and adds only the Pythagoras
+term (`~0.14 m`), and moving **backward** trails *short* of the end (the mirror case, a zoom-in). That is
+exactly the user's "only forward" report. (History: 1ko had already excluded pitch; 1jr the turn-recast;
+1kr the near-pad; 1ju had removed the lag's *steering* of the aim but not its *length* effect.)
+
+Fix (1kx): after the `SmoothDamp`, cap the smoothed offset's **length** at the boom's own rest length
+`targetDist` (the rest boom is the true maximum — the collision clamp only ever makes it shorter, so
+`distance > targetDist` can only be the trail). The **direction** is still eased, so turning/swing feel
+is unchanged; a collision pull-in (`finalDist < targetDist`) is untouched. 1ju's aim-from-`desired`
+invariant is unaffected — the view never read the smoothed position.
+
+### 1kx-status
+- [x] `CameraModeSwitch.UpdateThirdPerson`: the `SmoothDamp` result is now stored in `smoothedPos`, and
+      when `|smoothedPos − pivotPos| > targetDist` it is rescaled to `targetDist` along the same offset;
+      `SmoothTime`'s tooltip records that the length is capped so it can no longer lengthen the boom.
+- [x] Verified by grep + reread (no build, rule 3): `pivotPos`/`targetDist`/`desired` are all in scope at
+      the edit; the view/rotation path below is byte-unchanged (it reads `desired`/`pitchedBoomEnd`, never
+      `smoothedPos`); the collision path (`_cachedFinalDist`, `BoomRestLength`, `BoomAppliedLength`) is
+      untouched. `CameraModeSwitch.cs` sits OUTSIDE `StaticChecks.ps1`'s `$files` list, so grep + reread is
+      the mandatory coverage; the script still ran **0 candidates** on the tracked set.
+- [x] `skills: none applied` — no installed skill governs a follow-camera smoothing fix, and the Unity
+      skills cannot run in this project (rule 15).
+- [x] Docs: `game-design.md` camera cluster gained a 1kx bullet + stale "1jv survivor unmeasured" notes
+      corrected; `PROGRESS.md` this entry; `THINKING.md` §1kx (rule 2).
+- [ ] **PLAY-TEST (user, Unity):** in third person on open ground, hold **W** at walk and at sprint — the
+      camera must no longer pull back / zoom out; the character stays at the same size and framing. Then
+      confirm the two non-regressions the report also named: **S** (backward), **A/D** (strafe) and turning
+      while moving are unchanged; a wall behind the player still pulls the camera in; F5 first person is
+      untouched. If any distance change survives, press **Numpad2** while holding W with the mouse still and
+      report the `C measure` + `D verdict` lines — after this fix the D verdict should no longer say
+      POSITION SMOOTHER.
+
 ## 1kw. "The camera rises and lowers when the player looks up/down" — measured before it is fixed (rule 7)
 
 The user asked to fix the third-person camera: **"the camera also rise and lower depend on when player lookup/down"**,
