@@ -1,3 +1,37 @@
+## 1l0. Torso "abit thinner" — which lever, and how much before the shoulders detach (SHIPPED)
+
+The request is one line and has two open questions: *which* torso, and *which axis*. Reasoning:
+
+**Q1 — which torso.** The repo builds three player torsos: standing (`BuildPlayerModel`), seated (car
+cutscene, `BuildSeatedPlayerModel`) and sit (chair, `BuildSitPlayerModel`). The user's recent torso
+history (1ku → 1kv) touched **all three** together and used "the torso" to mean the player's, so the
+consistent read is all three, changed proportionally. Standing is the only one seen in normal play, so
+it sets the magnitude; seated/sit follow.
+
+**Q2 — which axis.** "Thinner" for a torso is a WIDTH/DEPTH claim, not a height one, so `size.y` stays.
+`size` scales the whole `BuildTorso` silhouette (`world half-width = size.x · W`, per 1kv's finding), so
+this is exactly the lever a *resize* can pull — and, unlike 1kv, the goal here ("thinner") IS a resize,
+not a reshape. No `BuildTorso` table touched.
+
+**The binding constraint is the shoulder, not taste** (this is why the width cut is smaller than the
+depth cut). The 1f1 note records the floor `size.x ≥ 0.412`: below it the ±0.28 shoulder-ball centre
+falls OUTSIDE the dome surface and the ball visibly detaches (a gap, not a cap). At the standing pivot
+row (t≈0.78, W≈0.69) the surface is `size.x · 0.69`:
+- `0.44` → 0.304 (ball centre 0.28 in by 2.4 cm) — shipped 1kv value.
+- `0.42` → 0.290 (centre in by 1.0 cm) — chosen: still covered, ~6 cm cap.
+- `0.40` → 0.276 (< 0.280) — **rejected**: ball centre outside → detach.
+So width takes a deliberate 4.5% cut; depth has no such constraint and takes 9%.
+
+**Rejected alternatives.** (a) Moving the shoulder pivots inward to allow a deeper width cut — rejected
+for scope: `ShoulderL/R` carry the hands and the weapon rig (`WeaponRigBuilder`), so moving them is a
+different, wider change than "make the torso thinner". (b) A second silhouette tweak — rejected: the
+shape was settled in 1kv; this is a size change and 1kv proved the two are independent. (c) Depth-only —
+rejected as a too-narrow reading of "thinner".
+
+**Verdict:** SHIPPED. Standing 0.42×0.80×0.29, seated 0.32×0.60×0.26, sit `Torso` 0.38×0.36×0.26 +
+`Chest` 0.37×0.28×0.24. `STATUS: SHIPPED — magnitude and the more-visible shoulder cap are play-test
+items; the user can ask for more or less`.
+
 ## 1ky. "Only happens when the game is lagging" — and the numpad is missing (OPEN — measurement shipped, verdict pending play-test)
 
 A rule-7 measurement task, not a fix. The user's newest discriminator for the same camera family is

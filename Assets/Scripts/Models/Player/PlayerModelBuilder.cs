@@ -132,7 +132,7 @@ public static class PlayerModelBuilder
         Color shoeC = race != null ? race.ShoeColor : new Color(0.2f, 0.2f, 0.2f);
         Color dressC = shirtC;
 
-        MapBuilder.MakePart("Body", torso.transform, new Vector3(0.44f, 0.8f, 0.32f), new Vector3(0f, 0.13f, 0f), shirtC, "Body");
+        MapBuilder.MakePart("Body", torso.transform, new Vector3(0.42f, 0.8f, 0.29f), new Vector3(0f, 0.13f, 0f), shirtC, "Body");
         if (female)
         {
             MapBuilder.MakePart("Skirt", torso.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, "Skirt");
@@ -255,7 +255,7 @@ public static class PlayerModelBuilder
         Color dressC = shirtC;
 
         // ── Torso (seated, upright) ──
-        MapBuilder.MakePart("Body", root.transform, new Vector3(0.34f, 0.6f, 0.28f), new Vector3(0f, 0.25f, 0f), shirtC, "Body");
+        MapBuilder.MakePart("Body", root.transform, new Vector3(0.32f, 0.6f, 0.26f), new Vector3(0f, 0.25f, 0f), shirtC, "Body");
         if (female)
         {
             MapBuilder.MakePart("Skirt", root.transform, new Vector3(0.42f, 0.2f, 0.32f), new Vector3(0f, -0.02f, 0f), dressC, "Skirt");
@@ -405,13 +405,13 @@ public static class PlayerModelBuilder
         MapBuilder.MakePart("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.24f), new Vector3(0f, -0.31f, 0.02f), shoeC, "Shoe");
 
         // ── Torso (hips on the seat) ──
-        MapBuilder.MakePart("Torso", root.transform, new Vector3(0.40f, 0.36f, 0.28f), new Vector3(0f, 0.18f, 0f), shirtC, "SitTorso");
+        MapBuilder.MakePart("Torso", root.transform, new Vector3(0.38f, 0.36f, 0.26f), new Vector3(0f, 0.18f, 0f), shirtC, "SitTorso");
         if (female)
         {
             MapBuilder.MakePart("Skirt", root.transform, new Vector3(0.48f, 0.2f, 0.32f), new Vector3(0f, 0.02f, 0f), dressC, "Skirt");
             MapBuilder.MakePart("SkirtHem", root.transform, new Vector3(0.52f, 0.05f, 0.35f), new Vector3(0f, -0.08f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
-        MapBuilder.MakePart("Chest", root.transform, new Vector3(0.39f, 0.28f, 0.26f), new Vector3(0f, 0.42f, 0f), shirtC, "Chest");
+        MapBuilder.MakePart("Chest", root.transform, new Vector3(0.37f, 0.28f, 0.24f), new Vector3(0f, 0.42f, 0f), shirtC, "Chest");
 
         // ── Neck + head ──
         MapBuilder.MakePart("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.62f, 0f), skinC, "Cylinder");

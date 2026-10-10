@@ -1,3 +1,44 @@
+## 1l0. Torso a bit thinner — width + depth only, all three stances (size.y untouched)
+
+User: "adjust the torso to be abit thinner" (rule 15: no installed skill governs editing procedural
+model proportions; the Unity skills cannot verify here). The 1ku/1kv work left the standing torso at
+`(0.44, 0.80, 0.32)`, a shape the user now found too thick. "Thinner" is a WIDTH/DEPTH change, not a
+height one, and `size` only scales the `BuildTorso` W/dB lattice (`world half-width = size.x · W`), so a
+size edit is the right lever (contrast 1kv, where a size edit could NOT change the *shape*).
+
+- Standing `Body` `(0.44, 0.80, 0.32)` → **(0.42, 0.80, 0.29)**.
+- Seated `Body` `(0.34, 0.60, 0.28)` → **(0.32, 0.60, 0.26)**.
+- Sit `Torso` `(0.40, 0.36, 0.28)` → **(0.38, 0.36, 0.26)**; `Chest` `(0.39, 0.28, 0.26)` → **(0.37, 0.28, 0.24)**.
+- Nothing else moves: silhouettes, pivot positions, neck/head/hair, skirt/hem and `PlayerModelScale` all
+  unchanged. Width is capped by the 1f1 shoulder floor `size.x ≥ 0.412` (ball centre covered), so the
+  width cut is deliberately small (4.5%) while depth takes the larger cut (9%).
+
+Clearance re-check (grep + reread, rule 3 — no build; all figures from the 1kv arithmetic re-scaled):
+- Standing shoulder pivots t≈0.78 on W 0.69 → world **0.290** (was 0.304); ball ±0.28 still ~1 cm inside
+  the surface (no detach), the ball's outer edge now pokes ~6 cm vs ~2 cm before — a MORE visible cap.
+- Standing hip surface 0.42·0.46 = **0.193** > ±0.12 ball's 0.185 outer → still covered.
+- Seated surface 0.32·0.59 = **0.189** vs ball inner edge 0.175 → overlap, no gap.
+- Sit `Chest` shoulders t≈0.68 on W 0.62 → **0.229** vs ball inner edge 0.185 → overlap.
+- Female skirt still exceeds the hip in both axes (0.52 > 0.42 width; 0.15 > 0.122 hip depth).
+
+### 1l0-status
+- [x] `PlayerModelBuilder.cs`: the four torso `MakePart` sizes thinned (standing/seated/sit `Body`+`Chest`).
+- [x] Verified by grep + reread (no build, rule 3): four profile ids still consumed ONLY by these calls;
+      file braces/parens balance; no other call site carries these sizes. `StaticChecks.ps1` →
+      **0 candidates** (both edited files are outside its `$files` list, so this is a sanity run only).
+- [x] `skills: none applied` — a procedural model-proportion literal edit, no artifact any installed skill
+      governs (rule 15).
+- [x] Docs: `game-design.md` §3.5 gained a 1l0 bullet; `PROGRESS.md` this entry; `THINKING.md` §1l0.
+- [ ] **PLAY-TEST (user, Unity):** the player's torso reads **a bit slimmer** from the side and front, at
+      the same height; shoulder balls still cap out of the dome (now more prominent — confirm that reads
+      OK, not detached); hips still covered; female skirt still covers the pelvis; seated (car cutscene)
+      and sit (chair) torsos look consistent with the standing one; no neck/crown ring; arms/hands/weapons
+      unaffected. Ask for more/less if 4.5%/9% is the wrong size.
+
+> Id note: `1kz`/`1kz+` (third-person camera dt-clamp + pitch blend) shipped as commits without a
+> `PROGRESS.md` entry, so no heading was taken; this task is the next id, `1l0` (rule 8 — ids assigned by
+> enumerating the `^## 1` headings, not by commit order).
+
 ## 1ky. The boom lane learned the lag clue and lost the numpad dependency — measurement only (rule 7)
 
 The user's newest discriminator — **"i dont have numpad fam, but it seems to be only happen when the

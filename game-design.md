@@ -1470,6 +1470,17 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   t≈0.78 on W 0.69 → world **0.304** (ball ±0.28 → ~2 cm cap); seated t≈0.87 on W 0.59 → world **0.200**.
   Female skirts still cover the pelvis (hip half-width 0.202 vs skirt 0.26; depth 0.134 vs 0.15).
   Supersedes the 1ku sizes and the 1e4/1e8/1f1 silhouette figures above.
+- **Torso a bit thinner (1l0)**: the four torso `size` vectors shrink in WIDTH and DEPTH only (`size.y`,
+  the height, is untouched — thinner, not shorter), leaving every `BuildTorso` silhouette, pivot
+  position, neck/head/hair and the female skirt/hem as they were. Standing `Body` `(0.44, 0.80, 0.32)` →
+  **(0.42, 0.80, 0.29)** (−4.5% width, −9% depth); seated `Body` `(0.34, 0.60, 0.28)` →
+  **(0.32, 0.60, 0.26)**; sit `Torso` `(0.40, 0.36, 0.28)` → **(0.38, 0.36, 0.26)**; `Chest`
+  `(0.39, 0.28, 0.26)` → **(0.37, 0.28, 0.24)**. The width cut stays above the 1f1 shoulder floor
+  (`size.x ≥ 0.412`): standing shoulder pivots t≈0.78 on W 0.69 → world **0.290** (ball ±0.28 → centre
+  still ~1 cm inside the surface, so no detach; the ±0.28 ball now pokes ~6 cm out of the dome vs ~2 cm
+  before — a more visible cap, flagged for play-test); standing hip surface 0.42·0.46 = **0.193** > the
+  ±0.12 ball's 0.185 outer → still covered. Seated surface 0.32·0.59 = **0.189** vs ball inner edge
+  0.175 → overlap, no gap. Supersedes the 1kv sizes; silhouettes and all other 1ku/1kv figures stand.
 - **Torso silhouette actually renders (1e7 routing fix, 1e8 closes the crown band)**: `BuildEllipsoid`
   remapped the three torso ids (`"Body"`/`"SitTorso"`/`"Chest"`) to the plain-ellipsoid fallback
   BEFORE `Generate` could reach its `BuildTorso` branch (they are never in `_profiles`), so the 1e2/1e4
