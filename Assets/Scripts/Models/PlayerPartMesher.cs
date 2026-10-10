@@ -423,18 +423,19 @@ public static class PlayerPartMesher
     /// (which is why build sizes matter to this silhouette). Silhouette per profile (t = normalized
     /// height, 0 bottom → 1 top, rows exactly on t = i/8), W = per-axis unit reach along ±x, D along
     /// ±z; world half-width at a band = size.x · W:
-    ///   Body:      hip flare 0.68 → PINCHED WAIST 0.40 → pec chest 0.72 → shoulder shelf 0.70 →
-    ///              dome 0.60 → crown 0.20 (1e8: the top two rows were pulled in so the shoulder
-    ///              joint balls read as caps — the standing pivots land at t≈0.78 on W 0.68 → world
-    ///              0.44·0.68 = 0.299, so the ±0.28 ball pokes ~5 cm out of the dome; female
-    ///              0.40·0.68 = 0.268 pokes ~8 cm; the seated body 0.6 tall puts its pivots at
-    ///              t≈0.87 on W 0.60 → world 0.204, ball well outside the dome). Chest stays the
-    ///              widest upper point.
-    ///              Crown world 0.088 (0.068 seated) snugs under the neck/head base. Muscular V-taper.
-    ///   SitTorso:  hip flare 0.62 → waist 0.50, top 0.46 (tucks under the Chest bottom).
-    ///   Chest:     pec plateau → shoulders pulled in (0.66→0.62→0.60 across t≈.4–.6 so the sit pivots
-    ///              at t≈0.43 poke out: W 0.64 → world 0.39·0.64 = 0.250 vs ball ±0.25 → ~6 cm cap)
-    ///              → shoulders 0.58 → crown 0.18.
+    ///   Body:      hip 0.46 → straight taper → shoulder shelf 0.72 (widest, t=0.75) → dome 0.58 →
+    ///              crown 0.20 (1kv: TRAPEZIUM front silhouette — the old hip flare 0.68 and pinched
+    ///              waist 0.40 are gone, so width now rises MONOTONICALLY from the hips to the widest
+    ///              point at the shoulder shelf. This is the change a uniform resize cannot make,
+    ///              because size only scales W. The standing pivots land at t≈0.78 on W 0.69 → world
+    ///              0.44·0.69 = 0.304, so the ±0.28 ball pokes ~2 cm out of the dome as a visible cap;
+    ///              the seated body 0.6 tall puts its pivots at t≈0.87 on W 0.59 → world 0.34·0.59 =
+    ///              0.200, ball well outside the dome. Crown world 0.088 (seated 0.068) snugs under
+    ///              the neck/head base. Gender-uniform 0.44 wide.)
+    ///   SitTorso:  hip 0.40 → 0.46 top (narrow-bottom trapezium; the hips sit below this row and are
+    ///              covered by the thighs, and the 0.46 top tucks under the Chest bottom).
+    ///   Chest:     narrow bottom 0.48 → mid 0.64 (sit pivots at t≈0.68 → W 0.62 → world
+    ///              0.39·0.62 = 0.244 vs ball ±0.25 → ~1 cm cap) → crown 0.18.
     /// Height still spans y ±0.5 so size.y scales it exactly like the old cube/ellipsoid.
     /// </summary>
     private static Mesh BuildTorso(string profileId)
@@ -444,18 +445,18 @@ public static class PlayerPartMesher
         float[] wB, dB;
         if (profileId == "SitTorso")
         {
-            wB = new[] { .50f, .62f, .56f, .50f, .48f, .46f, .46f, .46f, .46f };
-            dB = new[] { .44f, .46f, .44f, .42f, .42f, .42f, .42f, .42f, .42f };
+            wB = new[] { .40f, .42f, .44f, .45f, .46f, .46f, .46f, .46f, .46f };
+            dB = new[] { .40f, .41f, .42f, .43f, .44f, .44f, .44f, .44f, .44f };
         }
         else if (profileId == "Chest")
         {
-            wB = new[] { .52f, .60f, .68f, .66f, .62f, .60f, .58f, .44f, .18f };
-            dB = new[] { .44f, .48f, .50f, .50f, .48f, .46f, .44f, .40f, .18f };
+            wB = new[] { .48f, .52f, .56f, .60f, .63f, .64f, .60f, .44f, .18f };
+            dB = new[] { .42f, .44f, .46f, .48f, .50f, .50f, .48f, .40f, .18f };
         }
         else
         {
-            wB = new[] { .55f, .68f, .46f, .40f, .64f, .72f, .70f, .60f, .20f };
-            dB = new[] { .46f, .50f, .44f, .42f, .50f, .50f, .44f, .38f, .20f };
+            wB = new[] { .46f, .50f, .55f, .59f, .63f, .68f, .72f, .58f, .20f };
+            dB = new[] { .42f, .44f, .46f, .48f, .50f, .51f, .52f, .42f, .20f };
         }
 
         var verts = new List<Vector3>();

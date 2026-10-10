@@ -1396,7 +1396,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   0.46→0.40 female; seated 0.38→0.34; sit `Torso` 0.42/0.46→0.37/0.40, `Chest` 0.44→0.39) and the
   whole model runs +8% (`PlayerModelScale = 1.08f`) on every root's `localScale`/position — feet are
   re-planted with the same factor in `ApplyRaceLook`. Hitbox unchanged (CharacterController / `RaceRig`
-  own collision; the +8% is visual only). *Torso sizes superseded by 1ku.*
+  own collision; the +8% is visual only). *Torso sizes superseded by 1ku, then 1kv.*
 - **Faceted ball joints at limb pivots (1dy)**: a plain faceted `"Joint"`-profile sphere sits at each
   shoulder / elbow / hip / knee pivot (`JShoulder`/`JElbow`/`JHip`/`JKnee`, so no animator/weapon name
   collisions). It rotates with the pivot, inherits race-ratio pivot scaling, and is colored to match
@@ -1457,7 +1457,19 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   world **0.262**. The raised crown (standing top 0.53 → 0.58) reaches the head base but is narrower
   than the head there → hidden, no poke. Female geometry (skirt + hem, hair band / back / ponytails) is
   KEPT — the WIP's temporary `if (false)` scaffolding was reverted (gender is a live feature behind the
-  `SelectGender` UI). Sizes supersede the 1e4/1e8 and 1dy figures in this section.
+  `SelectGender` UI). Sizes superseded by 1kv below.
+- **Trapezium torso (1kv)**: the torso SILHOUETTE is reshaped, and 1ku's sizes are reverted — the user
+  found 1ku's torso "too big" and its shape "not changed at all": a uniform resize rescales W but cannot
+  change the silhouette (world half-width = `size.x · W`). `BuildTorso`'s `"Body"` profile now drops the
+  hip flare + pinched waist (hourglass) for a MONOTONIC wide-shoulder → narrow-hip taper: hip 0.46 →
+  shoulder shelf 0.72 (the widest point, t=0.75) → dome 0.58 → crown 0.20; depth follows (hip 0.42 →
+  shoulder 0.52). Sizes revert to the gender-uniform pre-1ku values: standing `Body` (0.44, 0.80, 0.32) @
+  center 0.13, seated `Body` (0.34, 0.60, 0.28) @ 0.25, sit `Torso` (0.40, 0.36, 0.28) @ 0.18, `Chest`
+  (0.39, 0.28, 0.26) @ 0.42. `"SitTorso"` reads as a narrow-bottom trapezium too (hip 0.40 → top 0.46),
+  and `"Chest"` tapers bottom 0.48 → mid 0.64. Pivot arithmetic on the new Body: standing pivots sit at
+  t≈0.78 on W 0.69 → world **0.304** (ball ±0.28 → ~2 cm cap); seated t≈0.87 on W 0.59 → world **0.200**.
+  Female skirts still cover the pelvis (hip half-width 0.202 vs skirt 0.26; depth 0.134 vs 0.15).
+  Supersedes the 1ku sizes and the 1e4/1e8/1f1 silhouette figures above.
 - **Torso silhouette actually renders (1e7 routing fix, 1e8 closes the crown band)**: `BuildEllipsoid`
   remapped the three torso ids (`"Body"`/`"SitTorso"`/`"Chest"`) to the plain-ellipsoid fallback
   BEFORE `Generate` could reach its `BuildTorso` branch (they are never in `_profiles`), so the 1e2/1e4

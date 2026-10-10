@@ -1,3 +1,50 @@
+## 1kv. Trapezium torso — reshape the silhouette (which a resize cannot do) and revert 1ku's sizes
+
+User play-tested 1ku: the torso is **too big**, and its shape "not changed at all". The second half is the
+real finding — `size` only multiplies the `BuildTorso` W lattice, so resizing scales a silhouette without
+altering it (rule 7's measurement-first idea here resolves from the arithmetic rather than a lane: the
+silhouette is `size.x · W`, so any uniform scale leaves the *shape* identical). The silhouette lives in
+`BuildTorso`'s profile tables, which 1ku did not touch. (Id note: 1kt stays RESERVED for the 1ks camera
+`C-hitters` fix; 1ku is now taken, so this is 1kv.)
+
+- `"Body"` now a MONOTONIC wide-shoulder → narrow-hip taper (hip 0.46 → shoulder shelf 0.72 at t=0.75 →
+  dome 0.58 → crown 0.20), replacing the hip flare 0.68 + pinched waist 0.40 hourglass; `dB` follows
+  (hip 0.42 → shoulder 0.52). `"SitTorso"` hip 0.40 → top 0.46; `"Chest"` bottom 0.48 → mid 0.64.
+- Sizes reverted to the gender-uniform pre-1ku values: standing `Body` 0.46×0.90×0.34 → **0.44×0.80×0.32**;
+  seated `Body` 0.36×0.68×0.30 → **0.34×0.60×0.28**; sit `Torso` 0.42×0.40×0.30 → **0.40×0.36×0.28**;
+  `Chest` 0.41×0.32×0.28 → **0.39×0.28×0.26**. The `if (female)` blocks stay restored (1ku's other half).
+
+Clearance re-check (grep + reread, rule 3 — no build):
+- Standing shoulder pivots t≈0.78 → W 0.69 → world **0.304** (was 0.313) vs ball ±0.28 → ~2 cm cap.
+- Seated pivots t≈0.87 → W 0.59 → world **0.200** (was 0.223); ball ±0.24 → inner edge 0.175 still
+  overlaps the 0.200 surface, so it caps with no gap.
+- Sit `Chest` shoulders t≈0.68 → W 0.62 → world **0.244** vs ball ±0.25 → ~1 cm cap.
+- Female skirt still covers the pelvis: hip half-width 0.44·0.46 = **0.202** < skirt 0.26, and hip depth
+  0.32·0.42 = **0.134** < skirt 0.15 — the 1ku 6 mm depth sliver is gone (depth now peaks only at the
+  shoulder, not the hip).
+- Hip joints (torso-local −0.30 → below row 0 → W 0.46) → world 0.202 > ball 0.185 → still covered.
+- Crown world 0.088 (seated 0.068) unchanged vs neck/head base → still no collar ring.
+
+### 1kv-status
+- [x] `PlayerPartMesher.cs`: `"Body"` wB/dB arrays → trapezium; `"SitTorso"` + `"Chest"` re-tapered to the
+      same direction; the `BuildTorso` XML contract comment (old hip-flare / pinched-waist / t≈0.43 figures
+      and its stale `female 0.40·0.68` line) rewritten to the new numbers — rule 8, a comment naming numbers
+      rots with them. Sit shoulder pivot recomputed: t≈0.68, not the 0.43 the old comment claimed.
+- [x] `PlayerModelBuilder.cs`: the four `MakePart` sizes reverted (uniform; `female ?` variants stay gone).
+- [x] Verified by grep + reread (no build, rule 3): both files' braces/parens balance; the three profile ids
+      are consumed ONLY by these four calls (grep across `Assets\Scripts` = 4 hits, all in
+      `PlayerModelBuilder.cs`), so no other model inherits the reshape. Both files sit OUTSIDE the
+      `StaticChecks.ps1` `$files` list — run it anyway for the tracked set (**0 candidates**), but its
+      coverage does not extend here, so grep + reread is the verification.
+- [x] Docs: `game-design.md` §3.5 gained a 1kv bullet + supersede notes on 1dy/1ku; `PROGRESS.md` this
+      entry; `THINKING.md` §1kv (rule 2).
+- [ ] **PLAY-TEST (user, Unity):** standing torso reads as a **trapezium** — wide shoulders, straight taper
+      down to narrower hips, NO hourglass/hip flare and no pinched waist — at the previous 0.44×0.80×0.32
+      size (not bigger); shoulder balls still cap out of the dome (~2 cm) and hips are still covered;
+      seated (car cutscene) and sit (chair) torsos match the new direction without hip/shoulder gaps;
+      female skirt still covers the pelvis on standing/seated/sit; no crown ring around the neck; arms /
+      hands / weapons (layer 7) unaffected.
+
 ## 1ku. Full-bodied gender-uniform player torso — restore the female look, bigger torso on all three stances
 
 Continuation of a WIP found in the working tree: `PlayerModelBuilder.cs` was edited (a torso-shape

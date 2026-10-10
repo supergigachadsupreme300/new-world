@@ -29,6 +29,41 @@ Verdict: shipped as 1ku. Verification: grep + reread + brace 22/22 + StaticCheck
 — the file is outside the script's `$files` list). No build, per rule 3. Play-test items listed in the
 1ku-status block.
 
+## 1kv. Trapezium torso — the shape is W·size, so a resize cannot change it (SHIPPED)
+
+**H1 (confirmed) — the shape lives in BuildTorso, not in size.** 1ku "didn't change the shape" because world
+half-width = `size.x · W`: a uniform scale multiplies a fixed silhouette, and it can only ever scale it.
+The user asked for a trapezium silhouette and called the size too big — the surgical edits are the W/dB
+arrays in `BuildTorso`'s `else` branch (the `"Body"` profile, shared by standing + seated) plus a size
+revert. This is rule 7's measure-before-fix in arithmetic form: the observable ("shape unchanged") is fully
+explained by the multiplier relation, so no new readout lane would name a mechanism the code already names.
+
+**H2 (asked, confirmed) — which trapezium.** Offered the taper direction and size target; user chose wide
+shoulders → narrow hips and a standing revert to 0.44×0.80×0.32. Nothing left to guess.
+
+**H3 (worked example at the boundaries) — reshape without breaking pivot contracts.** New `"Body"`:
+`wB { .46,.50,.55,.59,.63,.68,.72,.58,.20 }` (hip → shoulder shelf 0.72 at t=0.75, monotonic), `dB`
+`{ .42,.44,.46,.48,.50,.51,.52,.42,.20 }`. Checked at the node widths, not the average:
+- standing pivots (t≈0.775) → W 0.692 → world 0.44·0.692 = **0.304** ≥ ball ±0.28 → cap ~2 cm, still visible;
+- seated pivots (t≈0.867) → W 0.589 → world 0.34·0.589 = **0.200**; ball inner edge 0.24−0.065 = 0.175 <
+  0.200 → overlaps, caps with no gap;
+- hip joints (torso-local y −0.30, below row 0 → W 0.46) → world 0.202 > ball 0.185 → hips still covered;
+- female skirt at the hip band: half-width 0.26 > 0.202, half-depth 0.15 > 0.131 → covered, and the 1ku
+  6 mm depth sliver is gone (depth now peaks at the shoulder, not the hip);
+- crown 0.20 → world 0.088 unchanged → no collar ring under the neck/head base.
+`"SitTorso"` (hip 0.40 → top 0.46, hips sit BELOW the row and are thigh-covered) and `"Chest"` (bottom 0.48 →
+mid 0.64) re-tapered to the same direction. Re-reading the Chest contract exposed that the old comment's
+"sit pivots at t≈0.43" was stale: the pivots sit at root y 0.47 in a 0.26→0.58 body → t = (0.47−0.28)/0.28
+≈ **0.68** on W 0.62 → world 0.244 vs ball ±0.25 → ~1 cm cap. Corrected in the comment (rule 8).
+
+**H4 (scope verified) — only the player consumes these profiles.** grep across `Assets\Scripts`: the three
+profile ids reach only the four `MakePart` calls in `PlayerModelBuilder.cs` (4 hits). No NPC/goblin/enemy
+builder shares the torso mesh, so the reshape cannot leak to other models.
+
+Verdict: shipped as 1kv. Verification: grep + reread + brace/paren balance on both edited files +
+`tools\StaticChecks.ps1` (0 candidates on the tracked set — both edited files sit OUTSIDE its `$files` list,
+so grep + reread is the mandatory coverage). No build per rule 3. Play-test items in the 1kv-status block.
+
 ## 1ks. The camera pinch "still, everywhere" — stop guessing, make the lane name the hitter (MEASUREMENT, OPEN)
 
 After 1kr the user reported the pinch **"still, everywhere"**. 1kh/1ko/1kq/1kr were all chosen from code review, and
