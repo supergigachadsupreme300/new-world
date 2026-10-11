@@ -11,7 +11,8 @@ using UnityEngine;
 ///
 /// <para><b>1ka: the armed per-spell charge is FLAT, in front of the weapon.</b> It is placed by
 /// the caller through <see cref="ShowFlat(Vector3, float, in SpellLook)"/> at a refreshed world
-/// point half a metre ahead of the magic hand (see <c>PlayerController.WeaponCastPoint</c>). Its
+/// point just ahead of the magic hand, behind where the held projectile floats (see
+/// <c>PlayerController.WeaponCastPoint</c>). Its
 /// plane is always world-up, never tilted with the aim or the terrain, because a disc angled with
 /// the staff reads as part of the weapon rather than as the cast (rule 20).</para>
 ///

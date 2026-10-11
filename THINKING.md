@@ -1,3 +1,46 @@
+## 1l5. Casting visuals: low projectile, circle-on-bolt, weapon/hand gap (SHIPPED, play-test pending)
+
+User (3 defects, one report): (1) held magic projectile too low; (2) cast circle should be behind the
+projectile; (3) weapon too far from the hand (a gap).
+
+**H1 (confirmed, explains #3 AND #1) — the staff's DRAWN POSITION regressed in `1a4a1ba`.** Evidence:
+`git show 1a4a1ba -- WeaponRigBuilder.cs` shows the staff held-pose position `(side*0.1f, -0.35f, 0f)`
+→ `(side*0.1f, -7f, -4f)` (that commit's message is "tuning animation, fix sway"; it also changed
+`StowStickLean` and the non-melee stow pose, so it was a pose-tuning pass). The rig root is parented to
+the hand bone and `ApplyHandPose` sets `t.localPosition = pos`, so the hand bone's scale multiplies it —
+`HandR` ≈ (0.12, 0.08, 0.12), so `-7f` ≈ **-0.56 m** and `-4f` ≈ -0.32 m world, vs the previous
+`-0.35f` ≈ -0.028 m. That IS the visible gap (#3). And the held projectile (1l1) and the charge halo
+both anchor at that rig root (`hand.transform.position`), so they were dragged down with it — hence the
+"too low" projectile (#1). VERDICT: one bug, two symptoms. Fix = revert the position to `-0.35f, 0f`
+(rotation unchanged — the `DrawHoldYaw`/`DrawHoldCant` special-case is the staff's, still correct; the
+sword-aligned ANGLE was never the problem, only the position).
+
+**H2 (rejected) — the hand model moved, not the weapon.** Checked the recent player-model commits
+(`1l0` torso thinner, `1l2` hair, `5af3701` trapezium, `16bdd27` torso). All torso/hair; the hand blocks
+and the arm pivots are untouched. So the gap is the weapon offset, not a moved hand. Cross-check: the
+`1a4a1ba` number (`-7f` = 20× the prior `-0.35f`, 7× the sword's `-1.0f`) is exactly the scale of a
+pose typo. VERDICT: rejected.
+
+**#2 — the halo sat ON the bolt, not behind it.** `PlayerController.WeaponCastPoint` = `hand.position`
++ flat `hand.forward` * `WeaponCastFrontOffset`, and `WeaponCastFrontOffset = 0.5f` — the SAME 0.5 m the
+projectile floats at (`hand.position + fwd*0.5f`, `UpdateChargedProjectile` and `FireProjectile`), so
+ring and bolt coincided. The constant even carried a comment asserting the match was intentional
+("the same muzzle"). The user now wants the ring BEHIND the bolt → reduce the offset below 0.5. CHOSEN
+`0.2f` (keeps 1ka's "in front of the weapon" read, since 0 would re-park it on the weapon, which 1ka's
+note says read as "part of the weapon"; and 0.2 < 0.5 so the bolt leads). The direction is unchanged
+(still the flat weapon forward — 1ka/1jl/1jm's camera-decoupling is load-bearing and not touched).
+NOTE the stale second spelling: docs in `PlayerController.Combat.cs`, `CastingCircle.cs`, `SpellLook.cs`
+and `game-design.md` all repeated "0.5 m / half a metre" — swept in the same pass (rule 8).
+
+**Open question raised in the handoff:** if the user's "higher" actually means the bolt should emerge
+from the staff's ORB (top, ~0.9 m up) rather than the grip, that is a different change — a raised
+`MagicWeaponBehavior.CastOrigin` plus re-pointing `UpdateChargedProjectile` / `UpdatePathPreview` /
+`WeaponCastPoint` at it. Not done here (it would move ALL magic focuses and the aim/collision origin);
+flagged for the play-test.
+
+**#3/#1 fix shape:** one-line position revert in `WeaponRigBuilder.DrawPoseFor`. Everything else is the
+#2 constant + doc sweep. No new geometry, no new transform.
+
 ## 1l4. Chunk stream "continuous lag" — is the limiter the pool, the caps, or the cadence? (SHIPPED, play-test pending)
 
 User: chunks load "one at a time causing continuous lag"; wants several at once (accept one big hitch).

@@ -296,7 +296,7 @@ public static class WeaponRigBuilder
             // reads at the sword's angle rather than hanging dead-vertical off the hand. Other
             // focuses (book / wand / orb / lute) keep their own natural hold.
             if (weapon.id == "staff")
-                return (new Vector3(side * 0.1f, -7f, -4f), Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, DrawHoldCant));
+                return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, DrawHoldYaw, DrawHoldCant));
             return (new Vector3(side * 0.1f, -0.35f, 0f), Quaternion.Euler(WeaponHoldForwardLean, 0f, 0f));
         }
         if (weapon != null && weapon.Category == WeaponCategory.Shield)

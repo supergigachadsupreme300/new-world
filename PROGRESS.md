@@ -1,3 +1,42 @@
+## 1l5. Casting visuals: restore the staff hold (weapon/hand gap + low projectile), pull the halo behind the bolt
+
+User reports three casting-visual defects: (1) the magic projectile model is too low when casting; (2)
+the cast circle should sit **behind** the projectile; (3) the magic weapon is too far from the hand
+(a visible gap).
+
+**#3 root cause (also explains #1).** `WeaponRigBuilder.DrawPoseFor` staff held-pose was `-7f, -4f`
+(commit `1a4a1ba` "tuning animation, fix sway"); the pre-`1a4a1ba` value was `-0.35f, 0f`. The staff
+rig root is parented to the hand bone and its `localPosition` is scaled by that bone (~0.08 on `HandR`),
+so `-7f` is ≈ **0.56 m below** the fist (and `-4f` ≈ 0.32 m forward) — the gap. Because the held
+projectile (1l1) and the casting halo both anchor at that rig root, they were dragged down with it, so
+restoring the grip raises the projectile ~0.53 m too (#1).
+
+**#2.** `PlayerController.WeaponCastFrontOffset` was `0.5f` — the SAME muzzle the projectile floats at
+(`hand.position + fwd * 0.5f`, `UpdateChargedProjectile`/`FireProjectile`), so the ring sat **on** the
+bolt. Pulled it in to `0.2f` so the flat halo floats behind the projectile and the bolt leads.
+
+- `WeaponRigBuilder.cs` `DrawPoseFor` staff branch: `-7f, -4f` → `-0.35f, 0f` (the sword-aligned
+  rotation is unchanged; only the position regressed).
+- `PlayerController.Combat.cs` `WeaponCastFrontOffset`: `0.5f` → `0.2f`; doc comments for
+  `UpdateCastingCircle` / `WeaponCastPoint` / the constant rewritten (the "same 0.5 m muzzle" claim was
+  the stale second spelling, rule 8).
+- Doc comments updated in `CastingCircle.cs` and `SpellLook.cs` (`CastFrontOffset` note).
+
+### 1l5-status
+- [x] Staff held-pose restored to `-0.35f, 0f` (closes the hand/weapon gap; raises the held projectile).
+- [x] Cast halo moved behind the projectile (`WeaponCastFrontOffset` 0.5 → 0.2 m).
+- [x] Verified by grep + reread (no build, rule 3); `tools\StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — a C# tweak to existing values reviewed by a human; no installed skill
+      governs it (rule 15).
+- [x] Docs kept in sync in the same pass: `game-design.md` §3.3 (drawn hold pose + charging/casting
+      circle + projectile muzzle), this entry, `THINKING.md` §1l5.
+- [ ] **PLAY-TEST (user, Unity):** the staff should sit in the fist again (no gap); the held/fired
+      projectile should now float noticeably higher; the charge circle should float **behind** the bolt.
+      If the circle is still too close/too far, `WeaponCastFrontOffset` is the knob (0 would put it at the
+      weapon; the projectile muzzle is 0.5). **Open question:** if the bolt should instead emerge from the
+      staff's **orb** (top, ~0.9 m up) rather than the grip, that is a further change (a raised
+      `MagicWeaponBehavior.CastOrigin` + preview/path-preview re-point), not done here.
+
 ## 1l4. Burst chunk loading — load the whole ring in one poll instead of ~1 chunk/poll
 
 User: chunks stream in "one at a time causing continuous lag"; load **multiple chunks at once** — accept

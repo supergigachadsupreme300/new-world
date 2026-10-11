@@ -341,9 +341,10 @@ public partial class PlayerController
     /// <para><b>1ka: a spell's halo is FLAT, IN FRONT OF THE MAGIC WEAPON.</b> It used to be handed
     /// <c>MagicHand(combat).transform</c> (parked at the staff, so it read as part of the weapon),
     /// and 1jt parked it on the ground at the player's feet or <see cref="SpellLook.CastFrontOffset"/>
-    /// ahead of them. 1ka moves it to a flat world-up circle at the weapon's own height, half a metre
+    /// ahead of them. 1ka moves it to a flat world-up circle at the weapon's own height, slightly
     /// ahead of the hand along the flattened aim (testing.md task 4: "like the continuous fireball
-    /// follow circle but in front of the magic weapon"). The caller refreshes the point every frame
+    /// follow circle but in front of the magic weapon"); 1l5 pulls that offset in to 0.2 m so the ring
+    /// floats BEHIND the held projectile rather than on it. The caller refreshes the point every frame
     /// via <see cref="WeaponCastPoint"/>, so the circle follows a walking/turning player. The no-spell
     /// paths — the cast preview and the ranged-draw accent — keep the weapon anchor, because with no
     /// spell there is no delivery to classify and the old read was correct.</para>
@@ -386,10 +387,11 @@ public partial class PlayerController
     /// it would slide the halo sideways with the camera) and NOT a camera-derived ray, which makes the
     /// halo depend on where the camera IS rather than which way the player looks (1jm's coupling —
     /// moving the camera 0.6 m sideways would have skewed it).</para>
-    /// <para><b>Why the offset matches the path preview.</b> The projectile aim preview shows its ray
-    /// from <c>hand.position + forward * 0.5f</c> (see <see cref="UpdatePathPreview"/>), and this halo
-    /// uses the same 0.5 m so the charge circle and the line it is about to travel share one muzzle.
-    /// <see cref="WeaponCastFrontOffset"/> is the authored knob if it ever wants tuning.</para>
+    /// <para><b>Why the offset sits behind the muzzle.</b> The held projectile floats
+    /// <c>0.5 m</c> ahead of the hand (the muzzle the path preview and <c>SpellCaster.FireProjectile</c>
+    /// share, see <see cref="UpdatePathPreview"/> / <see cref="UpdateChargedProjectile"/>), while
+    /// <see cref="WeaponCastFrontOffset"/> pulls the halo to 0.2 m — so the ring floats behind the
+    /// bolt and the bolt leads. <see cref="WeaponCastFrontOffset"/> is the authored knob.</para>
     /// </summary>
     private Vector3 WeaponCastPoint(GameObject hand)
     {
@@ -406,10 +408,12 @@ public partial class PlayerController
         return at;
     }
 
-    /// <summary>1ka: authored forward offset for the flat casting halo, in metres — the same 0.5 m the
-    /// projectile path preview uses as its muzzle, so the charge circle and the flight line start from
-    /// one point. Play-test knob if the circle reads too close to or too far from the weapon.</summary>
-    private const float WeaponCastFrontOffset = 0.5f; // task 5: in front of weapon (flat, world-up)
+    /// <summary>1ka: authored forward offset for the flat casting halo, in metres — where along the
+    /// flattened aim the ring floats, measured from the weapon. The held projectile's muzzle is
+    /// 0.5 m ahead (see <see cref="UpdateChargedProjectile"/>), so a value BELOW 0.5 keeps the ring
+    /// behind the projectile and lets the bolt lead. Play-test knob if the circle reads too close to
+    /// or too far from the weapon.</summary>
+    private const float WeaponCastFrontOffset = 0.2f; // behind the 0.5 m projectile muzzle (flat, world-up)
 
     /// <summary>One-shot expansion ring at the magic weapon on cast release.</summary>
     private void BurstCastingCircle(float charge)

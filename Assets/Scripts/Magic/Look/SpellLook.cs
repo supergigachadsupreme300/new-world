@@ -312,8 +312,8 @@ public readonly struct SpellLook
 
 /// <summary>1jt: how far AHEAD of the player a front-placed casting halo sat, in metres.
     /// <para><b>1ka: no longer consumed by the casting halo.</b> The per-spell charge circle now
-    /// floats flat at the magic weapon, half a metre ahead of the hand
-    /// (<c>PlayerController.WeaponCastFrontOffset = 0.5f</c>, testing.md task 4), so this 1.8 has no
+    /// floats flat at the magic weapon, behind the held projectile
+    /// (<c>PlayerController.WeaponCastFrontOffset = 0.2f</c>, testing.md task 5 / 1l5), so this 1.8 has no
     /// halo reader anymore. It survives because <see cref="SpellSummon.BackOffset"/> aliases it, and
     /// this paragraph records the design reasoning that chose 1.8 in case the value is ever reused.
     /// </para>

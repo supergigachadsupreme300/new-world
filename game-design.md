@@ -1636,7 +1636,11 @@ keyframed pose tracks driving the arm pivots — "the animation pack lives on th
   `WeaponRigBuilder.DrawPoseFor`). One-hand blades **and the staff** share one angle in the fist:
   90° yaw so the length reads side-on to the camera plus a 30° off-vertical cant, so the staff grips
   exactly like the sword rather than hanging dead-vertical. Other magic focuses (book / wand / orb /
-  lute) keep their own natural upright hold at a short grip-height below the hand.
+  lute) keep their own natural upright hold at a short grip-height below the hand. (1l5: the staff's
+  drawn *position* — not its angle — had regressed in `1a4a1ba` to a deep `-7` local-grip offset, so at
+  the hand bone's ~0.08 scale the staff hung ~0.5 m **below** the fist with a visible gap; restored to
+  the short grip-height the other focuses use, which also raises the held projectile that spawns at the
+  rig root.)
 - **The rest pose is authored, never re-sampled from an animated frame** (1im). `WeaponAnimator`
   writes every animated frame as `_baseEuler + accent`, and each phase begins by capturing `_baseEuler`
   from the live transform. If that capture is allowed to run while the *previous* phase's pose is
@@ -2199,8 +2203,9 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   a deeper charge is always a gamble for more FP — never a dud.
 - While aiming/charging, the **spell's casting circle halo** is drawn **FLAT** — a world-up plane,
   never tilted with the aim — **right in front of the held magic weapon**: at the weapon's own height,
-  half a metre ahead of the hand via `PlayerController.WeaponCastPoint` (1ka; the same muzzle the path
-  preview and `FireProjectile` use, `pos + fwd * 0.5f`), tinted by the armed spell's **resolved look**
+  a short way ahead of the hand via `PlayerController.WeaponCastPoint` (1ka; 1l5 pulled the offset in to
+  **0.2 m** so the ring floats **behind the held projectile**, whose muzzle sits 0.5 m ahead — the same
+  muzzle the path preview and `FireProjectile` use, `pos + fwd * 0.5f`), tinted by the armed spell's **resolved look**
   (§3.8.3). (1jt parked it on the ground at the player's feet or `CastFrontOffset` 1.8 m ahead, which
   read as "the cast is out there"; 1ka brings it back to the weapon so the charge visibly belongs to
   the thing about to fire — but flat rather than halo-tilted, because a disc angled with the staff
@@ -2219,8 +2224,9 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   and because with no spell there is no delivery to classify.
 - The flat halo's **point** comes from one place (`PlayerController.WeaponCastPoint`): the magic
   hand's own forward, flattened to strip pitch (a yaw-only rig cannot produce a vertical forward — the
-  guard exists so a pitch regression reads as "halo at the hand", not NaN), plus a constant 0.5 m
-  muzzle. The front direction is the **weapon's** forward — deliberately not the camera's, so moving
+  guard exists so a pitch regression reads as "halo at the hand", not NaN), plus a constant 0.2 m
+  offset (1ka used 0.5 m, on the projectile muzzle; **1l5 pulled it to 0.2 m so the ring sits behind the
+  held projectile**, `WeaponCastFrontOffset`). The front direction is the **weapon's** forward — deliberately not the camera's, so moving
   the camera cannot skew where a spell casts (1jl's shoulder offset and 1jm's camera-position coupling
   would both drift the halo with the view).
   **1jw: the rear direction obeys the same body-yaw rule.** The following circle for a caster-anchored
@@ -2235,8 +2241,10 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   (`CastingCircle` keeps a `_flat` mode flag because `Update` re-derives the transform every frame
   from `_anchor`; a position handed to `Show` would simply be overwritten — 1jt's rule-4 lesson in its
   1ka name.)
-- Projectile spells launch **from the rig/hand origin** plus `fwd * 0.5f` — the same muzzle the flat
-  halo and the path preview sit on, so the flight trajectory passes through the circle's heart. The
+- Projectile spells launch **from the rig/hand origin** plus `fwd * 0.5f` — the muzzle the path preview
+  sits on (and where the held projectile floats, 1l1). The flat halo is 0.2 m ahead of the hand, so it
+  floats **behind** that muzzle and the bolt leads it; the flight trajectory passes through, and past,
+  the circle's heart. The
   pre-cast **path preview** mirrors the exact launch (`SpellCaster.FireProjectile` ↔
   `PlayerController.UpdatePathPreview` share the same origin math).
 - **1l1: while a projectile spell aims, the shot itself is held at that muzzle** — the spell's own body
@@ -2332,9 +2340,9 @@ colours, `Trail`, `Scale`, `Tempo`.
   that applies a Zone `TerrainShape`, so a `Summon` Meteor would lose its falling rock and carve its
   crater behind the player. This is rule 13's drawn-vs-gameplay split: `CastAnchor` changes the halo's
   position and nothing else.
-  **1ka: the axis is now INERT for placement.** The per-spell charge halo is flat, half a metre in
-  front of the magic weapon at the weapon's own height (`PlayerController.WeaponCastPoint`, matching
-  the path-preview muzzle), so no placement reads `CastAnchor` anymore. It is still resolved and packed
+  **1ka: the axis is now INERT for placement.** The per-spell charge halo is flat, 0.2 m in
+  front of the magic weapon at the weapon's own height (`PlayerController.WeaponCastPoint`, just behind
+  the 0.5 m projectile muzzle; 1l5), so no placement reads `CastAnchor` anymore. It is still resolved and packed
   into the F4 audit key so that key never changes; deleting the axis (field + profile + resolve + 2
   key bits) is a separate removal task (rule 14).
 - **`Shape` vs `DisplayShape`** — `spell.Shape` is a *gameplay* flag (`Missile` = homing, see
