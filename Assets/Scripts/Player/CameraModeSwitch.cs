@@ -252,6 +252,7 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // The SphereCast runs at ~10 Hz; the cached clamp distance is reused between casts so
         // direction changes (facing) stay smooth without re-querying physics each frame.
         Vector3 toCam = (desired - pivotPos).normalized;
+        float targetDist = Vector3.Distance(pivotPos, desired);
         float finalDist = targetDist;
         // 1jv: publish the unclamped length from the local that produced it (see BoomRestLength).
         BoomRestLength = targetDist;
