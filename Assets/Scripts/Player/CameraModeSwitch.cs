@@ -331,6 +331,8 @@ public sealed class CameraModeSwitch : MonoBehaviour
         float capLen = targetDist;
         if (offset.magnitude > capLen)
             smoothedPos = pivotPos + offset.normalized * capLen;
+        if (_camera != null)
+            _camera.transform.position = smoothedPos;
         // 1ju: aim from `desired`, NOT from the smoothed position. SmoothDamp leaves the camera
         // trailing the player, and a strafe is the one ordinary motion that puts a LATERAL
         // component in that trail - running forward trails along the view axis (pitch only),
