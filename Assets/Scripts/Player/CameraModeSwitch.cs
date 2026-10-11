@@ -238,24 +238,15 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // 1kz+: blend vertical offset based on look pitch so camera moves "over head" when looking up
         // and lower when looking down. Keep yaw-only horizontal boom.
         float lookPitch = _player != null ? _player.LookPitch : 0f;
-        // LookPitch: positive = looking down? check common: in this codebase LookPitch is used as-is
-        // Map: looking up (more negative if typical) or see existing. But blend both ways.
-        float pitchNorm = lookPitch / 60f; // approx clamp range
-        float targetY = Mathf.Lerp(ThirdPersonY, ThirdPersonY + 0.8f, Mathf.Clamp01(-pitchNorm)); // up
-        float targetDist = Mathf.Lerp(ThirdPersonDistance, ThirdPersonDistance * 0.8f, Mathf.Clamp01(-pitchNorm)); // closer when looking up
-        // also allow going slightly lower when looking down
-        if (pitchNorm > 0f)
-        {
-            targetY = Mathf.Lerp(ThirdPersonY, ThirdPersonY - 0.4f, Mathf.Clamp01(pitchNorm));
-            targetDist = Mathf.Lerp(ThirdPersonDistance, ThirdPersonDistance * 1.1f, Mathf.Clamp01(pitchNorm));
-        }
-
+        // Pitch orbit around pivot right axis: true spherical boom in vertical plane
         Vector3 flatForward = _pivot.forward;
         flatForward.y = 0f;
+        if (flatForward.sqrMagnitude < 1e-6f)
+            flatForward = -_pivot.forward;
         flatForward.Normalize();
-        Vector3 desired = lookTarget
-            + Vector3.up * (targetY - _pivot.localPosition.y)
-            - flatForward * targetDist;
+        Vector3 boomBase = -flatForward * ThirdPersonDistance + Vector3.up * (ThirdPersonY - _pivot.localPosition.y);
+        Vector3 boomRot = Quaternion.AngleAxis(lookPitch, _pivot.right) * boomBase;
+        Vector3 desired = lookTarget + boomRot;
 
         // Terrain / wall collision: pull the camera forward if it would be inside geometry.
         // The SphereCast runs at ~10 Hz; the cached clamp distance is reused between casts so
@@ -356,12 +347,9 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // Under a pull-in the shortened pitched direction still swings the base toward lookTarget
         // (the documented clamp yaw), and nothing here reads the SMOOTHED camera position, so 1ju's
         // aim-from-the-unlagged-boom invariant survives.
-        Vector3 pitchedBoomEnd = lookTarget
-            + Vector3.up * (ThirdPersonY - _pivot.localPosition.y)
-            - _pivot.forward * ThirdPersonDistance;
-        Vector3 viewBoom = finalDist < targetDist
-            ? (pitchedBoomEnd - pivotPos).normalized * finalDist
-            : pitchedBoomEnd - pivotPos;
+        Vector3 boomDirFull = (desired - pivotPos);
+        float boomLenFull = boomDirFull.magnitude;
+        Vector3 viewBoom = (boomLenFull > 1e-6f) ? boomDirFull.normalized * finalDist : boomDirFull;
         _camera.transform.rotation =
             Quaternion.LookRotation(lookTarget - (pivotPos + viewBoom));
     }
