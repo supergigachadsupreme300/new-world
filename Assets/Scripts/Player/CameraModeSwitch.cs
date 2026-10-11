@@ -237,7 +237,7 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // re-injected into the VIEW below, never into the distance.
         // 1kz+: blend vertical offset based on look pitch so camera moves "over head" when looking up
         // and lower when looking down. Keep yaw-only horizontal boom.
-        float lookPitch = _controller != null ? _controller.LookPitch : 0f;
+        float lookPitch = _player != null ? _player.LookPitch : 0f;
         // LookPitch: positive = looking down? check common: in this codebase LookPitch is used as-is
         // Map: looking up (more negative if typical) or see existing. But blend both ways.
         float pitchNorm = lookPitch / 60f; // approx clamp range
@@ -261,7 +261,6 @@ public sealed class CameraModeSwitch : MonoBehaviour
         // The SphereCast runs at ~10 Hz; the cached clamp distance is reused between casts so
         // direction changes (facing) stay smooth without re-querying physics each frame.
         Vector3 toCam = (desired - pivotPos).normalized;
-        float targetDist = Vector3.Distance(pivotPos, desired);
         float finalDist = targetDist;
         // 1jv: publish the unclamped length from the local that produced it (see BoomRestLength).
         BoomRestLength = targetDist;
@@ -318,9 +317,6 @@ public sealed class CameraModeSwitch : MonoBehaviour
         BoomAppliedLength = finalDist;
         desired = pivotPos + toCam * finalDist;
 
-        Vector3 smoothedPos = Vector3.SmoothDamp(
-            _camera.transform.position, desired, ref _velocity, SmoothTime,
-            Mathf.Infinity, Time.deltaTime);
         // 1kz: clamp deltaTime fed to the follow smoother. On a hitch (large Time.deltaTime),
         // SmoothDamp computes a very large catch-up in a single frame, which can make the camera
         // jump past the intended boom length before the 1kx length cap or produce an excursion on
