@@ -129,8 +129,74 @@ public sealed class PlayerAnimator : MonoBehaviour
             { "throwing_hammer",  new ArmGait { SwingScale = 0.90f, ElbowScale = 0.85f, CrossScale = 0.90f } },
         };
     private readonly ArmGait _defaultArmGait = new ArmGait { SwingScale = 0.9f, ElbowScale = 0.85f, CrossScale = 0.9f };
-    private CombatController _cc;
-    private WeaponStowAnimator _wstow;
+
+      private struct ArmRun
+      {
+          public enum Style { DefaultPump, DragBehind }
+          public Style RunStyle;
+          // Shoulder X (local): +forward, -backward (trailing)
+          public float ShR_Base, ShL_Base;
+          public float ShR_Bounce, ShL_Bounce;
+          public float ShR_Phase, ShL_Phase;
+          // Elbow X
+          public float ElbR_Base, ElbL_Base;
+          public float ElbR_Bounce, ElbL_Bounce;
+          public float ElbR_Phase, ElbL_Phase;
+          public float BlendWeight;
+          public float BlendThreshold;
+      }
+
+      private readonly ArmRun _defaultArmRun = new ArmRun
+      {
+          RunStyle = ArmRun.Style.DefaultPump,
+          ShR_Base = 0f, ShL_Base = 0f,
+          ShR_Bounce = 0f, ShL_Bounce = 0f,
+          ShR_Phase = 0f, ShL_Phase = 0f,
+          ElbR_Base = 0f, ElbL_Base = 0f,
+          ElbR_Bounce = 0f, ElbL_Bounce = 0f,
+          ElbR_Phase = 0f, ElbL_Phase = 0f,
+          BlendWeight = 0f,
+          BlendThreshold = 0.5f
+      };
+
+      private readonly System.Collections.Generic.Dictionary<string, ArmRun> _armRuns =
+          new System.Collections.Generic.Dictionary<string, ArmRun>
+          {
+              // DragBehind: trail sword behind, small stride-tied bounce; unique dominates at full run
+              {
+                  "iron_sword",
+                  new ArmRun
+                  {
+                      RunStyle = ArmRun.Style.DragBehind,
+                      ShR_Base = -28f, ShL_Base = -12f,
+                      ShR_Bounce = 6f,  ShL_Bounce = 4f,
+                      ShR_Phase = Mathf.PI * 0.45f, ShL_Phase = Mathf.PI * 0.45f,
+                      ElbR_Base = -52f, ElbL_Base = -36f,
+                      ElbR_Bounce = 6f,  ElbL_Bounce = 4f,
+                      ElbR_Phase = Mathf.PI * 0.45f, ElbL_Phase = Mathf.PI * 0.45f,
+                      BlendWeight = 0.9f,
+                      BlendThreshold = 0.5f
+                  }
+              },
+              {
+                  "katana",
+                  new ArmRun
+                  {
+                      RunStyle = ArmRun.Style.DragBehind,
+                      ShR_Base = -24f, ShL_Base = -10f,
+                      ShR_Bounce = 5f,  ShL_Bounce = 3f,
+                      ShR_Phase = Mathf.PI * 0.4f,  ShL_Phase = Mathf.PI * 0.4f,
+                      ElbR_Base = -46f, ElbL_Base = -32f,
+                      ElbR_Bounce = 5f,  ShL_Bounce = 3f,
+                      ElbR_Phase = Mathf.PI * 0.4f,  ElbL_Phase = Mathf.PI * 0.4f,
+                      BlendWeight = 0.9f,
+                      BlendThreshold = 0.5f
+                  }
+              }
+          };
+
+      private CombatController _cc;
+      private WeaponStowAnimator _wstow;
 
     /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
     public void AcquireArms()
@@ -344,15 +410,46 @@ public sealed class PlayerAnimator : MonoBehaviour
                     }
                 }
             }
-            float cross = 0.35f;
-            float armLA = Mathf.Lerp(wArmL, rArmL, runBlend) * gL.SwingScale;
-            float armRA = Mathf.Lerp(wArmR, rArmR, runBlend) * gR.SwingScale;
-            float elbowLA = Mathf.Lerp(wElbowL, rElbowL, runBlend) * gL.ElbowScale;
-            float elbowRA = Mathf.Lerp(wElbowR, rElbowR, runBlend) * gR.ElbowScale;
-            if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armRA, 0f, 0f);
-            if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armLA, 0f, 0f);
-            if (_elbowR != null) _elbowR.localRotation = Quaternion.Euler(elbowRA, 0f, 0f);
-            if (_elbowL != null) _elbowL.localRotation = Quaternion.Euler(elbowLA, 0f, 0f);
+              float cross = 0.35f;
+              float armLA = Mathf.Lerp(wArmL, rArmL, runBlend) * gL.SwingScale;
+              float armRA = Mathf.Lerp(wArmR, rArmR, runBlend) * gR.SwingScale;
+              float elbowLA = Mathf.Lerp(wElbowL, rElbowL, runBlend) * gL.ElbowScale;
+              float elbowRA = Mathf.Lerp(wElbowR, rElbowR, runBlend) * gR.ElbowScale;
+
+              // Unique per-weapon run: replace generic run pump with a drag/carry pose when in full run
+              ArmRun runProf = _defaultArmRun;
+              if (_cc.Wielding == CombatController.WieldingState.TwoHand)
+              {
+                  string twoId = rid ?? lid;
+                  if (!string.IsNullOrEmpty(twoId) && _armRuns.TryGetValue(twoId, out var tr)) runProf = tr;
+              }
+              else
+              {
+                  // Prefer the weapon being held; if one-handed, try right then left
+                  string idR = rid;
+                  string idL = lid;
+                  if (!string.IsNullOrEmpty(idR) && _armRuns.TryGetValue(idR, out var rr)) runProf = rr;
+                  else if (!string.IsNullOrEmpty(idL) && _armRuns.TryGetValue(idL, out var lr)) runProf = lr;
+              }
+              if (runProf.RunStyle != ArmRun.Style.DefaultPump && runBlend >= runProf.BlendThreshold)
+              {
+                  float t = runBlend * runProf.BlendWeight;
+                  float p = _phase;
+                  float arR = runProf.ShR_Base + Mathf.Sin(p + runProf.ShR_Phase) * runProf.ShR_Bounce;
+                  float arL = runProf.ShL_Base + Mathf.Sin(p + runProf.ShL_Phase) * runProf.ShL_Bounce;
+                  float erR = runProf.ElbR_Base + Mathf.Sin(p + runProf.ElbR_Phase) * runProf.ElbR_Bounce;
+                  float erL = runProf.ElbL_Base + Mathf.Sin(p + runProf.ElbL_Phase) * runProf.ElbL_Bounce;
+                  // Lerp from walk angles (which are wArmL/wArmR) toward unique run angles, then scale by gait
+                  armRA = Mathf.Lerp(wArmR, arR, t) * gR.SwingScale;
+                  armLA = Mathf.Lerp(wArmL, arL, t) * gL.SwingScale;
+                  elbowRA = Mathf.Lerp(wElbowR, erR, t) * gR.ElbowScale;
+                  elbowLA = Mathf.Lerp(wElbowL, erL, t) * gL.ElbowScale;
+              }
+
+              if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armRA, 0f, 0f);
+              if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armLA, 0f, 0f);
+              if (_elbowR != null) _elbowR.localRotation = Quaternion.Euler(elbowRA, 0f, 0f);
+              if (_elbowL != null) _elbowL.localRotation = Quaternion.Euler(elbowLA, 0f, 0f);
         }
         // When SuppressArms is set, a WeaponAnimator fully owns the shoulders AND elbows
         // (windup/strike/charge pose tracks), so nothing is written here mid-attack.
