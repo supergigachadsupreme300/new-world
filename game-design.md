@@ -512,6 +512,19 @@ mid-view stays crisp
   shared counter (`NextMeshRebuildStamp`), not a per-object increment. A per-object counter restarted
   at 0 on every chunk lifecycle, so a reloaded chunk could re-issue a stamp a stale in-flight result
   already held; the drain check now also rejects results whose chunk is `Dormant`.
+- **Burst chunk loading (1l4, default ON):** the three main-thread stages that materialize a chunk —
+  `FinalizeChunks` (mesh upload), `ReconcileCollidersIfChanged` (PhysX cook) and `StepChunkProps`
+  (prop spawn) — drain their ENTIRE eligible set in the poll they run rather than trickling under the
+  shared `StreamBudgetMs` pool and their small per-poll caps. Mesh uploads up to `MaxInFlight`
+  (24) per poll (no 12-clamp, no budget stop), every wanted ring collider cooks in one poll (no 2/poll
+  cap), and every pending chunk's props spawn in one poll (no `PropTilesPerTick` cap, no 2 ms
+  backstop). The default time-sliced behaviour is why the load read as **continuous lag**: at 20 Hz a
+  full-fidelity chunk upload alone exceeds the 4 ms pool, so `_streamCapped` fired after ~1 chunk and
+  the 361-chunk near ring took ~18 s — stealing ~4 ms from *every* frame the whole time. Burst trades
+  that for **one big hitch** per load/ring-crossing, then the stream is quiet. The poll is still
+  charged via `SpendStreamBudget`, so `_streamCapped` still fires and the FAR shell stays time-sliced
+  with its cool-down frame. Serialized `WorldStreamer.BurstChunkLoads` (Threading header); OFF restores
+  the 1es/1gf time-sliced path. Raise `MaxInFlight` to widen the mesh burst further.
 - At each frame, the system calculates which chunks are within radius of the player.
 - Chunks entering radius: loaded from cache or generated.
 - Chunks leaving radius: unloaded from memory (kept in cache on disk).
@@ -524,7 +537,9 @@ mid-view stays crisp
 in flight) that fills the full near ring (1ef: NearRingRadius 9 chunks — the far shell fills the
    rest) without dropping a steady 60 fps (**1di** — the earlier
    16-chunk/12 ms burst shrank the budget so chunk finalization + collider cooking stop competing with the
-   frame). Since **1em** this fill actually completes: previously the dispatch loop re-generated the
+   frame). **Since 1l4 the default is the full-burst path instead** (whole eligible set per poll — see the
+   Burst chunk loading bullet above); the 12-chunk/adaptive-budget description is the
+   `BurstChunkLoads = false` time-sliced path. Since **1em** this fill actually completes: previously the dispatch loop re-generated the
    same nearest chunks forever, so the ring stalled at ~24 chunks (see the §2.5 real-ring note). The game bootstrap defaults render radius to **30** (1eo) — was **67** with a
    hard clamp of **160** (1ef) — and the chunk distance-cull distance auto-matches the current render
    radius so

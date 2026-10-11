@@ -48,6 +48,11 @@ $chunkbuild  = 'Assets\Scripts\World\Streaming\WorldStreamer.ChunkBuild.cs'
 $farshell    = 'Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs'
 $deform      = 'Assets\Scripts\World\Streaming\WorldStreamer.Deform.cs'
 $crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
+# 1l4 added the streamer's main partial + the mesh/props stages, which the 1l4 burst edits touch
+# (FinalizeChunks / ReconcileCollidersIfChanged / StepChunkProps and the new BurstChunkLoads field).
+$streamer    = 'Assets\Scripts\World\Streaming\WorldStreamer.cs'
+$meshstage   = 'Assets\Scripts\World\Streaming\WorldStreamer.Mesh.cs'
+$propstage   = 'Assets\Scripts\World\Streaming\WorldStreamer.Props.cs'
 
 # AGENTS.md rule 3: any file edited here belongs in $files, or checks 1, 4
 # and 5 silently stop covering it. 1hz added Persistence + NPCs. 1hy added the
@@ -81,6 +86,7 @@ $crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
 # edit a diff cannot show, since the line is textually identical in both files.
 $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            $chunkbuild, $farshell, $deform, $crateraudit,
+           $streamer, $meshstage, $propstage,
            'Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs',
            'Assets\Scripts\World\Chunks\ChunkObject.cs',
            'Assets\Scripts\Opt\ChunkDistanceCull.cs',

@@ -1,3 +1,48 @@
+## 1l4. Chunk stream "continuous lag" — is the limiter the pool, the caps, or the cadence? (SHIPPED, play-test pending)
+
+User: chunks load "one at a time causing continuous lag"; wants several at once (accept one big hitch).
+Reasoning trail, hypotheses first, then the chosen shape.
+
+**H1 (confirmed) — the limiter is the shared 4 ms pool, not the per-stage caps.** The stages are
+`FinalizeChunks` (cap `min(ChunksPerFrame,12)` = 12), `ReconcileCollidersIfChanged` (cap 2 cooks),
+`StepChunkProps` (cap 1800 tiles + 2 ms). If any *cap* were binding, throughput would be ~12 chunks/poll
+= the ring in ~30 polls ≈ 1.5 s — not the reported ~18 s. The matching number is the *pool*: the poll
+resets `_streamBudgetRemaining = max(1, AdaptiveBudgetMs(4))` and `SpendStreamBudget` flips
+`_streamCapped` the moment it crosses 4 ms. A single full-fidelity `UploadMerged` (mesh fill + bounds +
+upload) exceeds 4 ms, so `_streamCapped` is set on the FIRST chunk every poll → the non-burst guards
+(`if (_streamCapped) return;` / `while (!_streamCapped)`) allow exactly ~1 chunk/poll. 361 checks ≈ 18 s
+at 20 Hz. And because every poll spends the full 4 ms, every gameplay frame gets ~4 ms of streaming work
+regardless of the hitch — the "continuous" in "continuous lag". VERDICT: H1 confirmed by arithmetic;
+the pool is the ceiling, the caps are dead code on this path.
+
+**H2 (rejected) — raise `ChunksPerFrame` / `MaxColliderCooksPerPoll`.** These never bind under H1, so
+raising them changes nothing. 1di's history (16→12) is exactly a cap edit that the pool then overrode.
+Rejected as a fix, but kept in mind: the caps must stay correct for the non-burst path.
+
+**H3 (rejected) — remove the pool entirely (no `SpendStreamBudget`).** That would also burst, but it
+would take the far shell and the cool-down frame down with it: `_streamCapped` is the single signal the
+far shell time-slices on and the `StreamOnce` bool the `StreamLoop` cools down on. Removing the pool to
+fix the near ring would re-open the far-shell stacking and the every-poll-frame double-load the 1gd/1es
+work closed. Rejected: the pool is load-bearing beyond the three stages we want to burst.
+
+**H4 (CHOSEN) — a boolean that makes exactly the three materializing stages ignore the pool + their
+caps, while the poll still charges `SpendStreamBudget`.** `BurstChunkLoads` (default ON). The near ring
+bursts (one hitch); `_streamCapped` still fires (the poll was genuinely heavy), so the far shell stays
+time-sliced and the cool-down frame still follows. Scope = meshes + colliders + props (the user's answer)
+because a mesh-only burst would still trail props for ~11 s (`PropTilesPerTick`), re-creating a smaller
+version of the same complaint. The far shell, seam rebuilds and the 20 Hz cadence are deliberately
+untouched — they were not part of the report and bursting the shell would stack the horizon fill.
+
+**Why not size the burst by "how much time we have"?** A time-based burst needs a target frame and would
+re-introduce the adaptive-budget coupling the user is complaining about (the budget *is* the trickle).
+"All ready, up to `MaxInFlight`" is a discrete, predictable burst and `MaxInFlight` is already the
+background-generation concurrency, so it is the natural widening knob (raise it for a bigger burst).
+
+**Open / play-test:** the trade that cannot be settled from code — (a) is the one hitch tolerable or an
+overly-long freeze (colliders + props uncapped in burst)? (b) any fall-through or floating props in the
+first frames after the hitch? (c) does the HUD poll-stage readout show heavy-poll count collapse into a
+few big beats? If the freeze is too long: lower `MaxInFlight`, or flip `BurstChunkLoads = false`.
+
 ## 1l3. Conflagration "one ember ray" — why it was one, and why count alone would not fix it (SHIPPED)
 
 testing.md task 7: "currently conflagration only create one ember ray on the circle edge, i want more".

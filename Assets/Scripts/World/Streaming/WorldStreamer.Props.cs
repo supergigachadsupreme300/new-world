@@ -70,9 +70,12 @@ public partial class WorldStreamer
 
     private void StepChunkProps()
     {
-        if (_streamCapped)
+        if (_streamCapped && !BurstChunkLoads)
             return;                              // 1es: props are deferrable — skip when the shared budget is dry
-        int remaining = PropTilesPerTick;
+        // 1l4: burst mode drains every pending chunk's tiles in one poll (no PropTilesPerTick cap and
+        // no PropBudgetMs backstop) so the whole prop ring lands with the terrain burst instead of
+        // trailing it for ~11 s. The poll is still charged per chunk below.
+        int remaining = BurstChunkLoads ? int.MaxValue : PropTilesPerTick;
         float chunkStart = Time.realtimeSinceStartup;
         foreach (KeyValuePair<TerrainChunkCoord, ChunkObject> kv in _loadedChunks)
         {
@@ -82,9 +85,9 @@ public partial class WorldStreamer
             remaining -= obj.StepProps(Mathf.Max(1, remaining));
             SpendStreamBudget((Time.realtimeSinceStartup - chunkStart) * 1000f);
             chunkStart = Time.realtimeSinceStartup;
-            if (remaining <= 0 || _streamCapped)
+            if (!BurstChunkLoads && (remaining <= 0 || _streamCapped))
                 break;
-            if ((Time.realtimeSinceStartup - chunkStart) * 1000f >= PropBudgetMs)
+            if (!BurstChunkLoads && (Time.realtimeSinceStartup - chunkStart) * 1000f >= PropBudgetMs)
                 break;
         }
     }

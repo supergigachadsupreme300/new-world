@@ -37,15 +37,21 @@ public partial class WorldStreamer
     /// the render-radius fill completes without dropping a steady 60 fps. Props are NOT
     /// spawned here — they stream in over the next ticks (SyncPropRing + StepChunkProps). Deferrable:
     /// when the shared budget is already dry this poll the ready queue simply waits a poll.
+    /// 1l4: when <see cref="BurstChunkLoads"/> is ON this instead drains the WHOLE ready queue up to
+    /// <see cref="MaxInFlight"/> in one poll — no 12-clamp, no budget stop — so the ring fills as one
+    /// hitch rather than ~1 chunk/poll. The poll is still charged below, so the shared-budget signal
+    /// (far shell, cool-down frame) is unchanged.
     /// </summary>
     private void FinalizeChunks()
     {
-        if (_streamCapped)
+        if (_streamCapped && !BurstChunkLoads)
             return;
         int finalized = 0;
-        int budget = Mathf.Max(1, Mathf.Min(ChunksPerFrame, 12));
+        int budget = BurstChunkLoads
+            ? Mathf.Max(1, MaxInFlight)
+            : Mathf.Max(1, Mathf.Min(ChunksPerFrame, 12));
         float chunkStart = Time.realtimeSinceStartup;
-        while (finalized < budget && !_streamCapped && _readyChunks.TryDequeue(out TerrainChunkMeshData chunk))
+        while (finalized < budget && (BurstChunkLoads || !_streamCapped) && _readyChunks.TryDequeue(out TerrainChunkMeshData chunk))
         {
             byte _;
             _chunksInFlight.TryRemove(chunk.Coord, out _);

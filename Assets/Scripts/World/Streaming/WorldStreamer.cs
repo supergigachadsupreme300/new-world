@@ -91,11 +91,14 @@ public partial class WorldStreamer : MonoBehaviour
         ? LowPolyStep : 0;
 
     [Header("Threading")]
-    [Tooltip("Max terrain chunks finalized per poll tick (main-thread work).")]
+    [Tooltip("Max terrain chunks finalized per poll tick (main-thread work) when BurstChunkLoads is OFF.")]
     public int ChunksPerFrame = 16;
 
-    [Tooltip("Max terrain chunks being generated on background threads simultaneously.")]
+    [Tooltip("Max terrain chunks being generated on background threads simultaneously. In burst mode (1l4) this is also the per-poll FINALIZE cap: raise it to widen the burst.")]
     public int MaxInFlight = 24;
+
+    [Tooltip("1l4: BURST LOAD. When ON, the three main-thread stream stages drain their ENTIRE eligible set in the poll they run, instead of trickling under the shared 4 ms pool and their small per-poll caps: FinalizeChunks uploads up to MaxInFlight meshes/poll (ignoring the 12-clamp and the budget stop), ReconcileCollidersIfChanged cooks every wanted ring collider in one poll (ignoring the 2/poll cap), and StepChunkProps spawns every pending chunk's props in one poll (ignoring PropTilesPerTick and the 2 ms backstop).\n\nWhy: at 20 Hz a full-fidelity chunk upload exceeds the 4 ms pool on the first chunk, so the old path loaded ~1 chunk/poll — the near ring took ~18 s and stole ~4 ms from EVERY frame the whole time (continuous lag). Burst trades that for one big hitch per load/crossing, then the stream is quiet. The poll still charges SpendStreamBudget, so _streamCapped still fires: the FAR shell stays time-sliced and the cool-down frame still follows the heavy beat. Set OFF to restore the time-sliced 1es/1gf behaviour.")]
+    public bool BurstChunkLoads = true;
 
     // --- Tile-level state (existing public API; 900 entries per loaded chunk) ---
     private readonly Dictionary<ChunkCoord, ChunkData> _loadedData = new Dictionary<ChunkCoord, ChunkData>();
@@ -574,7 +577,9 @@ public partial class WorldStreamer : MonoBehaviour
                 // it further: once this poll's shared pool is dry (finalize/far work ate it), cooks
                 // defer to the next poll instead of stacking unbudgeted PhysX time on top of a heavy
                 // beat. _collidersDirty keeps the walk alive so the deferred cooks still land.
-                if (_streamCapped || cooked >= MaxColliderCooksPerPoll)
+                // 1l4: burst mode cooks every wanted ring chunk in one poll (bounded by the collider
+                // ring, <=225) — the ring fill lands as one hitch instead of ~2 cooks/poll for minutes.
+                if (!BurstChunkLoads && (_streamCapped || cooked >= MaxColliderCooksPerPoll))
                 {
                     deferredAny = true;
                     if (cheb < closestCheb)

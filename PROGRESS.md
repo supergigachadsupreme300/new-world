@@ -1,3 +1,53 @@
+## 1l4. Burst chunk loading — load the whole ring in one poll instead of ~1 chunk/poll
+
+User: chunks stream in "one at a time causing continuous lag"; load **multiple chunks at once** — accept
+one big hitch so the stutter ends sooner. Answers to the 3 design questions: (1) burst size = all ready,
+up to `MaxInFlight`; (2) reversibility = a serialized flag, default ON; (3) scope = meshes + colliders +
+props (all three main-thread stages).
+
+Root cause: the streamer is a 20 Hz coroutine (`StreamHz`) with one shared ~4 ms pool (`StreamBudgetMs`,
+`SpendStreamBudget`). A full-fidelity chunk upload alone exceeds 4 ms, so `_streamCapped` flips after ~1
+chunk and each poll finalizes ~1 → the 361-chunk near ring takes ~18 s, and *every* frame in that window
+pays ~4 ms of streaming (the continuous lag). The per-stage caps (12 mesh / 2 collider cooks / 1800 prop
+tiles) never bind because the pool binds first.
+
+Fix — one serialized flag makes the three stages drain their whole eligible set in the poll they run:
+- `WorldStreamer.cs`: new `public bool BurstChunkLoads = true;` (Threading header, long tooltip);
+  `ChunksPerFrame`/`MaxInFlight` tooltips updated. `ReconcileCollidersIfChanged` gate →
+  `if (!BurstChunkLoads && (_streamCapped || cooked >= MaxColliderCooksPerPoll))` — burst cooks every
+  wanted ring collider (the `MustCollide` floor still runs first, unchanged).
+- `WorldStreamer.Mesh.cs` `FinalizeChunks`: entry guard `if (_streamCapped && !BurstChunkLoads) return;`;
+  `budget = BurstChunkLoads ? Mathf.Max(1, MaxInFlight) : Mathf.Max(1, Mathf.Min(ChunksPerFrame, 12))`;
+  loop condition `... (BurstChunkLoads || !_streamCapped) ...`. `SpendStreamBudget` kept per upload.
+- `WorldStreamer.Props.cs` `StepChunkProps`: entry guard + `remaining = BurstChunkLoads ? int.MaxValue :
+  PropTilesPerTick`; both the `remaining <= 0 || _streamCapped` and `PropBudgetMs` breaks gated on
+  `!BurstChunkLoads`. `SpendStreamBudget` kept per chunk.
+
+Deliberately NOT touched: the far shell (`WorldStreamer.FarShell.cs`), the seam-rebuild path
+(`DispatchRebuilds`/`DrainRebuildResults`), and the 20 Hz `StreamLoop` cadence. `SpendStreamBudget` still
+sets `_streamCapped`, so the far shell stays time-sliced and the cool-down frame still follows a heavy
+beat. Verify: grep (`BurstChunkLoads` = 11 hits across the 3 files) + reread each method + rule 3's script.
+
+Edits: `WorldStreamer.cs`, `WorldStreamer.Mesh.cs`, `WorldStreamer.Props.cs`, `tools/StaticChecks.ps1`
+(added the 3 files to `$files`, rule 3), `game-design.md` §2.5, this entry, `THINKING.md` §1l4.
+
+### 1l4-status
+- [x] `BurstChunkLoads` flag (default ON) added; collider/mesh/prop stages all burst on it.
+- [x] Far shell + seam rebuilds + 20 Hz cadence untouched; `_streamCapped` signal preserved.
+- [x] Added `WorldStreamer.cs` / `.Mesh.cs` / `.Props.cs` to `tools/StaticChecks.ps1` `$files`
+      (rule 3) — all three now pass checks 1–7; script reports **0 candidates**.
+- [x] Verified by grep + reread (no build, rule 3): `BurstChunkLoads` has exactly the intended 11 reads/writes;
+      the new `$files` entries are actually read (nonzero balanced counts, not a false zero).
+- [x] `skills: none applied` — a C# streaming edit reviewed by a human; no installed skill governs it (rule 15).
+- [x] Docs kept in sync in the same pass: `game-design.md` §2.5 (new bullet + boot sentence), this entry,
+      `THINKING.md` §1l4.
+- [ ] **PLAY-TEST (user, Unity):** first load and a few ring crossings should now show **one big hitch**
+      (meshes + colliders + props at once) then a quiet stream — no more continuous ~4 ms/frame stutter.
+      Check: (a) the hitch is tolerable and not an overly-long freeze (colliders+props are uncapped in
+      burst — if it is too long, lower `MaxInFlight` or set `BurstChunkLoads = false`); (b) no fall-through
+      or floating props right after the hitch; (c) the HUD poll-stage readout shows heavy polls collapse
+      into a few big ones instead of many small ones.
+
 ## 1l3. Conflagration: several ember rays around the ring (was a single strand)
 
 testing.md task 7: "currently conflagration only create one ember ray on the circle edge, i want more".
