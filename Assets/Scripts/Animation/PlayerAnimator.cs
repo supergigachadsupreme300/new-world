@@ -187,7 +187,7 @@ public sealed class PlayerAnimator : MonoBehaviour
                       ShR_Bounce = 5f,  ShL_Bounce = 3f,
                       ShR_Phase = Mathf.PI * 0.4f,  ShL_Phase = Mathf.PI * 0.4f,
                       ElbR_Base = -46f, ElbL_Base = -32f,
-                      ElbR_Bounce = 5f,  ShL_Bounce = 3f,
+                      ElbR_Bounce = 5f,  ElbL_Bounce = 3f,
                       ElbR_Phase = Mathf.PI * 0.4f,  ElbL_Phase = Mathf.PI * 0.4f,
                       BlendWeight = 0.9f,
                       BlendThreshold = 0.5f
