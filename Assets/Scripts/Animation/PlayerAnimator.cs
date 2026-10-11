@@ -82,10 +82,9 @@ public sealed class PlayerAnimator : MonoBehaviour
     public float TorsoLookBlend = 0.5f;
 
     [Tooltip("Metres the body travels per FULL gait cycle (two steps: left forward, right forward). "
-        + "The cadence is speed / stride, so one cycle advancing the body by exactly this much is what "
-        + "keeps the feet planted instead of sliding. Bigger stride = fewer, longer steps. "
-        + "The default 5.6 puts a 5 m/s walk at ~0.89 Hz and a 10 m/s sprint at ~1.79 Hz.")]
-    public float StrideLength = 5.6f;
+          + "The cadence is speed / stride, so one cycle advancing the body by exactly this much is what "
+          + "keeps the feet planted instead of sliding. Bigger stride = fewer, longer steps.")]
+      public float StrideLength = 6.2f;
 
     [Tooltip("Hard ceiling on the gait cycle rate (Hz), so a very fast build cannot turn the run "
         + "into a blur. Above the ceiling the feet DO slide, because the animation can no longer "
@@ -353,13 +352,13 @@ public sealed class PlayerAnimator : MonoBehaviour
 
         // â”€â”€ Run pose (exaggerated cartoon: big strides, high knees, wide pumping arms) â”€â”€
         float rEase = Mathf.Clamp01((norm - 0.45f) / 0.35f); // 0 at run start .. 1 at sprint
-        float rLegAmp = (0.5f + rEase * 0.4f) * Mathf.Rad2Deg;
-        float rArmAmp = (0.55f + rEase * 0.3f) * Mathf.Rad2Deg;
+        float rLegAmp = (0.6f + rEase * 0.5f) * Mathf.Rad2Deg;
+        float rArmAmp = (0.7f + rEase * 0.4f) * Mathf.Rad2Deg;
         float rLegL = Mathf.Sin(_phase) * rLegAmp;
         float rLegR = Mathf.Sin(_phase + Mathf.PI) * rLegAmp;
         float rArmR = Mathf.Sin(_phase + 0.2f) * rArmAmp;
         float rArmL = Mathf.Sin(_phase + Mathf.PI + 0.2f) * rArmAmp;
-        float rKneeBend = (0.9f + rEase * 0.25f) * Mathf.Rad2Deg;
+        float rKneeBend = (1.05f + rEase * 0.35f) * Mathf.Rad2Deg;
         float rKneeL = Mathf.Max(0f, rLegL) * (rKneeBend / Mathf.Max(0.01f, rLegAmp));
         float rKneeR = Mathf.Max(0f, rLegR) * (rKneeBend / Mathf.Max(0.01f, rLegAmp));
         float rElbowAmp = rArmAmp * 0.8f;
