@@ -326,6 +326,11 @@ public sealed class CameraModeSwitch : MonoBehaviour
         Vector3 smoothedPos = Vector3.SmoothDamp(
             _camera.transform.position, desired, ref _velocity, SmoothTime,
             Mathf.Infinity, followDt);
+        // 1kx: cap smoothed offset length at boom rest length so easing can't lengthen boom
+        Vector3 offset = smoothedPos - pivotPos;
+        float capLen = targetDist;
+        if (offset.magnitude > capLen)
+            smoothedPos = pivotPos + offset.normalized * capLen;
         // 1ju: aim from `desired`, NOT from the smoothed position. SmoothDamp leaves the camera
         // trailing the player, and a strafe is the one ordinary motion that puts a LATERAL
         // component in that trail - running forward trails along the view axis (pitch only),
