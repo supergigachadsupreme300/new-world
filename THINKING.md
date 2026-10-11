@@ -1,3 +1,37 @@
+## 1l3. Conflagration "one ember ray" — why it was one, and why count alone would not fix it (SHIPPED)
+
+testing.md task 7: "currently conflagration only create one ember ray on the circle edge, i want more".
+Reasoning trail, hypotheses first.
+
+**H1 (rejected) — the embers are so sparse that 24 of them read as one; raise the count.** Evidence
+against: the report is not "too few dots" but "one ray", i.e. a *shape* claim. In `BuildConflagration`
+every ember's angle is `ang = cyc · turns · 2π` where `cyc = φ_i + t·speed`, and `φ_i = i/N` — every
+ember obeys the SAME helix, differing only in phase. So the whole set is a single spiral of points;
+doubling N gives the same spiral, just denser. That is a second spelling of the same mechanism.
+
+**H2 (confirmed) — the embers share one helix, so they must be split into PARALLEL helices.** Evidence
+for: a per-ember constant angular offset `angOffset` added to the angle makes distinct helices that do
+not coincide. Dealing ember `i` into `ray = i % rays`, `along = i / rays` with `phase = along/perRay`
+and `angOffset = ray·2π/rays` yields `rays` strands, each carrying `perRay` embers spread along its own
+climb → several visible tongues instead of one.
+
+**H3 (confirmed) — the rim read also needs the embers to STAY near the edge.** The original linear orbit
+`radius·(1 − shrink·cyc)` pulls in immediately, so the strand dives toward the axis and the perimeter
+thins as it rises. Quadratic `radius·(1 − shrink·cyc²)` keeps `cyc` small for the first half (orbit stays
+near 0.8–1.0·radius) and only converges hard near the apex — the perimeter stays lit. Also shorter is not
+what the user wants here, so the apex went taller/wider (`max(3.2, 2.2·radius)`).
+
+### Verdicts
+- H1 rejected: a count bump is not the fix (same single helix).
+- H2 confirmed: split into 6 parallel strands (48 embers, 8 per strand).
+- H3 confirmed: quadratic convergence + taller/wider apex.
+
+### Notes
+- Rule 8 in play twice: the ember count and the apex height are copies of a design number, so the stale
+  "16 ember cubes" in `game-design.md` §3.8.5 (already wrong at 24) was corrected in the same pass.
+- Rule 19 unchanged: the rise still lives in `VortexRiser`, not the factory; only `Init`'s signature grew.
+- OPEN for play-test: whether 6 strands is the right density (fewer = clearer rays, more = fuller ring).
+
 ## 1kza (2025-10-11)
 ### Hypotheses
 - H1: Reusing generic Sin run (amplitude-scaled by ArmGait) is too much pumping; unique shape per weapon is needed.

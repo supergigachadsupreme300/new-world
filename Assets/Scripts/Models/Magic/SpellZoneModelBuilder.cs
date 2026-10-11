@@ -77,7 +77,14 @@ public static class SpellZoneModelBuilder
     /// (<c>ZoneBody.VortexCircle</c>). (1kf: Firestorm draws <see cref="BuildFunnel"/>
     /// instead.) Two colours, both through the
     /// colour-keyed shared cache: the circle takes the spell's Core, the rising flames the hot end
-    /// (<see cref="SpellLook.HotCore"/>) — the same hot-end choice SpellBeam's funnel makes.</summary>
+    /// (<see cref="SpellLook.HotCore"/>) — the same hot-end choice SpellBeam's funnel makes.
+    /// <para><b>1l3</b> answer to "only create one ember ray on the circle edge, i want more": every
+    /// ember used to ride the SAME helix, so 24 evenly-phased cubes traced ONE spiral strand. They are
+    /// now dealt into <c>rays</c> PARALLEL strands (a per-ember angular offset, <c>angOffset</c>), so
+    /// the rim carries several distinct tongues of flame; the count doubled (24 → 48, 8 per strand)
+    /// and the inward convergence is quadratic in the rise (<c>cyc²</c>) so each tongue HUGS the
+    /// perimeter for the first half of its climb before pulling to the apex. The apex is taller/wider
+    /// too (<c>max(3.2, radius·2.2)</c>, was <c>max(2.5, radius·1.6)</c>).</para></summary>
     public static void BuildConflagration(Transform parent, float radius, Color core, Color hot)
     {
         Material coreMat = SkillFx.SharedSpriteMaterial(core);
@@ -90,21 +97,26 @@ public static class SpellZoneModelBuilder
         disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
         ApplyShared(disc, coreMat);
 
-        const int embers = 24;
+        const int rays = 6;                    // 1l3: parallel flame strands around the ring (was 1)
+        const int embers = rays * 8;           // 8 embers spread along each strand's climb
         const float risesPerSecond = 0.45f;
-        const float turnsPerRise = 1.6f;
-        const float shrink = 0.72f;
-        float height = Mathf.Max(2.5f, radius * 1.6f);
+        const float turnsPerRise = 1.8f;
+        const float shrink = 0.80f;
+        float height = Mathf.Max(3.2f, radius * 2.2f);
         for (int i = 0; i < embers; i++)
         {
+            int ray = i % rays;
+            int along = i / rays;
+            float phase = along / 8f;                          // spread along this strand's rise
+            float angOffset = ray * (2f * Mathf.PI / rays);    // separate the strands
             var ember = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ember.name = "SpellEmber_" + i;
             DestroyCollider(ember);
             ember.transform.SetParent(parent, false);
             ember.transform.localScale = Vector3.one * 0.16f;
-            ember.transform.localRotation = Quaternion.Euler(0f, i * 22.5f, 0f);
+            ember.transform.localRotation = Quaternion.Euler(0f, angOffset * Mathf.Rad2Deg, 0f);
             ApplyShared(ember, hotMat);
-            ember.AddComponent<VortexRiser>().Init(i / (float)embers, risesPerSecond, turnsPerRise, radius, height, shrink);
+            ember.AddComponent<VortexRiser>().Init(phase, angOffset, risesPerSecond, turnsPerRise, radius, height, shrink);
         }
     }
 
@@ -117,6 +129,7 @@ public static class SpellZoneModelBuilder
     private sealed class VortexRiser : MonoBehaviour
     {
         private float _phase;
+        private float _angOffset;
         private float _speed;
         private float _turns;
         private float _radius;
@@ -124,9 +137,10 @@ public static class SpellZoneModelBuilder
         private float _shrink;
         private Vector3 _baseScale;
 
-        public void Init(float phase, float speed, float turns, float radius, float height, float shrink)
+        public void Init(float phase, float angOffset, float speed, float turns, float radius, float height, float shrink)
         {
             _phase = phase;
+            _angOffset = angOffset;
             _speed = speed;
             _turns = turns;
             _radius = radius;
@@ -138,8 +152,10 @@ public static class SpellZoneModelBuilder
         private void Update()
         {
             float cyc = Mathf.Repeat(_phase + Time.time * _speed, 1f);
-            float ang = cyc * _turns * Mathf.PI * 2f;
-            float orbit = _radius * (1f - _shrink * cyc);
+            float ang = _angOffset + cyc * _turns * Mathf.PI * 2f;
+            // 1l3: quadratic convergence (cyc², was linear) so the tongue hugs the rim for the first
+            // half of the climb, then pulls hard to the apex — keeps the ring perimeter densely lit.
+            float orbit = _radius * (1f - _shrink * cyc * cyc);
             transform.localPosition = new Vector3(
                 Mathf.Cos(ang) * orbit,
                 cyc * _height,

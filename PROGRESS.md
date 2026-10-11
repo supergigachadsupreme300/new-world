@@ -1,3 +1,34 @@
+## 1l3. Conflagration: several ember rays around the ring (was a single strand)
+
+testing.md task 7: "currently conflagration only create one ember ray on the circle edge, i want more".
+Diagnosis: in `BuildConflagration` every ember sat on the SAME helix — only its phase differed — so the
+24 evenly-phased cubes traced one shared spiral and read as a *single* ember ray. Raising the count would
+only have made that one strand denser; the fix is to deal the embers into PARALLEL strands.
+
+Fix (`SpellZoneModelBuilder.cs`, both callers get it — runtime `SpellZone.cs` and the QA bench):
+- Embers dealt into `rays = 6` parallel strands (per-ember `angOffset = ray · 2π/6`), 8 embers each
+  (48 total, up from 24). `VortexRiser.Init` gained an `angOffset` argument; `Update` now starts each
+  ember's angle at `_angOffset + cyc·turns·2π` instead of `cyc·turns·2π`.
+- Convergence made quadratic in the rise (`orbit = radius·(1 − shrink·cyc²)`, was `·cyc`), so each tongue
+  hugs the perimeter for the first half of its climb, then pulls to the apex.
+- Apex taller/wider: `max(3.2, 2.2·radius)` (was `max(2.5, 1.6·radius)`); shrink 0.72 → 0.80; turns per
+  rise 1.6 → 1.8.
+
+Edits: `SpellZoneModelBuilder.cs` (builder loop + the nested `VortexRiser`). `game-design.md` §3.8.5, this
+entry, `THINKING.md` §1l3.
+
+### 1l3-status
+- [x] 6 parallel ember strands (was 1); count 24 → 48; a per-strand angular offset separates them.
+- [x] Quadratic convergence + taller/wider apex.
+- [x] Verified by grep + reread (no build, rule 3): `VortexRiser.Init` has exactly ONE call site
+      (`BuildConflagration`) and the new 7-arg arity matches; no other `angOffset` in the tree;
+      `StaticChecks.ps1` → 0 candidates (file outside its `$files` list; sanity run only).
+- [x] `skills: none applied` — a procedural C# model edit; no installed skill governs the artifact (rule 15).
+- [x] Docs kept in sync in the same pass: `game-design.md` §3.8.5, `PROGRESS.md` this entry, `THINKING.md` §1l3.
+- [ ] **PLAY-TEST (user, Unity):** cast Conflagration — the ring edge should read as several distinct
+      rising tongues/rays of flame (not one strand), hugging the perimeter before converging to a taller,
+      wider apex. Note if it now looks cluttered, or if the strands are still too subtle.
+
 ## 1kza (2025-10-11)
 ### 1kza-status
 - [x] Added unique per-weapon run arm animations: new ArmRun profile with DragBehind style, _armRuns dictionary (iron_sword, katana).
@@ -3739,7 +3770,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-10 (1ky). Read this first in a new session; then continue with the
+Last updated: 2026-10-11 (1l3). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

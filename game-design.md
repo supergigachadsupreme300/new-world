@@ -2440,9 +2440,13 @@ swirl IS the wind that drags foes in. Conflagration gained a profile carrying on
 authored count 25 → **26**.
 
 **Body:** `SpellZoneModelBuilder.BuildConflagration(transform, Radius, core, HotCore(core))` — a thin
-ground disc in the spell's Core colour, then 16 ember cubes in the hot colour, each rising from the edge
-on a helix (0.45 rises/s, 1.6 turns per rise) that shrinks 72% toward the apex at `max(2.5, 1.6·radius)`
-high. The per-frame rise is owned by a builder-attached `VortexRiser` component — rule 19: the shape
+ground disc in the spell's Core colour, then ember cubes in the hot colour, each rising from the edge on
+a helix that shrinks toward the apex. **1l3** (testing.md task 7, "only create one ember ray on the circle
+edge, i want more"): the embers used to ride one shared helix, so they traced a *single* spiral strand —
+they are now dealt into **6 parallel strands** (a per-ember angular offset), 8 embers each (48 total), the
+inward convergence is quadratic in the rise (`cyc²`) so each tongue hugs the perimeter for the first half
+of its climb, and the apex is taller/wider at `max(3.2, 2.2·radius)` (0.45 rises/s, 1.8 turns per rise,
+80% shrink). The per-frame rise is owned by a builder-attached `VortexRiser` component — rule 19: the shape
 factory builds, the component that runs while the pieces *move* animates, the same split `BoltFader`
 uses for the storm bars. The disc takes the Core and the flames the hot end, the identical hot-end choice
 SpellBeam's funnel makes (Edge desaturates Fire toward peach and cannot supply the yellow).
