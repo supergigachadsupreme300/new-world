@@ -206,20 +206,15 @@ public static class PlayerModelBuilder
         MapBuilder.MakePart("ShinR", kneeR.transform, new Vector3(0.14f, 0.24f, 0.14f), new Vector3(0f, -0.12f, 0f), pantsC, "Shin");
         MapBuilder.MakePart("ShoeR", kneeR.transform, new Vector3(0.16f, 0.08f, 0.22f), new Vector3(0f, -0.27f, 0.02f), shoeC, "Shoe");
 
-        MapBuilder.MakePart("Hair", torso.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.80f, 0f), hairC, "Hair");
-        MapBuilder.MakePart("HairL", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(-0.18f, 0.70f, 0f), hairC, "HairSide");
-        MapBuilder.MakePart("HairR", torso.transform, new Vector3(0.08f, 0.26f, 0.28f), new Vector3(0.18f, 0.70f, 0f), hairC, "HairSide");
+        // 1l2: one wrapped hair shell around the head (size = head*1.15), replacing the old crown lens +
+        // side panels + nape panel whose rims left gaps against the skull. Face = +z.
+        MapBuilder.MakePart("Hair", torso.transform, new Vector3(0.345f, 0.345f, 0.345f), new Vector3(0f, 0.65f, 0f), hairC, "HairCap");
         if (female)
         {
-            MapBuilder.MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.36f, 0.11f), new Vector3(0f, 0.66f, -0.16f), hairC, "HairBack");
-            MapBuilder.MakePart("HairBand", torso.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.80f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("HairBand", torso.transform, new Vector3(0.34f, 0.05f, 0.33f), new Vector3(0f, 0.79f, 0.01f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
             MapBuilder.MakePart("Ponytail1", torso.transform, new Vector3(0.18f, 0.26f, 0.15f), new Vector3(0f, 0.63f, -0.21f), hairC, "Ponytail");
             MapBuilder.MakePart("Ponytail2", torso.transform, new Vector3(0.16f, 0.24f, 0.14f), new Vector3(0f, 0.45f, -0.25f), hairC, "Ponytail");
             MapBuilder.MakePart("Ponytail3", torso.transform, new Vector3(0.13f, 0.22f, 0.13f), new Vector3(0f, 0.27f, -0.27f), hairC, "Ponytail");
-        }
-        else
-        {
-            MapBuilder.MakePart("HairBack", torso.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.68f, -0.16f), hairC, "HairBack");
         }
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
         MapBuilder.MakePart("EyeWhiteL", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
@@ -264,14 +259,11 @@ public static class PlayerModelBuilder
         // ── Head ──
         MapBuilder.MakePart("Head", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(0f, 0.74f, 0f), skinC, "Head");
         MapBuilder.MakePart("Neck", root.transform, new Vector3(0.13f, 0.10f, 0.13f), new Vector3(0f, 0.55f, 0f), skinC, "Cylinder");
-        // ── Hair ──
-        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.34f, 0.12f, 0.28f), new Vector3(0f, 0.87f, 0f), hairC, "Hair");
-        MapBuilder.MakePart("HairL", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(-0.17f, 0.79f, 0f), hairC, "HairSide");
-        MapBuilder.MakePart("HairR", root.transform, new Vector3(0.07f, 0.24f, 0.24f), new Vector3(0.17f, 0.79f, 0f), hairC, "HairSide");
+        // ── Hair ── (1l2 wrapped shell, size = head*1.15)
+        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.322f, 0.322f, 0.322f), new Vector3(0f, 0.74f, 0f), hairC, "HairCap");
         if (female)
         {
-            MapBuilder.MakePart("HairBack", root.transform, new Vector3(0.28f, 0.34f, 0.10f), new Vector3(0f, 0.74f, -0.14f), hairC, "HairBack");
-            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.32f, 0.05f, 0.32f), new Vector3(0f, 0.87f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.32f, 0.05f, 0.31f), new Vector3(0f, 0.85f, 0.01f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
             MapBuilder.MakePart("Ponytail1", root.transform, new Vector3(0.17f, 0.24f, 0.14f), new Vector3(0f, 0.71f, -0.19f), hairC, "Ponytail");
             MapBuilder.MakePart("Ponytail2", root.transform, new Vector3(0.14f, 0.22f, 0.13f), new Vector3(0f, 0.55f, -0.23f), hairC, "Ponytail");
             MapBuilder.MakePart("Ponytail3", root.transform, new Vector3(0.12f, 0.20f, 0.12f), new Vector3(0f, 0.39f, -0.25f), hairC, "Ponytail");
@@ -420,17 +412,11 @@ public static class PlayerModelBuilder
         MapBuilder.MakePart("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
         MapBuilder.MakePart("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
         MapBuilder.MakePart("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
-        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.36f, 0.12f, 0.30f), new Vector3(0f, 0.92f, 0f), hairC, "Hair");
-        MapBuilder.MakePart("HairL", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(-0.18f, 0.83f, 0f), hairC, "HairSide");
-        MapBuilder.MakePart("HairR", root.transform, new Vector3(0.08f, 0.26f, 0.26f), new Vector3(0.18f, 0.83f, 0f), hairC, "HairSide");
+        // 1l2 wrapped hair shell (size = head*1.15), replacing the crown lens + side + nape panels.
+        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.345f, 0.345f, 0.345f), new Vector3(0f, 0.78f, 0f), hairC, "HairCap");
         if (female)
         {
-            MapBuilder.MakePart("HairBack", root.transform, new Vector3(0.30f, 0.34f, 0.11f), new Vector3(0f, 0.80f, -0.15f), hairC, "HairBack");
-            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.36f, 0.05f, 0.34f), new Vector3(0f, 0.92f, 0.02f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
-        }
-        else
-        {
-            MapBuilder.MakePart("HairBack", root.transform, new Vector3(0.30f, 0.30f, 0.11f), new Vector3(0f, 0.82f, -0.15f), hairC, "HairBack");
+            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.34f, 0.05f, 0.33f), new Vector3(0f, 0.92f, 0.01f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
         }
 
         // ── Arms (shoulder -> elbow chain, hands resting on the lap) ──

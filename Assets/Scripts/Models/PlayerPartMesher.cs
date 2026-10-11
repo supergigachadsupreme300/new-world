@@ -36,6 +36,16 @@ public static class PlayerPartMesher
     private const float BandIrregularity = 0.20f;
     private const float SegIrregularity = 0.20f;
 
+    // 1l2: WRAPPED hair shell. One watertight cap that surrounds the head, replacing the old set of
+    // free-floating oblate slabs (crown lens + side panels + nape panel) whose rims/tapers left visible
+    // gaps against the skull. The shell's INNER radius is far inside the head hull, so the exposed-skin
+    // region can never show a lip or gap — the hair edge is simply where the outer surface dives into
+    // the skull. Only the outer cap is visible; the caved interior is hidden inside the head.
+    private const float HairShellInner = 0.30f;  // unit-space inner radius (deep inside the head → hidden)
+    private const float HairFrontE = 0.60f;      // front hairline elevation (cos φ) — forehead stays bare above
+    private const float HairBackE = -0.52f;      // nape elevation — back coverage drops low
+    private const float HairEdge = 0.14f;        // half-width of the soft hairline transition
+
     /// <summary>1ep: deterministic non-uniform step weight for schedule index i — 1 ± irregularity,
     /// hash-driven per part, clamped ≥ 0.4 so a row/column can wobble but never collapse to a sliver.</summary>
     private static float StepWeight(int i, int seed, int salt, float irregularity)
@@ -143,20 +153,8 @@ public static class PlayerPartMesher
             new Dent(new Vector3(0f, -0.26f, 0.04f), new Vector3(0.34f, 0.14f, 0.24f), 0.04f), // sole
             new Dent(new Vector3(0f, 0.28f, 0f), new Vector3(0.28f, 0.12f, 0.28f), -0.03f),   // ankle
         } },
-        { "Hair", new[]
-        {
-            new Dent(new Vector3(0f, 0.26f, 0f), new Vector3(0.38f, 0.14f, 0.38f), -0.04f), // crown taper
-            new Dent(new Vector3(0f, 0.06f, 0f), new Vector3(0.34f, 0.20f, 0.30f), 0.03f),  // side round
-        } },
-        { "HairSide", new[]
-        {
-            new Dent(new Vector3(0f, -0.28f, 0f), new Vector3(0.30f, 0.14f, 0.30f), -0.04f),// bottom taper
-        } },
-        { "HairBack", new[]
-        {
-            new Dent(new Vector3(0f, 0f, -0.05f), new Vector3(0.34f, 0.28f, 0.30f), -0.04f),// slim inward
-        } },
         { "HairBand", new Dent[0] },
+        { "HairCap", new Dent[0] }, // 1l2: wrapped hair shell (custom generator, like "Cylinder")
         { "Cylinder", new Dent[0] }, // round neck column (1e1) — 12 flat side facets + closed caps, not ellipsoid
         { "Ponytail", new[]
         {
@@ -208,6 +206,8 @@ public static class PlayerPartMesher
     {
         if (profileId == "Cylinder")
             return BuildCylinder();
+        if (profileId == "HairCap")
+            return BuildHairShell();
         if (profileId == "Body" || profileId == "SitTorso" || profileId == "Chest")
             return BuildTorso(profileId);
         _profiles.TryGetValue(profileId, out var dents);
@@ -406,6 +406,125 @@ public static class PlayerPartMesher
         mesh.SetTriangles(tris, 0, true);
         mesh.RecalculateBounds();
         return mesh;
+    }
+
+    /// <summary>
+    /// Unit-space WRAPPED HAIR SHELL (1l2): one closed low-poly cap that surrounds the head instead of the
+    /// old 4-6 separate oblate slabs. A sphere lattice at radius 0.5 whose per-corner radius is pulled in
+    /// to <see cref="HairShellInner"/> wherever the skin is exposed (a per-azimuth hairline: forehead bare
+    /// at the front, hair dropping to the nape at the back) and left at 0.5 across the scalp. Because the
+    /// caved region is far inside the head hull, the hair can never gap off the skull — the visible hair
+    /// edge is just where the outer surface crosses into the head. Spans the same [-0.5, 0.5] cube as every
+    /// other part (localScale = size vector), and shares the flat-facet mosaic + shared-corner jitter so it
+    /// stays watertight and matches the world's look. Face = +z (same convention as the head/eyes).
+    /// </summary>
+    private static Mesh BuildHairShell()
+    {
+        int seed = AnchorSeed("HairCap");
+        int grid = (Rings + 1) * Segs;
+        float[] phi = Positions(Steps(Rings, seed, 0x1E0F01, BandIrregularity), Mathf.PI);
+        float[] theta = Positions(Steps(Segs, seed, 0x1E0F02, SegIrregularity), 2f * Mathf.PI);
+        var corners = new Vector3[grid];
+        for (int lat = 0; lat <= Rings; lat++)
+        {
+            float e = Mathf.Cos(phi[lat]);           // +1 north pole, -1 south pole
+            float sp = Mathf.Sin(phi[lat]);
+            for (int s = 0; s < Segs; s++)
+            {
+                float zn = Mathf.Sin(theta[s]);      // +1 = face (+z), -1 = back (-z)
+                float hairline = Mathf.Lerp(HairBackE, HairFrontE, (zn + 1f) * 0.5f);
+                float g = Smoothstep01(hairline - HairEdge, hairline + HairEdge, e);
+                float r = Mathf.Lerp(HairShellInner, Half, g);
+                corners[lat * Segs + s] = new Vector3(Mathf.Cos(theta[s]) * sp, e, zn * sp) * r;
+            }
+        }
+        // Deterministic shared-corner jitter (same scheme/seeds as the ellipsoid lattice → watertight).
+        for (int lat = 1; lat < Rings; lat++)
+        {
+            for (int s = 0; s < Segs; s++)
+            {
+                int k = lat * Segs + s;
+                Vector3 rr = corners[k].normalized;
+                Vector3 t1 = Vector3.Cross(rr, Vector3.up);
+                if (t1.sqrMagnitude < 1e-6f)
+                    t1 = Vector3.Cross(rr, Vector3.right);
+                t1.Normalize();
+                Vector3 t2 = Vector3.Cross(rr, t1).normalized;
+                float h1 = Hash01(k, seed, 0x1234AB) - 0.5f;
+                float h2 = Hash01(k, seed, 0x5678CD) - 0.5f;
+                corners[k] += (t1 * h1 + t2 * h2) * (2f * FacetJitter);
+            }
+        }
+
+        var uf = new float[Segs];
+        for (int s = 0; s < Segs; s++) uf[s] = theta[s] / (2f * Mathf.PI);
+        var vf = new float[Rings + 1];
+        for (int lat = 0; lat <= Rings; lat++) vf[lat] = 1f - phi[lat] / Mathf.PI;
+        Vector3 poleN = new Vector3(0f, Half, 0f);
+        Vector3 poleS = new Vector3(0f, -HairShellInner, 0f);
+
+        var verts = new List<Vector3>(grid * 3);
+        var uvs = new List<Vector2>(grid * 3);
+        var norms = new List<Vector3>(grid * 3);
+        var tris = new List<int>(grid * 3);
+
+        for (int s = 0; s < Segs; s++)
+            EmitTriangle(poleN, corners[Segs + s], corners[Segs + (s + 1) % Segs],
+                CornerUV(0, s, uf, vf), CornerUV(1, s, uf, vf), CornerUV(1, s + 1, uf, vf), verts, uvs, norms, tris);
+
+        for (int b = 1; b < Rings; b++)
+        {
+            for (int s = 0; s < Segs; s++)
+            {
+                int s1 = (s + 1) % Segs;
+                int ctl = (b - 1) * Segs + s, ctr = (b - 1) * Segs + s1;
+                int cbl = b * Segs + s, cbr = b * Segs + s1;
+                if (Hash01(b * 131 + s, seed, 0x5EEDF) < SplitChance)
+                {
+                    if (Hash01(b * 131 + s, seed, 0xCAFE) < 0.5f)
+                    {
+                        EmitTriangle(corners[ctl], corners[ctr], corners[cbr],
+                            CornerUV(b - 1, s, uf, vf), CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), verts, uvs, norms, tris);
+                        EmitTriangle(corners[ctl], corners[cbr], corners[cbl],
+                            CornerUV(b - 1, s, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf), verts, uvs, norms, tris);
+                    }
+                    else
+                    {
+                        EmitTriangle(corners[ctr], corners[cbr], corners[cbl],
+                            CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf), verts, uvs, norms, tris);
+                        EmitTriangle(corners[ctr], corners[cbl], corners[ctl],
+                            CornerUV(b - 1, s1, uf, vf), CornerUV(b, s, uf, vf), CornerUV(b - 1, s, uf, vf), verts, uvs, norms, tris);
+                    }
+                }
+                else
+                {
+                    EmitQuad(corners[ctl], corners[ctr], corners[cbr], corners[cbl],
+                        CornerUV(b - 1, s, uf, vf), CornerUV(b - 1, s1, uf, vf), CornerUV(b, s1, uf, vf), CornerUV(b, s, uf, vf),
+                        verts, uvs, norms, tris);
+                }
+            }
+        }
+
+        for (int s = 0; s < Segs; s++)
+            EmitTriangle(poleS, corners[(Rings - 1) * Segs + s], corners[(Rings - 1) * Segs + (s + 1) % Segs],
+                CornerUV(Rings, s, uf, vf), CornerUV(Rings - 1, s, uf, vf), CornerUV(Rings - 1, s + 1, uf, vf), verts, uvs, norms, tris);
+
+        var mesh = new Mesh { name = "PlayerPart_HairCap" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetNormals(norms);
+        mesh.SetTriangles(tris, 0, true);
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>Standard smoothstep in [0,1]: 0 at/below <paramref name="edge0"/>, 1 at/above
+    /// <paramref name="edge1"/>. Used by the 1l2 hair shell to soften the hairline.</summary>
+    private static float Smoothstep01(float edge0, float edge1, float x)
+    {
+        if (edge1 <= edge0) return x >= edge1 ? 1f : 0f;
+        float t = Mathf.Clamp01((x - edge0) / (edge1 - edge0));
+        return t * t * (3f - 2f * t);
     }
 
     /// <summary>

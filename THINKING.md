@@ -1,3 +1,53 @@
+## 1l2. Player hair — why every slab retune failed, and what a wrapped shell changes (SHIPPED)
+
+User: hair "still ugly and suck and also has gap between hair and the head", "all 3 stances". Reasoning
+trail, hypotheses first.
+
+**H1 (rejected) — 1e3 just under-tuned; nudge the slabs again.** Evidence against: 1e3 already moved
+every slab flush and the user still sees gaps, and 1cn moved them again (top cap up, back down). A third
+nudge repeats a failed move. The *mechanism* is the suspect, not the numbers: the head is a uniform
+ellipsoid (0.30 → radius 0.15), but each "Hair" piece is a *scaled* ellipsoid, and two quadratic surfaces
+that aren't concentric spheres only intersect along a line — there is always an angle where the piece's
+surface leaves the skull. Confirmed by reading `MakePart`: hair parts pass `size` = world dimensions, so
+the crown "lens" 0.36×0.12×0.30 is a squashed ellipsoid over a sphere → mushroom, not a cap. Gap is
+structural.
+
+**H2 (confirmed) — head radius at the hairline is what a slab cannot follow.** Worked the numbers at the
+forehead: head radius at the eye line (~y 0.72, e≈0.41) is ≈0.135 but a crown lens centred at the poll
+(y 0.80) has its surface well above the scalp there. Any single oblate piece has one curvature; the head
+has a different one at every latitude. A correct fix must let the hair RADIUS follow the head's angle.
+
+**H3 (adopted) — a wrapped shell whose inner radius dives inside the head.** Model hair as a sphere
+lattice of radius 0.5 (the same cube every part occupies) and give each corner a radius `Lerp(inner,
+0.5, g)` where `g` fades to 0 on the exposed skin. Then: (i) across the scalp the surface is a true
+offset of the head sphere → it hugs at every angle, no corrugation; (ii) on the exposed region the radius
+collapses to 0.30, which is *inside* the head hull (head radius in shell-local units ≈ 0.44), so the
+caved surface can never be seen as a lip or a gap — the visible edge is exactly where the outer surface
+crosses into the skull. The hairline is a per-azimuth elevation (front 0.64 → nape −0.52) so the
+forehead stays bare and the back drops low. This removes the failure mode rather than tuning it.
+
+**Sizing/position checks (arithmetic, since no build).** Shell outer = 0.5·size, size = head×1.15 → world
+outer radius 0.1725 (standing 0.30 head) = 2.25 cm proud of the skull — snug, not a helmet. Must clear
+the head's own +0.04 cranium dent, which reaches unit radius ≈0.474 (=0.5 head +0.04 dent, rescaled into
+the shell's larger cube); outer 0.5 clears it, a tighter outer (0.46) would NOT — so outer is pinned at
+0.5 and the hug comes from the size multiple, not from shrinking the sphere. Nape hair end: g crosses 0.5
+at the hairline; the mid-transition bulge off the tapering low skull is ~1.8 cm, which reads as hair
+volume, and the dive completes inside the head by e≈−0.60. Face convention checked: the mesher's corner
+is `(cosθ·pr, py, sinθ·pr)` with radius increasing westward... i.e. +z is θ=90°, so `zn = sinθ` is +1 at
+the face — matches the head/eye convention (eyes at +z).
+
+**Parent/name.** Kept the part named `"Hair"` and parented as before (torso standing, root otherwise) so
+`ApplyRaceRatioRecurse`'s `n.StartsWith("Hair")` head-scale path still catches it, and no name lookup
+breaks. Removed the now-dead `HairSide`/`HairBack` profiles (grep: no callers left).
+
+**Rejected alternatives.** (a) A head-shaped sculpted mesh with hair painted on via a second material —
+out of scope for a procedural single-colour part. (b) Keeping the side slabs for "volume" — rejected:
+they are the gap. (c) An open hemispherical cap (no underside) — rejected: an open rim shows a backface
+and z-fights the skin; the closed shell with a deep inner is strictly safer.
+
+**Verdict:** SHIPPED. `STATUS: SHIPPED — the wrapped-shell look, the hairline height and the female band
+seat are play-test items; the count of stances (3) and genders (both) is stated so the test is a verdict`.
+
 ## 1l1. Held projectile preview while charging (SHIPPED)
 
 User: "when charging a spell with projectile, i want the projectile to appear infront where the root of

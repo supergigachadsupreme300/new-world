@@ -1,3 +1,52 @@
+## 1l2. Player hair rebuilt as one wrapped shell (no more floating slabs / skull gaps)
+
+User: the hair "still ugly and suck and also has gap between hair and the head", fix "in all 3 stances"
+(standing / seated car cutscene / sitting chair). (rule 15: no installed skill governs editing a
+procedural low-poly mesh generator; the Unity/DCC skills cannot build or verify here — `skills: none
+applied`.) The 1e3 "scalp-cap" attempt kept the SAME mechanism the bug lives in — 4–6 separate oblate
+slabs (crown lens + side panels + nape panel) merely moved closer to the skull — so their rims/tapering
+ends still drift off the head at every angle the retune did not cover, and a gap is structural, not a
+tuning miss. This replaces the mechanism: ONE watertight shell around the head.
+
+Root cause (arithmetic, not a guess): head is a uniform ellipsoid — 0.30 world radius 0.15 (standing/sit),
+0.28 (seated) — while each old "Hair" piece was a *scaled ellipsoid* whose surface pulled away from the
+sphere wherever its axis did not match the head's (a 0.36×0.12×0.30 crown lens centred on the north pole
+rises like a mushroom; a 0.08-wide side slab tapers to a point before it reaches the jaw). Two curved
+solids only meet along a line, so any mismatch reads as a gap.
+
+Fix — new `PlayerPartMesher.BuildHairShell` (profile id `"HairCap"`, routed like `"Cylinder"`):
+- Sphere lattice at radius 0.5 (same 7×12 non-uniform grid + shared-corner jitter + flat-facet mosaic as
+  every other part, so it is watertight and stylistically identical). Per-corner radius = `Lerp(0.30,
+  0.5, g)`, where `g = smoothstep(hairline−0.12, hairline+0.12, cosφ)` and the hairline runs from
+  `HairFrontE` 0.64 (face, forehead stays bare) to `HairBackE` −0.52 (nape) by azimuth. The caved (inner)
+  region at radius 0.30 is far inside the head hull, so the exposed-skin area can NEVER show a lip or gap —
+  the visible edge is simply where the outer surface dives into the skull.
+- One `"Hair"` part per stance, size = head×1.15 (0.345 standing/sit, 0.322 seated), centred on the head,
+  same parent/name → `ApplyRaceRatioRecurse` (`n.StartsWith("Hair")` → `headScale`) still scales it.
+- Removed the dead `HairSide`/`HairBack` profiles from `_profiles` (no remaining callers).
+- Female `HairBand` re-seated onto the shell's brow (was resting on the removed crown lens); ponytail chain
+  left as-is (its root already laps the shell back — checked at the nape).
+
+Edits: `PlayerPartMesher.cs` (+ profile/routing/`BuildHairShell`/`Smoothstep01`), `PlayerModelBuilder.cs`
+(3 stances: 6 hair MakeParts → 1 each; band re-seated). `game-design.md` §3.5, this entry, `THINKING.md` §1l2.
+
+### 1l2-status
+- [x] `BuildHairShell` added; `"HairCap"` routed in `Generate`; `"HairCap"`/`"HairSide"`/`"HairBack"`
+      profiles reconciled (HairCap added, the other two removed).
+- [x] Verified by grep + reread (no build, rule 3): grep of `"Hair"`/`"HairSide"`/`"HairBack"`/`"HairCap"`
+      → no stale profile-id callers remain (NPC/legacy `MakeBlock("Hair*")` are cube builds, unrelated);
+      emission code is a line-for-line copy of the proven `Generate` lattice (same `EmitTriangle`/`EmitQuad`/
+      `CornerUV`/`Hash01` signatures); `StaticChecks.ps1` → **0 candidates** (edited files outside its
+      `$files` list; sanity run only).
+- [x] `skills: none applied` — a procedural mesh edit; no installed skill governs the artifact (rule 15).
+- [x] Docs kept in sync in the same pass: `game-design.md` §3.5 (1l2 bullet; 1e3 marked superseded),
+      `PROGRESS.md` this entry, `THINKING.md` §1l2.
+- [ ] **PLAY-TEST (user, Unity):** in all three stances (standing, sitting in a chair, seated in the car
+      cutscene), for both male and female — the hair reads as a single cap hugging the skull with NO gap
+      anywhere (especially at the hairline, the sides above the ears, and the nape); the forehead/eyes stay
+      bare; the female band rings the brow without covering the eyes; the ponytail still reads attached.
+      Note the exact stance(s)/angle(s) where any gap remains.
+
 ## 1l1. Held projectile preview — the shot appears at the predict-ray root and grows with charge
 
 User: "when charging a spell with projectile, i want the projectile to appear infront where the root of

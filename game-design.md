@@ -1524,13 +1524,22 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
     `LateUpdate` measured the player against a `default(Vector3)` and reported its distance from the world
     origin as speed. That was nearly invisible under the old clamped `norm` (one frame of run pose) and is
     a multi-Hz phase burst under a divisor.
-  - **Scalp-cap hair (1e3)**: hair was 4–6 floating slabs placed against an ideal sphere — the crown
-  slab hovered 4 cm above the scalp and the side/back panels drifted off the skull. All `Hair`/
-  `HairSide`/`HairBack`/`HairBand`/`Ponytail` parts are retuned to HUG the actual head hull (thin
-  oblate cap lens resting on the crown so it neither floats nor gaps, side slabs buried ~1 cm into
-  the skull, nape panel lapping the back shell), sized to the real head (0.3 standing/sit, 0.28
-  seated) per variant. No hierarchy change — parent stays torso/root so `ApplyRaceRatioRecurse`
-  `Hair*`/`Ponytail*` scaling (`headScale`) and all name lookups are untouched.
+  - **Wrapped hair shell (1l2)**: supersedes the 1e3/1cn slab stack. The hair is now a single
+    watertight **cap** (`PlayerPartMesher.BuildHairShell`, profile id `"HairCap"`) — a sphere lattice
+    at radius 0.5 whose per-corner radius is pulled in to `HairShellInner` (0.30) wherever skin is
+    exposed, from a per-azimuth hairline (`HairFrontE` 0.64 at the face → `HairBackE` −0.52 at the
+    nape, softened over `HairEdge` 0.12). Because the caved region is far inside the head hull, the
+    outer surface can never gap off the skull — the visible hair edge is simply where it crosses into
+    the head — which is what killed the free-floating slab rims. One `"Hair"` part per stance, sized
+    head×1.15 (0.345 standing/sit on a 0.30 head, 0.322 seated on a 0.28 head), parented as before so
+    `ApplyRaceRatioRecurse` `Hair*`/`Ponytail*` (`headScale`) still scales it. The dead `HairSide`/
+    `HairBack` profiles are removed; the female `HairBand` moved to ring the shell brow (no longer
+    resting on the removed crown lens) and the ponytail chain is unchanged.
+  - **Scalp-cap hair (1e3, superseded by 1l2)**: hair was 4–6 floating slabs placed against an ideal
+    sphere — the crown slab hovered 4 cm above the scalp and the side/back panels drifted off the
+    skull. 1e3 retuned every `Hair`/`HairSide`/`HairBack`/`HairBand`/`Ponytail` part to HUG the head
+    hull (thin cap lens, buried side slabs, lapping nape panel); 1l2 replaced that stack outright with
+    the wrapped shell above.
 - **Seamless torso↔limb attachment (1e0)**: the faceted ellipsoid rounds the torso corners where the
   cube used to hide the arm/leg attach points, so the shoulder/hip pivots floated off the skin and
   left gaps. Fixed three ways that stack: (1) the `"Body"`/`"SitTorso"` profiles gained symmetric
