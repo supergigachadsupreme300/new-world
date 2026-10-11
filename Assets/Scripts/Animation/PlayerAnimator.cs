@@ -418,18 +418,21 @@ public sealed class PlayerAnimator : MonoBehaviour
 
               // Unique per-weapon run: replace generic run pump with a drag/carry pose when in full run
               ArmRun runProf = _defaultArmRun;
-              if (_cc.Wielding == CombatController.WieldingState.TwoHand)
+              if (_cc != null)
               {
-                  string twoId = rid ?? lid;
-                  if (!string.IsNullOrEmpty(twoId) && _armRuns.TryGetValue(twoId, out var tr)) runProf = tr;
-              }
-              else
-              {
-                  // Prefer the weapon being held; if one-handed, try right then left
-                  string idR = rid;
-                  string idL = lid;
-                  if (!string.IsNullOrEmpty(idR) && _armRuns.TryGetValue(idR, out var rr)) runProf = rr;
-                  else if (!string.IsNullOrEmpty(idL) && _armRuns.TryGetValue(idL, out var lr)) runProf = lr;
+                  if (_cc.Wielding == CombatController.WieldingState.TwoHand)
+                  {
+                      string twoId = rid ?? lid;
+                      if (!string.IsNullOrEmpty(twoId) && _armRuns.TryGetValue(twoId, out var tr)) runProf = tr;
+                  }
+                  else
+                  {
+                      // Prefer the weapon being held; if one-handed, try right then left
+                      string idR = rid;
+                      string idL = lid;
+                      if (!string.IsNullOrEmpty(idR) && _armRuns.TryGetValue(idR, out var rr)) runProf = rr;
+                      else if (!string.IsNullOrEmpty(idL) && _armRuns.TryGetValue(idL, out var lr)) runProf = lr;
+                  }
               }
               if (runProf.RunStyle != ArmRun.Style.DefaultPump && runBlend >= runProf.BlendThreshold)
               {
