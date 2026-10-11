@@ -1,3 +1,13 @@
+## 1kza (2025-10-11)
+### 1kza-status
+- [x] Added unique per-weapon run arm animations: new ArmRun profile with DragBehind style, _armRuns dictionary (iron_sword, katana).
+- [x] PlayerAnimator LateUpdate now blends from walk toward unique run pose when runBlend >= BlendThreshold and style != DefaultPump (uses _phase for small stride-tied bounce, preserves cadence/feet planting).
+- [x] Backward compatible: other weapons remain DefaultPump.
+- [ ] Play-test in FightingMode running with sword/katana — confirm trailing drag behind vs pumping; tune angles if needed.
+- [ ] Verify WeaponAnimator still owns arms during attack/guard/sway (no interference).
+### 1kza-files
+- Assets/Scripts/Animation/PlayerAnimator.cs
+
 ## 1l2. Player hair rebuilt as one wrapped shell (no more floating slabs / skull gaps)
 
 User: the hair "still ugly and suck and also has gap between hair and the head", fix "in all 3 stances"

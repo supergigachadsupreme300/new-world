@@ -3609,3 +3609,6 @@ a report of a rule-18 violation, not a fix queue**.
 - No pay-to-win.
 - Cosmetic-only microtransactions (skins, emotes).
 - Expansion packs (new biomes, classes, story content).
+
+### Animation
+  - [1kza] Unique per-weapon run arm poses (DragBehind) for iron_sword/katana when running in FightingMode (PlayerAnimator-driven arms).

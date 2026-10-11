@@ -1,3 +1,21 @@
+## 1kza (2025-10-11)
+### Hypotheses
+- H1: Reusing generic Sin run (amplitude-scaled by ArmGait) is too much pumping; unique shape per weapon is needed.
+- H2: Blend from walk angles toward weapon-specific shoulder/elbow (X, negative=trailing) using _phase + small bounce gives drag-behind without breaking cadence.
+- H3: Branch only when !SuppressArms and runBlend>=threshold; WeaponAnimator still owns arms in attack/guard/sway.
+
+### Evidence
+- PlayerAnimator: cadence = speedH/StrideLength, _phase drives legs/arms; runBlend from 0.45-0.8 -> lerp wArm*/rArm* then apply ArmGait scales (generic pump).
+- DragBehind profile added for iron_sword, katana (negative ShX/ElbX + small bounce + phase offset).
+
+### Verdicts
+- H1 confirmed (design): unique run style needed.
+- H2 confirmed (implementation): late blend preserves walk->run transition and cadence.
+- H3 confirmed (scope): branch inside !SuppressArms block, TwoHand uses twoId, fallback to right/left.
+
+### Notes
+- Still OPEN for play-test: angles/tuning and whether to add other sword types later.
+
 ## 1l2. Player hair — why every slab retune failed, and what a wrapped shell changes (SHIPPED)
 
 User: hair "still ugly and suck and also has gap between hair and the head", "all 3 stances". Reasoning
