@@ -356,14 +356,18 @@ public sealed class PlayerAnimator : MonoBehaviour
         float rArmAmp = (0.7f + rEase * 0.4f) * Mathf.Rad2Deg;
         float rLegL = Mathf.Sin(_phase) * rLegAmp;
         float rLegR = Mathf.Sin(_phase + Mathf.PI) * rLegAmp;
-        float rArmR = Mathf.Sin(_phase + 0.2f) * rArmAmp;
-        float rArmL = Mathf.Sin(_phase + Mathf.PI + 0.2f) * rArmAmp;
+        float rArmRBase = -16f - rEase * 10f;
+        float rArmLBase = -14f - rEase * 8f;
+        float rArmR = rArmRBase + Mathf.Sin(_phase + 0.8f) * rArmAmp;
+        float rArmL = rArmLBase + Mathf.Sin(_phase + Mathf.PI + 0.8f) * rArmAmp;
         float rKneeBend = (1.05f + rEase * 0.35f) * Mathf.Rad2Deg;
         float rKneeL = Mathf.Max(0f, rLegL) * (rKneeBend / Mathf.Max(0.01f, rLegAmp));
         float rKneeR = Mathf.Max(0f, rLegR) * (rKneeBend / Mathf.Max(0.01f, rLegAmp));
-        float rElbowAmp = rArmAmp * 0.8f;
-        float rElbowL = (rArmL / Mathf.Max(0.01f, rArmAmp)) * rElbowAmp;
-        float rElbowR = (rArmR / Mathf.Max(0.01f, rArmAmp)) * rElbowAmp;
+        float rElbowAmp = rArmAmp * 0.35f;
+        float rElbowLBase = -44f - rEase * 16f;
+        float rElbowRBase = -48f - rEase * 18f;
+        float rElbowL = rElbowLBase + Mathf.Sin(_phase + Mathf.PI + 0.9f) * rElbowAmp;
+        float rElbowR = rElbowRBase + Mathf.Sin(_phase + 0.9f) * rElbowAmp;
 
         float legL = Mathf.Lerp(wLegL, rLegL, runBlend);
         float legR = Mathf.Lerp(wLegR, rLegR, runBlend);
