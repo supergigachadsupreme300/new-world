@@ -62,7 +62,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableRaces = true;
     [Tooltip("Place EVERY castable magic spell on the platform's middle band as a static, school-colored projectile-style model on a pedestal with an in-game label (mirrors the MagicTestMatrix roster, 1dk). Pure visuals for looking at/editing each spell's model — no collision, no interaction.")]
     public bool EnableMagicModels = false;
-    [Tooltip("1je: mount all THREE summon bodies side by side on the platform's south-west apron - the following-familiar circle, the standing totem, and the SummonedAlly combat construct. Exists because SummonedAlly.Spawn is reachable only from ClassEffect and RaceEffect (2 call sites, both live combat), so without this lane the ally's model has no readout at all: the one visual 1je changed could not be looked at without casting a class skill at an enemy. Mounts the BUILDERS, not proxies (the 1ij/1jd precedent).")]
+    [Tooltip("1je: mount all THREE summon bodies side by side on the platform's south-west apron - the following-familiar ring, the standing totem, and the SummonedAlly combat construct. Exists because SummonedAlly.Spawn is reachable only from ClassEffect and RaceEffect (2 call sites, both live combat), so without this lane the ally's model has no readout at all: the one visual 1je changed could not be looked at without casting a class skill at an enemy. Mounts the BUILDERS, not proxies (the 1ij/1jd precedent).")]
     public bool EnableSummonModels = false;
     [Tooltip("Cast Earth-shape terrain demos (Wall smooth ridge, Pillar, Crater smooth dent) onto the streamed terrain just off the platform. The Wall is cast twice to show repeat casts are CAPPED (smooth feathered deforms, no slab stacking — 1cj). Deforms REAL terrain — permanent chunk saves — so it is off by default and never touches the platform or legacy village.")]
     public bool EnableTerrainSlabDemo = false;
@@ -1973,11 +1973,11 @@ private static string Describe(in SpellLook look)
             // 1ir: the two deliveries that have NO projectile body at all. Without these two branches
             // a Beam and a Summon both fall through to CreateProjectileDisplay, which draws the generic
             // orb — so the bench would report "unchanged" for Flamethrower and Continuous Fireball
-            // forever while the live spells drew a cone and a ground circle. That is 1f7's exact
+            // forever while the live spells drew a cone and a ring. That is 1f7's exact
             // failure (a visual that exists only inside a live cast has no acceptance readout), and
             // these mount the SAME builders the runtime uses rather than a proxy that could drift:
-            // SpellBeamModelBuilder.BuildFunnelVisual for the swept wedge's funnel body (1is), and SpellSummon's
-            // own circle below.
+            // SpellBeamModelBuilder.BuildFunnelVisual for the swept wedge's funnel body (1is), and
+            // SummonModelBuilder.BuildFamiliarCircle for the familiar ring (1l6p).
             else if (SpellBeam.ConeFullAngleDegrees(spell) > 0f)
             {
                 // 1is: mounts SpellBeamModelBuilder.BuildFunnelVisual — the Great Tornado silhouette in
@@ -1995,31 +1995,16 @@ private static string Describe(in SpellLook look)
             }
             else if (spell.CasterAnchored)
             {
-                // The following familiar's own read: a flat ground circle at the live targeting
-                // radius plus the low orb it fires from. Sized from the spell, not hardcoded, so a
-                // retuned radius moves the bench model with it.
-                Shader benchShader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-                if (benchShader != null)
-                {
-                    Color core = SpellLook.Resolve(spell).Core;
-                    var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    disc.name = "FollowCircle";
-                    Collider dcol = disc.GetComponent<Collider>();
-                    if (dcol != null) Destroy(dcol);
-                    disc.transform.SetParent(modelRoot.transform, false);
-                    disc.transform.localPosition = new Vector3(0f, -0.95f, 0f);
-                    disc.transform.localScale = new Vector3(spell.Radius * 2f, 0.05f, spell.Radius * 2f);
-                    disc.GetComponent<MeshRenderer>().sharedMaterial = SolidMaterial(core);
-
-                    var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    orb.name = "FollowCore";
-                    Collider ocol = orb.GetComponent<Collider>();
-                    if (ocol != null) Destroy(ocol);
-                    orb.transform.SetParent(modelRoot.transform, false);
-                    orb.transform.localPosition = new Vector3(0f, -0.35f, 0f);
-                    orb.transform.localScale = Vector3.one * 0.6f;
-                    orb.GetComponent<MeshRenderer>().sharedMaterial = SolidMaterial(core);
-                }
+                // 1l6p: mounts the REAL SummonModelBuilder.BuildFamiliarCircle — the vertical ring of
+                // launch orbs — instead of the bespoke flat disc + orb this branch used to hand-draw.
+                // That stand-in would have kept reporting the pre-1l6p ground circle as correct after
+                // the live familiar became a ring, which is the rule-13 failure every branch above
+                // exists to avoid. The extra parent drops the ring's authored chest height so the ring
+                // centers on the pedestal (the bench has no ground for the height to be measured from).
+                var famRoot = new GameObject("FamiliarBody").transform;
+                famRoot.SetParent(modelRoot.transform, false);
+                famRoot.localPosition = new Vector3(0f, -SummonModelBuilder.FamiliarRingHeight, 0f);
+                SummonModelBuilder.BuildFamiliarCircle(famRoot, SpellLook.Resolve(spell).Core);
             }
             else
             {
@@ -2051,7 +2036,7 @@ private static string Describe(in SpellLook look)
     /// <para><b>Why this lane exists at all.</b> <c>SummonedAlly</c> is created by exactly two call
     /// sites, <c>SummonEffect.Execute</c> (via ClassEffect) and <c>RaceEffect</c>, both inside live
     /// combat, so before 1je the ally's body could only be seen by fighting, which is the same
-    /// discoverability hole 1iz describes for the magic models, one layer out. The familiar circle
+    /// discoverability hole 1iz describes for the magic models, one layer out. The familiar ring
     /// and the totem ride along because they had no readout either and they are the two other shapes
     /// <c>SpellSummon</c> can build.</para>
     /// <para><b>Band choice, stated.</b> z = centre + 11f: south of the magic-model grid (which spans
@@ -2080,8 +2065,8 @@ private static string Describe(in SpellLook look)
         Color tint = SummonedAlly.AllyColor;
 
         MountSummonModelCell("FamiliarCircle", z - spacing,
-            "Familiar circle (shape only - real colour is SpellLook.Core)", tint,
-            parent => SummonModelBuilder.BuildFamiliarCircle(parent, 3f, tint));
+            "Familiar ring (shape only - real colour is SpellLook.Core)", tint,
+            parent => SummonModelBuilder.BuildFamiliarCircle(parent, tint));
         MountSummonModelCell("StandingTotem", z,
             "Standing totem (shape only - real colour is SpellLook.Core)", tint,
             parent => SummonModelBuilder.BuildTotem(parent, tint));

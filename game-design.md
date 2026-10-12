@@ -818,7 +818,8 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
   0.35× of the live blast radius so the 3 m grid stays legible — and zone/beam/storm/summon/instant
   spells show their school-colored default icon). Since 1ir that last clause has three branches and
   not one: a **cone beam** mounts the live `SpellBeam.BuildConeVisual` wedge, a **caster-anchored
-  summon** mounts its ground circle + core, and anything else shows the default icon — before 1ir both
+  summon** mounts its familiar ring via the live `SummonModelBuilder.BuildFamiliarCircle` (1l6p; a
+  flat ground circle + core before that), and anything else shows the default icon — before 1ir both
   of the new spells fell through to `CreateProjectileDisplay`, which has no body for a Beam or a
   familiar, so the bench would have kept reporting the generic orb for exactly the two deliveries
   1ir changed) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
@@ -1991,6 +1992,10 @@ a school read distinctly instead of feeling like copies:
   the player's yaw AND pitch as they turn. 1jw had briefly made them *homing* (`Missile` →
   `SpellEffect._homing`) on an earlier "flypath update" request; the user reported that curve as the
   wrong path, so the gameplay shape is back to straight flight and the aim is no longer flattened.
+  **1l6p:** that familiar now draws a **fixed vertical translucent ring** — centred at chest height
+  behind the caster, no longer a spell-`Radius`-sized ground circle — carrying **six launch orbs**
+  around its rim; each auto-fired bolt leaves from a **randomly chosen orb**, so the stream fans from
+  across the ring. `Radius` is therefore neither the spray's range nor its drawn size for this spell.
   Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
   Ember Effigy, Gust Totem.
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`

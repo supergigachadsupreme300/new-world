@@ -144,7 +144,7 @@ Assets/Scripts/
         SpellBeamModelBuilder.cs       line body, funnel, shared tip orb          (1jd)
         SpellZoneModelBuilder.cs       pull funnel + ground zone                 (1jd)
         SpellStormModelBuilder.cs      lightning bars + BoltFader                (1jd)
-        SummonModelBuilder.cs          totem body + familiar circle               (1jd)
+        SummonModelBuilder.cs          totem body + familiar ring                 (1jd/1l6p)
         SkillFxModelBuilder.cs         slash/ring flash + their two faders        (1jd)
         CastingCircleModelBuilder.cs   all ten casting-circle pieces              (1jd)
         AoeAimPreviewModelBuilder.cs   footprint disc, edge ring, beacon          (1jd)

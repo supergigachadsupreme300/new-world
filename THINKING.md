@@ -1,3 +1,62 @@
+## 1l6p. Continuous Fireball: the familiar becomes a vertical see-through ring of six launch orbs (SHIPPED, play-test pending)
+
+User (one report): "change the follow circle rotation to x, remove y, and add multiple core around
+the circle, fireball will launched random from those core, make the circle seethrough."
+
+Clarified with the user first (rule 7's "ask"): the ring is "centered behind your body, resized
+small", and "6 on the rim, no center orb".
+
+**H1: "rotation to x, remove y" = `Euler(90, 0, 0)`. CONFIRMED.** 1l6o had just set the disc to
+`Euler(0, 90, 0)` (Y-spin, flat on the ground). A default Unity Cylinder's round faces are
+perpendicular to its LOCAL Y, so: a Y-spin leaves the faces perpendicular to world Y (flat on the
+floor — 1l6o), a Z-roll stands it on edge, and an X-roll of 90 lays the face in the parent's XY plane
+— a VERTICAL hoop. The user's literal instruction ("to x, remove y") is exactly `Euler(90,0,0)`. The
+ring now faces the parent's forward, i.e. behind the caster facing the way they face.
+
+**H2: "multiple core around the circle, launched random from those core" = N rim orbs + random
+muzzle. CONFIRMED; N=6, no centre orb (user).** The single `_head` became a `Transform[] _cores`; the
+pulse loop and the muzzle both became array operations. Design point: the muzzle is `Muzzle()` =
+`_cores[Random.Range(0, _cores.Length)].position`, used by BOTH `FireForward` and `FireAtNearest`, so
+the "where a bolt is born" fact lives in one method (rule 8). Fallback to a point above the summon if
+the body failed to build (no shader → `default(Body)` → `Cores == null`), so a model fault cannot
+silence the spell's damage. `Random` resolves to `UnityEngine.Random` (the file has no `using
+System`).
+
+**H3: "make the circle seethrough" = sub-1 alpha on the disc. CONFIRMED.** `SetMaterial` writes the
+shader's `_Color`; the build already prefers `Sprites/Default`, which alpha-blends (`Blend SrcAlpha
+OneMinusSrcAlpha`, `ZWrite Off`), so `FamiliarDiscAlpha` 0.35 actually renders translucent — the same
+material path the totem/ally already use, only with alpha < 1. The orbs stay opaque.
+
+**H4: does the ring still follow the spell's radius? NO — surfaced because the user said "resized
+small".** 1ir/1l6o sized the drawn circle by `Radius` (the live targeting value, `spell.Radius *
+radiusMult`); a vertical ring at Continuous Fireball's 5 m would be a 10 m portal. Asked the user:
+"resized small" confirmed → a fixed authored halo (`FamiliarRingRadius` 0.75 m), independent of
+`Radius`. Consequence recorded: the charge ladder still lengthens the stream and grows the spawn
+flash, but the DRAWN ring/bolts no longer grow — so `magic-skills.md`'s "body size both scale" claim
+was corrected, and `SpellSummon`'s `Radius` comment now says it is neither range nor size for this
+spell.
+
+**H5: the disc rotates in the ring's local frame — do the six orbs land in the facing plane? YES
+(worked).** The ring is `Euler(90,0,0)`; an orb at ring-local `(cosθ·r, 0, sinθ·r)` maps through X+90
+to `(cosθ·r, −sinθ·r, 0)` — z = 0, so all six lie in the ring's XY plane, the same plane the disc's
+face occupies. So the orbs and the disc are coplanar BY CONSTRUCTION (both children of the one `ring`
+transform), which is the rule-8 property: a face-on viewer sees the disc circle with an orb on each
+rim point, and a launch point can never sit off the drawn ring.
+
+**H6: one body, one derivation — a SECOND spelling of the familiar existed in the QA bench.
+FOUND + fixed.** `NewWorldTestGround`'s per-spell magic band hand-drew its own flat disc + orb for a
+`CasterAnchored` spell (it did not call the builder). Left alone, pressing that key would have kept
+showing the pre-1l6p flat circle while the live spell was a ring — rule 8/13's "a readout that drifts
+silently". Replaced the bespoke block with a call to the real `SummonModelBuilder.BuildFamiliarCircle`
+(like every other branch in that band). The band's `modelRoot` has no ground, so it nests the builder
+under a parent dropped by `FamiliarRingHeight` (now public) to seat the ring on the pedestal without
+re-spelling the height.
+
+**Verdict:** shipped. Cylinder-orientation is the load-bearing geometry (H1/H5); the body is now one
+path (builder) with one muzzle helper and one record type for the orbs. Play-test pending: the ring's
+readability from behind (a vertical hoop seen near edge-on is the known risk) and whether six orbs at
+0.75 m read well at combat distance.
+
 ## 1l6o. Continuous Fireball: straight bolts down the aim + a flat familiar circle (SHIPPED, play-test pending)
 
 User (one report, two asks): "the continuous fireball projectile path is wrong, fix it to be like a

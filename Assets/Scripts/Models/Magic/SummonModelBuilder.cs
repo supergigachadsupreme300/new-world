@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The summon family's bodies: the totem, the following familiar's ground circle, and (since 1je)
-/// the <see cref="SummonedAlly"/> combat construct.
+/// The summon family's bodies: the totem, the following familiar's ring (1l6p: a vertical halo of
+/// launch orbs, previously a flat ground circle), and (since 1je) the <see cref="SummonedAlly"/>
+/// combat construct.
 /// <para>The totem and the circle were extracted verbatim from <c>Magic/Cast/SpellSummon.cs</c> in
 /// <b>1jd</b>. Before that the geometry lived inside the gameplay component, so "summon model"
 /// matched nothing under <c>Models/</c> while the model itself had been shipping the whole time -
@@ -14,54 +15,98 @@ using UnityEngine;
 /// exactly the discoverability hole again, one layer in. Its shape IS new - see
 /// <see cref="BuildAlly"/> for why it hovers - so unlike 1jd this is an addition rather than a
 /// move, and the component keeps all of its behaviour (move, face, strike, fade, die).</para>
-/// <para><b>Everything else is still driven by <c>SpellSummon</c>'s live values</b>, deliberately:
-/// the circle is sized from the same <c>Radius</c> the targeting code scans, so a future balance
-/// change cannot move the drawn circle without moving the area it claims.</para>
+/// <para><b>1l6p: the following circle is no longer sized by the spell's <c>Radius</c>.</b> It is a
+/// fixed authored halo — a translucent vertical ring of launch orbs (see
+/// <see cref="BuildFamiliarCircle"/>) — because <c>Radius</c> is display-only for a forward-spraying
+/// familiar, and a vertical ring sized by its 5 m value would dwarf the player. The totem below owns
+/// no live values of its own and is unchanged.</para>
 /// </summary>
 public static class SummonModelBuilder
 {
-    /// <summary>What a built summon hands back: the pulsing head, and the scale it pulses around.
-    /// One record rather than two out-params because <c>SpellSummon.Update</c> writes
-    /// <c>_head.localScale = _headBaseScale * pulse</c> every frame — two parallel values read in
-    /// lockstep is an alignment an extraction must not be able to violate (rule 17).</summary>
+    /// <summary>What a built summon hands back: every pulsing orb it owns, and the scale they pulse
+    /// around. One record rather than two out-params because <c>SpellSummon.Update</c> writes
+    /// <c>orb.localScale = baseScale * pulse</c> every frame — two parallel values read in lockstep
+    /// is an alignment an extraction must not be able to violate (rule 17).
+    /// <para><b>1l6p: an ARRAY of orbs, not one head.</b> The familiar now carries a ring of them and
+    /// fires each bolt from a randomly chosen one, so a single <c>Transform</c> can no longer describe
+    /// the body. The totem has exactly one (its head crystal), so the same loop pulses it.</para></summary>
     public struct Body
     {
-        public Transform Head;
-        public Vector3 HeadBaseScale;
+        public Vector3 CoreBaseScale;
+        public Transform[] Cores;
     }
 
-    /// <summary>1ir: the following-familiar read — a flat ground circle the size of the real
-    /// targeting radius, plus a low orb to fire from. Deliberately NOT SkillFx.RingFlash, which
-    /// self-destructs and would give a one-frame flash instead of a persistent circle, and NOT the
-    /// totem below: a pillar-and-shards totem that walks behind you reads as a carried statue, not
-    /// as an area you are standing in. Radius is the live targeting value, so the drawn circle is
-    /// exactly the area FireAtNearest/NearestEnemy actually scan.</summary>
-    public static Body BuildFamiliarCircle(Transform parent, float radius, Color color)
+    /// <summary>1l6p: how many launch orbs are arrayed around the familiar's ring. Every shot leaves a
+    /// randomly chosen orb (see <c>SpellSummon.Muzzle</c>), so this sets how wide the stream's origin
+    /// reads.</summary>
+    private const int FamiliarCoreCount = 6;
+
+    /// <summary>1l6p: the ring's authored radius, in metres. The ring is a fixed HALO, not a readout
+    /// of the spell's <c>Radius</c> — see the class remarks.</summary>
+    private const float FamiliarRingRadius = 0.75f;
+
+    /// <summary>1l6p: the ring's centre height above the summon root, in metres. The root is snapped
+    /// to the ground behind the caster, so the ring sits at roughly chest height BEHIND the body rather
+    /// than resting on the floor like the flat AoE circle it replaces. Public because the QA spell band
+    /// seats the ring on its pedestal through this value rather than re-spelling the height.</summary>
+    public const float FamiliarRingHeight = 1.2f;
+
+    /// <summary>1l6p: the launch orb's diameter. Six of these on a 0.75 m rim leave a visible gap
+    /// between neighbours.</summary>
+    private const float FamiliarCoreSize = 0.3f;
+
+    /// <summary>1l6p: the disc alpha. The ring is a read of its own reach, so it must not hide the
+    /// ground or the orbs behind it; the shader pick below prefers <c>Sprites/Default</c>, which
+    /// alpha-blends, so a sub-1 alpha actually renders see-through.</summary>
+    private const float FamiliarDiscAlpha = 0.35f;
+
+    /// <summary>1ir/1l6p: the following-familiar read — a translucent vertical ring (facing the
+    /// caster's forward) carrying <see cref="FamiliarCoreCount"/> launch orbs around its rim, from
+    /// which the spray fires. Deliberately NOT SkillFx.RingFlash, which self-destructs and would give
+    /// a one-frame flash instead of a persistent shape, and NOT the totem below: a pillar-and-shards
+    /// totem that walks behind you reads as a carried statue, not as a portal behind you.
+    /// <para><b>1l6p: fixed size, not the spell's radius.</b> The ring is authored small
+    /// (<see cref="FamiliarRingRadius"/>) and centred at chest height behind the caster
+    /// (<see cref="FamiliarRingHeight"/>); the spell's display-only <c>Radius</c> no longer has a
+    /// drawn form here. The disc and every orb are children of ONE ring transform, so the drawn ring
+    /// and the launch points cannot drift into two planes (rule 8: one derivation, not two).</para></summary>
+    public static Body BuildFamiliarCircle(Transform parent, Color color)
     {
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
         if (shader == null) return default(Body);
 
+        var ring = new GameObject("FollowCircle").transform;
+        ring.SetParent(parent, false);
+        ring.localPosition = new Vector3(0f, FamiliarRingHeight, 0f);
+        // 1l6p: X=90 (Y=0) lays the disc's round face in the ring's XY plane, i.e. a vertical hoop
+        // facing the caster's forward — the "circle behind the player" read. A Cylinder's faces are
+        // perpendicular to its local Y, so a Z-roll would stand it edge-on and a Y-spin would leave it
+        // flat on the ground; the X-roll is the one that faces it forward.
+        ring.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
         var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        disc.name = "FollowCircle";
+        disc.name = "FollowDisc";
         DestroyCollider(disc.transform);
-        disc.transform.SetParent(parent, false);
-        disc.transform.localPosition = new Vector3(0f, 0.05f, 0f);
-        disc.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
-        // 1l6o: a Cylinder's faces are perpendicular to its LOCAL Y, so a flat ground disc needs the
-        // Y-axis spin (0,90,0) and NOT the Z-axis roll (0,0,90) that stood the disc on edge — a
-        // vertical ring the player saw edge-on instead of the flat circle the doc above describes.
-        disc.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
-        SetMaterial(disc.transform, shader, color);
+        disc.transform.SetParent(ring, false);
+        disc.transform.localScale = new Vector3(FamiliarRingRadius * 2f, 0.05f, FamiliarRingRadius * 2f);
+        SetMaterial(disc.transform, shader, new Color(color.r, color.g, color.b, FamiliarDiscAlpha));
 
-        Transform head = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
-        head.name = "FollowCore";
-        DestroyCollider(head);
-        head.SetParent(parent, false);
-        head.localPosition = new Vector3(0f, 0.9f, 0f);
-        head.localScale = Vector3.one * 0.6f;
-        SetMaterial(head, shader, color);
+        var cores = new Transform[FamiliarCoreCount];
+        for (int i = 0; i < FamiliarCoreCount; i++)
+        {
+            float ang = i * (2f * Mathf.PI / FamiliarCoreCount);
+            var core = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
+            core.name = "FollowCore_" + i;
+            DestroyCollider(core);
+            core.SetParent(ring, false);
+            core.localPosition = new Vector3(Mathf.Cos(ang) * FamiliarRingRadius, 0f,
+                Mathf.Sin(ang) * FamiliarRingRadius);
+            core.localScale = Vector3.one * FamiliarCoreSize;
+            SetMaterial(core, shader, color);
+            cores[i] = core;
+        }
 
-        return new Body { Head = head, HeadBaseScale = head.localScale };
+        return new Body { CoreBaseScale = Vector3.one * FamiliarCoreSize, Cores = cores };
     }
 
     /// <summary>The standing summon: a base disc, a pillar, a head, and three orbiting shards.</summary>
@@ -107,7 +152,7 @@ public static class SummonModelBuilder
             SetMaterial(shard.transform, shader, color);
         }
 
-        return new Body { Head = head, HeadBaseScale = head.localScale };
+        return new Body { CoreBaseScale = head.localScale, Cores = new[] { head } };
     }
 
     /// <summary>What <see cref="BuildAlly"/> hands back: every renderer it created, so the component

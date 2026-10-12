@@ -19,9 +19,12 @@ public class SpellSummon : MonoBehaviour
     private Transform _casterRoot;
     private float _age;
     private float _tick;
-    private Transform _head;
+    /// <summary>1l6p: every launch orb the body owns. The familiar carries the whole ring (each tick's
+    /// bolt fires from a random one — see <see cref="Muzzle"/>); the totem carries just its head.
+    /// Replaces the single head orb the flat circle used.</summary>
+    private Transform[] _cores;
     private Color _color;
-    private Vector3 _headBaseScale;
+    private Vector3 _coreBaseScale;
     private readonly Collider[] _hitBuffer = new Collider[32];
     /// <summary>1ir: ground probe for the follow. 1jt: the constants and the probe itself moved to
     /// <see cref="SpellCaster.GroundUnder"/> — the casting halo needs byte-identical behaviour, and
@@ -30,8 +33,9 @@ public class SpellSummon : MonoBehaviour
     private readonly RaycastHit[] _groundBuffer = new RaycastHit[8];
 
     /// <summary>1ir: this summon belongs to the caster — it is created at the caster and follows it
-    /// for its whole life, drawing a ground circle. Read from the spell, not passed in, so the three
-    /// coupled behaviours (spawn here / follow / circle) cannot be half-enabled.</summary>
+    /// for its whole life, drawing a ring behind it (1l6p: a vertical halo, no longer a ground
+    /// circle). Read from the spell, not passed in, so the three coupled behaviours (spawn here /
+    /// follow / drawn ring) cannot be half-enabled.</summary>
     private bool _follow;
 
     /// <summary>1is: this familiar sprays FORWARD along the caster's aim instead of picking the
@@ -40,11 +44,11 @@ public class SpellSummon : MonoBehaviour
     /// free, which is a balance change nobody would be looking for. One flag, one meaning.</summary>
     private bool _sprayForward;
 
-    /// <summary>1is: how far BEHIND the caster the circle sits, in metres. Applied at spawn
+    /// <summary>1is: how far BEHIND the caster the ring sits, in metres. Applied at spawn
     /// (SpellCaster.ResolveSummon) and again every follow frame, from the same constant, or the
     /// familiar would visibly jump forward on its first tick.
     /// <para>Flattened against Y at the call site: an aim pointed at the ground must not bury the
-    /// circle, and one pointed at the sky must not launch it.</para>
+    /// ring, and one pointed at the sky must not launch it.</para>
     /// <para><b>1jt: this is an alias of <see cref="SpellLook.CastFrontOffset"/>, not a second
     /// spelling of the same number.</b> The front casting halo and this rear familiar are meant to sit
     /// symmetrically about the player, so they are one value by construction: changing one without the
@@ -78,11 +82,12 @@ public class SpellSummon : MonoBehaviour
         if (spell != null)
         {
             Radius = Mathf.Max(spell.Radius * radiusMult, 1f);
-            // 1is: for a FORWARD-SPRAYING familiar, Radius is display-only. The spray has no target
-            // gate at all, so this number no longer bounds what the spell can reach — it only sizes
-            // the drawn circle. Stated here because "radius 5" reads like a range, and the next
-            // reader would otherwise assume the spell still stops at 5 m. (For every other summon it
-            // is still the live targeting reach read by NearestEnemy.)
+            // 1is/1l6p: for a FORWARD-SPRAYING familiar, Radius is NEITHER a range NOR a size. The
+            // spray has no target gate at all, so this number does not bound what the spell reaches
+            // (the bolts' own flight envelope decides that); and since 1l6p the drawn ring is a FIXED
+            // authored halo (SummonModelBuilder.FamiliarRingRadius), not a readout of this radius — a
+            // vertical ring sized by 5 m would be a 10 m portal. Stated because "radius 5" reads like a
+            // range. (For every other summon it is still the live reach read by NearestEnemy.)
             // 1ir: durationMult applies to CASTER-ANCHORED summons only, and this is the line that
             // says so. SpellCaster.DurationScale hands it to every summon, so scaling it here would
             // have quietly lengthened Ember Effigy (6s -> 7.2s at full charge) — an unrequested
@@ -114,8 +119,12 @@ public class SpellSummon : MonoBehaviour
             return;
         }
 
-        if (_head != null)
-            _head.localScale = _headBaseScale * (1f + 0.18f * Mathf.Sin(Time.time * 3.2f));
+        if (_cores != null)
+        {
+            float pulse = 1f + 0.18f * Mathf.Sin(Time.time * 3.2f);
+            for (int i = 0; i < _cores.Length; i++)
+                if (_cores[i] != null) _cores[i].localScale = _coreBaseScale * pulse;
+        }
 
         // 1ir: follow BEFORE the tick, so this frame's bolts are aimed from where the circle now is.
         if (_follow && _casterRoot != null) FollowCaster();
@@ -128,18 +137,19 @@ public class SpellSummon : MonoBehaviour
         }
     }
 
-    /// <summary>1ir/1is: keep the circle BEHIND the caster, snapped to the ground so it does not hang in
-    /// the air on a slope or float when they jump. Skips the caster's own colliders — see
+    /// <summary>1ir/1is: keep the ring BEHIND the caster, snapped to the ground so its anchor does not
+    /// hang in the air on a slope or float when they jump (1l6p: the ring itself rides
+    /// <c>FamiliarRingHeight</c> above that anchor). Skips the caster's own colliders — see
     /// <see cref="SpellCaster.GroundProbeUp"/>.
     /// <para>1is: the offset is applied BEFORE the probe, not after. Probing at the caster and then
-    /// moving the result 1.8 m back would keep the circle at the player's own floor height while it
+    /// moving the result 1.8 m back would keep the ring at the player's own floor height while it
     /// sits behind a step or the lip of a slope — the exact "circles at your feet, not where it is"
     /// read that offsetting was supposed to fix.</para>
     /// <para>Takes the NEAREST hit, not the first. <c>RaycastNonAlloc</c> returns hits in an
-    /// unspecified order, so walking past a building would sometimes park the circle on its roof and
+    /// unspecified order, so walking past a building would sometimes park the ring on its roof and
     /// sometimes on the street, depending on buffer layout. A downward ray's nearest hit is the
-    /// lowest <c>point.y</c>, which is the ground under the circle.</para>
-    /// <para><b>No wall avoidance</b> — the circle tracks the caster's XZ outright, so it can pass
+    /// lowest <c>point.y</c>, which is the ground under the ring.</para>
+    /// <para><b>No wall avoidance</b> — the ring tracks the caster's XZ outright, so it can pass
     /// through a wall with them. Stated here because "follows you" reads like it stops at
     /// obstacles. Making it a bound spirit that clips is the cheaper, more readable behaviour than a
     /// sliding solver, and this is the honest description of what ships.</para></summary>
@@ -147,13 +157,13 @@ public class SpellSummon : MonoBehaviour
     {
         // 1jx: stationed on the CASTER BODY, not the camera aim line. The player's body rotation is
         // yaw-only (PlayerController.HandleMouseLook writes transform.rotation = Euler(0, _yaw, 0)),
-        // so _casterRoot.forward IS the upper-body yaw: the circle sits exactly behind the player and
+        // so _casterRoot.forward IS the upper-body yaw: the ring sits exactly behind the player and
         // rotates with their body as the camera moves. The old 1is derivation reused CurrentAimDirection
-        // (the camera-point aim the beam and the spray use), which pulled the circle off-axis by the
+        // (the camera-point aim the beam and the spray use), which pulled the ring off-axis by the
         // third-person camera's 1jl shoulder offset and collapsed it onto the player's feet when aiming
         // steeply down. The spray (FireForward) still uses the camera aim line — "pours bolts down your
         // aim line" — so the station basis and the fire basis are deliberately DIFFERENT, and that is
-        // the point: the circle follows the body, the fire follows the aim.
+        // the point: the ring follows the body, the fire follows the aim.
         Vector3 flat = new Vector3(_casterRoot.forward.x, 0f, _casterRoot.forward.z);
         Vector3 back = flat.sqrMagnitude > 0.0001f
             ? flat.normalized * -BackOffset
@@ -198,7 +208,8 @@ public class SpellSummon : MonoBehaviour
     /// <summary>1is: spray forward along the caster's aim, unconditionally — no target test.
     /// This is what makes the familiar a stream rather than a turret, and it is why
     /// <see cref="Radius"/> no longer bounds anything for this spell (see Initialize).
-    /// <para>The muzzle is the circle's own orb, so the bolts visibly leave the familiar.</para>
+    /// <para>The muzzle is a random orb on the ring (1l6p — see <see cref="Muzzle"/>), so the bolts
+    /// visibly leave the familiar rather than a single fixed point.</para>
     /// <para><b>1l6o: it fires the FULL 3D aim, not a flattened one.</b> The old body flattened the
     /// aim to horizontal and added a fixed 0.18 m forward-spray rise, so the stream always flew level —
     /// it tracked the player's yaw but never their pitch, and could not "adapt shooting angle when the
@@ -206,14 +217,31 @@ public class SpellSummon : MonoBehaviour
     /// shared helper, one fact — so the bolts leave the orb toward the point the camera looks at and
     /// track yaw AND pitch as the player aims. The 0.18 m rise went with the flatten it compensated
     /// for: the 3D aim already points where the player is looking, so a fixed lift would now bias
-    /// every shot above the reticle.</para></summary>
+    /// every shot above the reticle.</para>
+    /// <para><b>1l6p: the muzzle is a random orb on the ring</b> (<see cref="Muzzle"/>), so consecutive
+    /// bolts leave from different points and the stream reads as fire thrown from the ring rather than
+    /// spat from one spot.</para></summary>
     private void FireForward()
     {
         if (_mainCam == null) _mainCam = Camera.main;
-        Vector3 from = _head != null ? _head.position : transform.position + Vector3.up * 1.6f;
+        Vector3 from = Muzzle();
         Vector3 dir = SpellCaster.CurrentAimDirection(from, Mathf.Max(_spell.Range, 5f),
             _spell != null && _casterRoot != null ? _casterRoot.forward : Vector3.forward, _mainCam);
         SpawnBolt(from, dir);
+    }
+
+    /// <summary>1l6p: where a summon's next bolt is born. The familiar's ring has one orb per
+    /// <c>FamiliarCoreCount</c>, chosen at random so shots fan across the rim; every other body has a
+    /// single orb. Falls back to a point above the summon if the body failed to build (no shader), so
+    /// a model fault cannot silence the spell's damage.</summary>
+    private Vector3 Muzzle()
+    {
+        if (_cores != null && _cores.Length > 0)
+        {
+            Transform core = _cores[Random.Range(0, _cores.Length)];
+            if (core != null) return core.position;
+        }
+        return transform.position + Vector3.up * 1.6f;
     }
 
     private void FireAtNearest()
@@ -221,7 +249,7 @@ public class SpellSummon : MonoBehaviour
         Transform target = NearestEnemy();
         if (target == null) return;
 
-        Vector3 muzzle = _head != null ? _head.position : transform.position + Vector3.up * 1.6f;
+        Vector3 muzzle = Muzzle();
         Vector3 to = target.position - muzzle;
         float h = Mathf.Max(0f, muzzle.y - target.position.y);
         Vector3 flat = to;
@@ -280,17 +308,19 @@ public class SpellSummon : MonoBehaviour
     }
 
     /// <summary>Builds the construct's body: the totem (base disc + tapered pillar + pulsing head
-    /// crystal + orbiting shards), or the familiar's ground circle when the summon is caster-anchored.
+    /// crystal + orbiting shards), or the familiar's ring when the summon is caster-anchored (1l6p: a
+    /// vertical ring of launch orbs, not the old ground circle).
     /// <para>1jd: the geometry now lives in <see cref="SummonModelBuilder"/> (under
     /// <c>Models/Magic/</c>), so "summon model" is findable by name and by folder. The shapes, the
-    /// names and the pulse are unchanged; the builder returns the head and the scale it pulses
-    /// around as ONE record, so the two cannot drift apart at this boundary.</para></summary>
+    /// names and the pulse are unchanged; the builder returns the pulsing orbs and the scale they
+    /// pulse around as ONE record, so the two cannot drift apart at this boundary (1l6p: an array —
+    /// the familiar fires each bolt from a random rim orb).</para></summary>
     private void BuildVisual()
     {
         SummonModelBuilder.Body body = _follow
-            ? SummonModelBuilder.BuildFamiliarCircle(transform, Radius, _color)
+            ? SummonModelBuilder.BuildFamiliarCircle(transform, _color)
             : SummonModelBuilder.BuildTotem(transform, _color);
-        _head = body.Head;
-        _headBaseScale = body.HeadBaseScale;
+        _cores = body.Cores;
+        _coreBaseScale = body.CoreBaseScale;
     }
 }

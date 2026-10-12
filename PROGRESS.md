@@ -1,3 +1,61 @@
+## 1l6p. Continuous Fireball: the following familiar becomes a vertical see-through ring of six launch orbs
+
+User (one report): "change the follow circle rotation to x, remove y, and add multiple core around
+the circle, fireball will launched random from those core, make the circle seethrough."
+
+Clarified with the user first (rule 7's "ask, don't infer a view from a framing"): the ring is
+"centered behind your body, resized small" and "6 on the rim, no center orb".
+
+- **The familiar body is now a vertical ring, not a flat ground disc.** `SummonModelBuilder` builds a
+  shared `ring` transform at the familiar's chest height (`FamiliarRingHeight` 1.2 m above the
+  ground-snapped root), rotated `Euler(90, 0, 0)` — the X roll (Y = 0) that lays a Cylinder's round
+  face in the parent's XY plane, i.e. a vertical hoop facing the caster's forward. This reverses
+  1l6o's `Euler(0, 90, 0)`: the user's "rotation to x, remove y" is exactly this. The disc and every
+  orb are children of the ONE ring transform, so the drawn ring and the launch points cannot drift
+  into two planes (rule 8).
+- **The spell's `Radius` no longer sizes the body.** 1ir/1l6o sized the disc by the live targeting
+  radius; the user asked for a small fixed halo, so the ring is authored (`FamiliarRingRadius` 0.75 m)
+  and independent of the 5 m display-only `Radius` — a vertical ring sized by 5 m would be a 10 m
+  portal. `Radius` for this spell is now neither the spray's range NOR its drawn size.
+- **Six launch orbs on the rim; shots pick one at random.** `FamiliarCoreCount` orbs sit at ring
+  angles `i * 2π/6`, each `FamiliarCoreSize` 0.3 m. `SpellSummon` holds the whole array (`_cores` +
+  `_coreBaseScale`, replacing the single `_head`) and pulses them all; `Muzzle()` returns a random
+  orb's position, used by both `FireForward` and `FireAtNearest`. Consecutive bolts fan from across
+  the rim instead of one spot.
+- **The disc is translucent.** `FamiliarDiscAlpha` 0.35 through `Sprites/Default` (which
+  alpha-blends), so the ring reads as see-through and does not hide the ground or the orbs behind it.
+- **Two readouts updated, not just the model.** (a) The per-spell magic band in `NewWorldTestGround`
+  hand-drew a bespoke flat disc + orb for a `CasterAnchored` spell; it now mounts the REAL
+  `BuildFamiliarCircle`, so the bench cannot report the pre-1l6p shape after the live familiar changed
+  (rule 13). (b) The summon-model lane's call drops the old `radius` argument.
+- **Not changed:** the ring still stations on the caster body's yaw-only forward behind the player
+  (1jw) and is still ground-snapped (1is) — only the body shape and the bolt origin changed. The
+  charge ladder still lengthens the stream, boosts bolt damage and grows the spawn flash, but the
+  drawn ring/bolts no longer grow (`magic-skills.md` "Follower upkeep" corrected).
+
+### 1l6p-status
+- [x] `SummonModelBuilder.cs`: `Body` struct `Head`/`HeadBaseScale` -> `CoreBaseScale` + `Cores[]`;
+  new consts (`FamiliarCoreCount` 6, `FamiliarRingRadius`, `FamiliarRingHeight` — now public,
+  `FamiliarCoreSize`, `FamiliarDiscAlpha`); `BuildFamiliarCircle(Transform, Color)` rewritten (ring at
+  chest height `Euler(90,0,0)`, translucent disc + 6 rim orbs, returns the orb array); `BuildTotem`
+  returns `Cores = new[] { head }`; class doc updated.
+- [x] `SpellSummon.cs`: `_head`/`_headBaseScale` -> `_cores`/`_coreBaseScale`; `Update` pulses every
+  orb; new `Muzzle()` (a random rim orb, fallback above the summon); `FireForward` + `FireAtNearest`
+  use it; the `Radius` comment and the follow/BuildVisual docs updated.
+- [x] `NewWorldTestGround.cs`: the spell band's `CasterAnchored` branch mounts `BuildFamiliarCircle`
+  (drops the bespoke disc+orb); the summon-model lane caller drops the `radius` arg; tooltip/doc say
+  "ring".
+- [x] Docs kept in sync: `game-design.md` §3.8 Summon delivery (new 1l6p sentence); `magic-skills.md`
+  Summon + "Follower upkeep" rows; this entry + `THINKING.md` §1l6p.
+- [x] Verified by grep + reread (no build, rule 3): `_head`/`HeadBaseScale`/`body.Head` -> 0 live
+  references (`PlayerAnimator`'s own `_head` is unrelated); both `BuildFamiliarCircle` callers pass
+  `(parent, color)`. `tools\StaticChecks.ps1` -> 0 candidates.
+- [x] `skills: none applied` — C# geometry/array edits reviewed by a human (rule 3); no DCC/asset
+  artifact is produced (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** Continuous Fireball — the body must be a small VERTICAL ring behind
+  you at chest height, SEE-THROUGH, with six orbs on its rim; bolts must leave from different orbs and
+  fly down your aim. Confirm the ring follows your body yaw and reads from behind in third person.
+
 ## 1l6o. Continuous Fireball: bolts fly straight down the aim like a normal fireball, and the familiar circle is flat again
 
 User (one report, two asks): "the continuous fireball projectile path is wrong, fix it to be like a
