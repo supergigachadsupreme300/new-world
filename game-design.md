@@ -1980,7 +1980,9 @@ a school read distinctly instead of feeling like copies:
   a held beam stays steady; the debris still orbits (1is swirl) and the tip orb keeps its soft glow
   throb — only the body's scale is frozen.
   Examples: Searing Ray, Arc Storm, Beacon (heal), Hunger, Cold Stare, Storm Breath.
-- **Summon** — ground-targeted (shows the AoE preview ring). **Damage** summons are persistent
+- **Summon** — ground-targeted (shows the AoE preview ring; a **caster-anchored** summon shows
+  **no** preview — 1l6s, since it stations behind the player, there is no aim point to mark).
+  **Damage** summons are persistent
   **turrets** that repeatedly fire bolts at the nearest enemy (`BoltPowerMultiplier` ×0.6, reusing the
   projectile flight); **`heals`** summons are standing **heal auras** mending `IHealable` allies inside
   (enemies still take damage). A **caster-anchored** summon (`CasterAnchored`, e.g. Continuous
@@ -2293,6 +2295,8 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
   tinted by the spell's resolved core colour (1ij), matching the projectile **ray** colour (1iq turned
   that shared charge readout from a cone into a ray) so a charge reads in one colour from aim to release.
+  A **caster-anchored** summon is the one exception (1l6s): it fires no aimed landing point, so it draws
+  no such disc — the in-front charge halo alone indicates the cast.
 - Every projectile delivery (magic **projectile** spells, and ranged draws — regular and per-hand dual)
   shows a **flight-path ray** while charging: a thin centre line from the hand along the aim line, clipped
   at the first solid hit. **Magic previews are tinted by the spell's resolved core colour** (1ij —

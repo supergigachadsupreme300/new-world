@@ -1,3 +1,39 @@
+## 1l6s. Continuous Fireball aim preview draws a ground AoE disc for a spell with no aim point (SHIPPED, play-test pending)
+
+User: "the prediction is placing a circle like other aoe spell while this spell function is totally
+different, planning on the fix."
+
+**H1 — the disc is the spell's own familiar body, mis-scaled. [REJECTED]**
+The disc is `AoeAimPreview` (`PlayerController.Combat.cs` `UpdateAoePreview` → `TryAoeTarget` →
+`AoeAimPreview.Show`), a separate targeting aid, not the familiar's body (`SummonModelBuilder`, driven by
+`SpellSummon`). The familiar body is the fixed vertical ring (1l6p); the disc is a flat ground circle at
+the camera's ground-aim point. Ruled out by reading both builders — they share no geometry.
+
+**H2 — `UpdateAoePreview` gates only on delivery + shape, ignoring `CasterAnchored`, so a
+caster-anchored Summon is shown the ground disc at the aim point. [CONFIRMED]**
+`UpdateAoePreview` shows the disc for `Zone`/`Vortex`/`Summon`/`Storm`, skipping only
+`TerrainShape.Wall` (1ga). Continuous Fireball is `Summon` + `CasterAnchored = true`
+(`SkillCatalog.Magic.cs`): it stations a familiar behind the player and sprays forward, so a footprint
+at the aim point claims a landing point that does not exist. Identical shape to 1ga's wall report,
+where the chosen fix was **no preview** rather than new footprint geometry.
+
+**H3 — keep a preview but move it to the real station (behind the player). [REJECTED — user choice]**
+Asked (rule 7): the user chose **no disc** over previewing the behind-player station or drawing the
+familiar's ring body as a ghost. The station is always directly behind the caster, so there is nothing
+for a placement preview to communicate; the in-front charge halo already signals the cast. Rejected
+alternate reasons: a station preview would need a per-frame placement mirroring `FollowCaster` (a second
+spelling of that derivation, rule 8), and the flat disc would still misrepresent the vertical ring.
+
+**Verdict.** H2, fixed with one gate: `UpdateAoePreview` gains `&& !spell.CasterAnchored`, beside the
+`TerrainShape.Wall` skip. General on the flag (current `CasterAnchored` spells: only Continuous Fireball),
+so any future caster-anchored summon inherits it. No other file changes — a never-shown disc leaves the
+aim loop's `previewShown` false, so `Lock`/`Hide` calls in `PlayerController.Interactions.cs` degrade
+cleanly.
+
+**Honest caveat:** code-reasoned, not measured (rule 7) — the disc was identified by reading, not
+observed. The play-test must confirm the disc is gone AND that ground-targeted Summon/Zone/Vortex/Storm
+discs still draw.
+
 ## 1l6r. Continuous Fireball born in the wrong place: the spawn and the follow measured from different points (SHIPPED, play-test pending)
 
 User (one report): "the spell will sometime bugged and not create behind player."

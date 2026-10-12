@@ -1,4 +1,39 @@
-## 1l6r. Continuous Fireball: the follower is placed at BIRTH by the same function that follows it (fixing "sometimes not created behind the player")
+## 1l6s. Continuous Fireball: the aim preview no longer draws a ground AoE disc (caster-anchored summon has no aim point)
+
+User: "the prediction is placing a circle like other aoe spell while this spell function is totally
+different, planning on the fix." Chose (rule 7 ask): **no ground disc** for a caster-anchored summon,
+over previewing the familiar's real station or drawing its ring body as a ghost.
+
+- **Root cause.** `PlayerController.Combat.cs` `UpdateAoePreview` showed the ground `AoeAimPreview`
+  disc for any `Zone`/`Vortex`/`Summon`/`Storm` spell. Continuous Fireball is a `Summon` with
+  `CasterAnchored = true` — it stations a familiar **behind the player** and sprays forward, so a round
+  footprint at the camera's ground-aim point is meaningless. Same class of report and the same fix shape
+  as **1ga** (Earth Wall), which suppressed the disc rather than inventing new footprint geometry.
+- **Fix (one condition).** `UpdateAoePreview`'s gate gains `&& !spell.CasterAnchored`, beside the
+  existing `spell.TerrainShape != TerrainShape.Wall`. No other file changes: in the aim loop
+  (`PlayerController.Interactions.cs`) a never-shown disc leaves `previewShown` false, so `Lock` is not
+  called and `HideAoePreview()` in the else-branches is a no-op; the in-front charge halo
+  (`UpdateCastingCircle`) is untouched.
+- **General, not spell-specific:** the gate is `spell.CasterAnchored`, so any future caster-anchored
+  summon inherits the behaviour. Continuous Fireball is currently the only spell with it set.
+- **Doc-corrections (rule 2/8):** `game-design.md` §3.8 Summon bullet + the aim-preview bullet,
+  `magic-skills.md` Summon row, and `SpellData.CasterAnchored`'s tooltip (which still claimed the
+  familiar "draws its ground circle under itself" — stale since 1l6p's fixed vertical ring).
+
+### 1l6s-status
+- [x] `PlayerController.Combat.cs`: `UpdateAoePreview` skips the disc when `spell.CasterAnchored`;
+  method doc comment names both exceptions (wall shape, caster-anchored summon).
+- [x] `SpellData.cs`: `CasterAnchored` tooltip corrected (vertical ring, no ground circle; no aim preview).
+- [x] Docs: `game-design.md` §3.8 (two spots), `magic-skills.md` Summon row, this entry + `THINKING.md` §1l6s.
+- [x] Verified by grep + reread (no build, rule 3): the only new gate is `!spell.CasterAnchored` inside
+  the delivery/shape gate; `AoeAimPreview` call sites unchanged and degrade cleanly; `CasterAnchored`
+  has no other consumer that derives a preview from it.
+- [x] `skills: none applied` — a single-line C# gate edit reviewed by a human (rule 3); no DCC/editor skill applies.
+- [ ] **PLAY-TEST (user, Unity):** aim Continuous Fireball — **no** ground disc (the casting halo still
+  shows). Regressions: a ground-targeted Summon (turret / heal aura), a Zone (e.g. Meteor), a Vortex,
+  and a Storm still draw their disc growing with charge; Earth Wall still draws none.
+
+
 
 User: "the spell will sometime bugged and not create behind player."
 
@@ -4203,7 +4238,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-12 (1l6r). Read this first in a new session; then continue with the
+Last updated: 2026-10-12 (1l6s). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
