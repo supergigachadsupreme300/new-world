@@ -142,10 +142,10 @@ public class SpellBeam : MonoBehaviour
             transform.position = _caster.transform.position;
 
         // Re-aim with the caster's current aim each frame so the beam sweeps as the player turns.
-        // 1is: the derivation itself now lives in SpellCaster.CurrentAimDirection, shared with
-        // SpellSummon â€” two components needing "which way is the player aiming" is exactly when a
-        // second copy starts drifting. The cached camera is still passed in, so the shared helper
-        // does not undo 1e5's "no Camera.main per channeled frame".
+        // 1is: the derivation itself now lives in SpellCaster.CurrentAimDirection. From 1is it was
+        // shared with SpellSummon; 1l6q moved the familiar's spray to the direction-based
+        // StraightFlightDirection, so this is now the beam's alone. The cached camera is still passed
+        // in, so the shared helper does not undo 1e5's "no Camera.main per channeled frame".
         if (_mainCam == null) _mainCam = Camera.main;
         Vector3 casterForward = _caster != null ? _caster.transform.forward : Vector3.forward;
         Vector3 aimDir = SpellCaster.CurrentAimDirection(transform.position, Length, casterForward, _mainCam);

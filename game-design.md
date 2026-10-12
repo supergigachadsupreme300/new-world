@@ -1996,6 +1996,11 @@ a school read distinctly instead of feeling like copies:
   behind the caster, no longer a spell-`Radius`-sized ground circle — carrying **six launch orbs**
   around its rim; each auto-fired bolt leaves from a **randomly chosen orb**, so the stream fans from
   across the ring. `Radius` is therefore neither the spray's range nor its drawn size for this spell.
+  **1l6q:** the bolt's direction is the **direction-based** aim (`StraightFlightDirection`, the same
+  one a normal projectile uses) — so each orb fires **parallel to the look** (yaw AND pitch). 1l6o had
+  used the *point-based* `CurrentAimDirection`, which aims from the offset muzzle at the crosshair's
+  world point; the user reported that convergence as the bolts "launching at the cursor", so the spray
+  now flies straight like a normal fireball instead of angling in toward the reticle.
   Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
   Ember Effigy, Gust Totem.
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`

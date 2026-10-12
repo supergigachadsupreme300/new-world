@@ -59,6 +59,13 @@ public class SpellSummon : MonoBehaviour
     /// is alive, and Camera.main is a tag lookup (same reason SpellBeam caches one).</summary>
     private Camera _mainCam;
 
+    /// <summary>1l6q: cached look pivot for the spray's aim. The bolts now use the DIRECTION-based
+    /// aim (<see cref="SpellCaster.StraightFlightDirection"/>), whose preferred source is the player
+    /// camera pivot — current-frame, so the stream does not trail a frame behind (1jo). Read once at
+    /// Initialize from the caster root's <see cref="PlayerController"/>; null when there is none, and
+    /// the helper then falls back to the camera and finally to the caster's own forward.</summary>
+    private Transform _lookPivot;
+
     /// <summary>1ie: the summon's resolved look, cached at Initialize.</summary>
     private SpellLook _look;
 
@@ -71,6 +78,8 @@ public class SpellSummon : MonoBehaviour
         _spell = spell;
         _power = power;
         _casterRoot = caster != null ? caster.transform.root : null;
+        PlayerController owner = _casterRoot != null ? _casterRoot.GetComponent<PlayerController>() : null;
+        _lookPivot = owner != null ? owner.PlayerCameraPivot : null;
         radiusMult = Mathf.Max(radiusMult, 0.01f);
         durationMult = Mathf.Max(durationMult, 0.01f);
         // 1ie: resolved OUTSIDE the spell != null guard — BuildVisual and the RingFlash below both
@@ -159,11 +168,11 @@ public class SpellSummon : MonoBehaviour
         // yaw-only (PlayerController.HandleMouseLook writes transform.rotation = Euler(0, _yaw, 0)),
         // so _casterRoot.forward IS the upper-body yaw: the ring sits exactly behind the player and
         // rotates with their body as the camera moves. The old 1is derivation reused CurrentAimDirection
-        // (the camera-point aim the beam and the spray use), which pulled the ring off-axis by the
+        // (the camera-point aim the beam uses), which pulled the ring off-axis by the
         // third-person camera's 1jl shoulder offset and collapsed it onto the player's feet when aiming
-        // steeply down. The spray (FireForward) still uses the camera aim line — "pours bolts down your
-        // aim line" — so the station basis and the fire basis are deliberately DIFFERENT, and that is
-        // the point: the ring follows the body, the fire follows the aim.
+        // steeply down. The spray (FireForward) uses the look DIRECTION (StraightFlightDirection, 1l6q)
+        // — "pours bolts down your aim line" — so the station basis and the fire basis are deliberately
+        // DIFFERENT, and that is the point: the ring follows the body, the fire follows the aim.
         Vector3 flat = new Vector3(_casterRoot.forward.x, 0f, _casterRoot.forward.z);
         Vector3 back = flat.sqrMagnitude > 0.0001f
             ? flat.normalized * -BackOffset
@@ -210,14 +219,16 @@ public class SpellSummon : MonoBehaviour
     /// <see cref="Radius"/> no longer bounds anything for this spell (see Initialize).
     /// <para>The muzzle is a random orb on the ring (1l6p — see <see cref="Muzzle"/>), so the bolts
     /// visibly leave the familiar rather than a single fixed point.</para>
-    /// <para><b>1l6o: it fires the FULL 3D aim, not a flattened one.</b> The old body flattened the
-    /// aim to horizontal and added a fixed 0.18 m forward-spray rise, so the stream always flew level —
-    /// it tracked the player's yaw but never their pitch, and could not "adapt shooting angle when the
-    /// player turns" (the report). It is now the SAME derivation <see cref="SpellBeam"/> uses — the
-    /// shared helper, one fact — so the bolts leave the orb toward the point the camera looks at and
-    /// track yaw AND pitch as the player aims. The 0.18 m rise went with the flatten it compensated
-    /// for: the 3D aim already points where the player is looking, so a fixed lift would now bias
-    /// every shot above the reticle.</para>
+    /// <para><b>1l6q: the bolts fly PARALLEL to the look, not converging on the reticle.</b> 1l6o
+    /// aimed each bolt with <see cref="SpellCaster.CurrentAimDirection"/> — the POINT-based aim, i.e.
+    /// the direction from the muzzle to the crosshair's world point — so every bolt angled in toward
+    /// that point. Because the muzzle is offset (behind the caster, chest height), that convergence
+    /// made the whole stream read as "launching at the cursor" (the report) rather than straight ahead.
+    /// It now uses <see cref="SpellCaster.StraightFlightDirection"/> — the DIRECTION-based aim, the
+    /// SAME one a normal projectile (<c>FireProjectile</c>) uses — so each orb fires parallel to where
+    /// you are looking (yaw AND pitch, so 1l6o's "adapt shooting angle when the player turns" still
+    /// holds) and the stream no longer skews toward the reticle. The pivot is preferred over the
+    /// camera so the aim is current-frame (1jo).</para>
     /// <para><b>1l6p: the muzzle is a random orb on the ring</b> (<see cref="Muzzle"/>), so consecutive
     /// bolts leave from different points and the stream reads as fire thrown from the ring rather than
     /// spat from one spot.</para></summary>
@@ -225,8 +236,8 @@ public class SpellSummon : MonoBehaviour
     {
         if (_mainCam == null) _mainCam = Camera.main;
         Vector3 from = Muzzle();
-        Vector3 dir = SpellCaster.CurrentAimDirection(from, Mathf.Max(_spell.Range, 5f),
-            _spell != null && _casterRoot != null ? _casterRoot.forward : Vector3.forward, _mainCam);
+        Vector3 dir = SpellCaster.StraightFlightDirection(_mainCam, _lookPivot,
+            _casterRoot != null ? _casterRoot.forward : Vector3.forward);
         SpawnBolt(from, dir);
     }
 

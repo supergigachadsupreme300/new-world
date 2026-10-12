@@ -1,3 +1,43 @@
+## 1l6q. Continuous Fireball: bolts fly parallel to the look (like a normal fireball), not converging on the cursor
+
+User: "the firball still launching at the cursor rather than straight to where player are facing."
+
+Clarified with the user (rule 7's "ask" — 1l6o had misread this once already): confirmed the aim
+should be **parallel to the camera look** (like `magic_fireball_scorch`), not the player body's
+yaw-only forward (which would be level and reintroduce 1l6o's "does not adapt shooting angle").
+
+- **Point-aim -> direction-aim.** 1l6o set `SpellSummon.FireForward` to
+  `SpellCaster.CurrentAimDirection(...)` — the POINT-based aim, i.e. the direction from the muzzle to
+  the crosshair's world point. Because the muzzle sits behind the caster at chest height, that
+  direction converges on the reticle, so every bolt angled in at the cursor. It now uses
+  `SpellCaster.StraightFlightDirection(_mainCam, _lookPivot, _casterRoot.forward)` — the DIRECTION-based
+  aim `SpellCaster.Execute` already hands a normal Projectile — so each ring orb fires **parallel to
+  the look**, carrying yaw AND pitch. This keeps 1l6o's "adapt shooting angle" while removing the
+  cursor convergence.
+- **Look pivot, not the camera.** `StraightFlightDirection` prefers the player `PlayerCameraPivot`
+  (current-frame; the camera is written in `LateUpdate` and would trail a frame — 1jo). `SpellSummon`
+  now caches `_lookPivot` at `Initialize` from the caster root's `PlayerController`, falling back to
+  the camera then the caster forward.
+- **`CurrentAimDirection`'s two-caller premise corrected.** Its doc (and `SpellBeam`'s) said the
+  helper was shared with `SpellSummon` — no longer true; both comments updated (rule 8).
+- **Not changed:** the ring body (1l6p), the straight non-homing bolt shape (1l6o,
+  `ProjectileShape.Comet`), the station basis (1jw, body yaw), the ground snap (1is).
+
+### 1l6q-status
+- [x] `SpellSummon.cs`: `FireForward` uses `StraightFlightDirection`; new `_lookPivot` field cached in
+  `Initialize`; the `FireForward` + `FollowCaster` docs updated.
+- [x] `SpellCaster.Cast.cs`: `CurrentAimDirection` doc no longer claims `SpellSummon` as a caller.
+- [x] `SpellBeam.cs`: the "shared with SpellSummon" premise corrected.
+- [x] Docs kept in sync: `game-design.md` §3.8 Summon (new 1l6q sentence); this entry + `THINKING.md`
+  §1l6q.
+- [x] Verified by grep + reread (no build, rule 3): `CurrentAimDirection` -> 0 calls in `SpellSummon`,
+  1 in `SpellBeam`; `StraightFlightDirection` used by `SpellSummon.FireForward` + `SpellCaster.Execute`
+  (projectile) + `PlayerController.Combat`. `tools\StaticChecks.ps1` -> 0 candidates.
+- [x] `skills: none applied` — C# aim-direction edit reviewed by a human (rule 3).
+- [ ] **PLAY-TEST (user, Unity):** Continuous Fireball — the bolts must now fly **straight/parallel**
+  from the ring orbs toward where you look (no fan that converges on the crosshair), tracking yaw and
+  pitch.
+
 ## 1l6p. Continuous Fireball: the following familiar becomes a vertical see-through ring of six launch orbs
 
 User (one report): "change the follow circle rotation to x, remove y, and add multiple core around
@@ -4126,7 +4166,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-11 (1l3). Read this first in a new session; then continue with the
+Last updated: 2026-10-12 (1l6q). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

@@ -1,3 +1,51 @@
+## 1l6q. Continuous Fireball: bolts fly parallel to the look, not converging on the cursor (SHIPPED, play-test pending)
+
+User (one report): "the firball still launching at the cursor rather than straight to where player
+are facing."
+
+This is the second time this exact behaviour was reported (1l6o was the first), so the interesting
+part is *why the 1l6o fix did not read as a fix* — not the edit itself.
+
+**H1 — "straight" means the aim was flattened (yaw-only) and needs 3D back. [REJECTED]**
+That was 1l6o's own reading, and it is already in the code: the pre-1l6o body flattened the aim to
+horizontal. Re-flattening is the opposite of what the user now wants, and option B of the
+clarification ("body yaw-only, always horizontal") would have *reintroduced* it. Rejected once the
+user confirmed "parallel to the camera look".
+
+**H2 — the two `SpellCaster` aim helpers are not interchangeable, and 1l6o picked the one that
+converges. [CONFIRMED]**
+Read both helpers at their declarations:
+- `StraightFlightDirection(cam, pivot, fallback)` (SpellCaster.Cast.cs) — returns a **direction**:
+  the pivot's forward (camera fallback). Parallel for every caller, regardless of where the muzzle
+  sits. This is what `SpellCaster.Execute` passes a normal Projectile and what
+  `PlayerController.Combat` uses for weapon fire.
+- `CurrentAimDirection(from, range, fallback, cam)` — returns a **direction to a point**:
+  `(cam.pos + cam.forward * range) - from`. Because `from` is the muzzle — behind the caster, chest
+  height — that vector points *at* the crosshair's world point, i.e. it converges. Same direction
+  only when `from` is on the camera's own forward line.
+So "aiming at the point the camera looks at" is exactly "aiming at the cursor" for an offset muzzle.
+1l6o chose `CurrentAimDirection` deliberately ("the beam's own derivation") and even noted it
+rejected `StraightFlightDirection` — it optimised for "same as the beam" and did not weigh that the
+beam *originates at the caster* while the spray *originates behind the caster*, which is precisely
+the offset that makes the two helpers disagree. Evidence for: the user's word "cursor" (a point),
+the word "straight" (parallel), and the shipped normal-fireball precedent.
+
+**H3 — could the fix be a new tidal-flat direction or a hand-rolled `Vector3`? [REJECTED]**
+Rule 8/13: a second spelling of "where the player aims" is the bug class this repo keeps paying for.
+The direction-based helper already exists and is what every projectile uses; reuse it.
+
+**Verdict.** H2. `FireForward` now calls `StraightFlightDirection(_mainCam, _lookPivot, ...)`, with
+`_lookPivot` read once at `Initialize` from the caster root's `PlayerController.PlayerCameraPivot`
+(pivot preferred over camera: current-frame, 1jo). Chose option A in the clarification because it is
+the normal-fireball behaviour and preserves 1l6o's "adapt shooting angle" (yaw + pitch); option B
+(body yaw-only) would have been level.
+
+**What I did NOT touch, and why:** the ring body (1l6p), the straight non-homing shape (1l6o,
+`ProjectileShape.Comet`), the station basis (1jw, body yaw), the ground snap (1is) — none are about
+the bolt's flight direction. Rule 8 sweeps done: `CurrentAimDirection`'s doc and `SpellBeam`'s comment
+both named `SpellSummon` as a co-caller; both corrected (**re-read the guard, not the comment** — the
+"two callers" claim was the load-bearing premise and it was now false).
+
 ## 1l6p. Continuous Fireball: the familiar becomes a vertical see-through ring of six launch orbs (SHIPPED, play-test pending)
 
 User (one report): "change the follow circle rotation to x, remove y, and add multiple core around
