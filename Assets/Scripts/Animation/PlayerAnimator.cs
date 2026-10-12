@@ -460,11 +460,13 @@ public sealed class PlayerAnimator : MonoBehaviour
         // When SuppressArms is set, a WeaponAnimator fully owns the shoulders AND elbows
         // (windup/strike/charge pose tracks), so nothing is written here mid-attack.
 
-        // Cartoon run top body: forward lean, gentle bob â€” the upper body stays stable so only the
-        // arms and legs carry the motion (no wild torso/head swinging). The + lookTilt bends the
-        // torso up/down with the camera's vertical aim.
+        // Cartoon run top body: forward lean, gentle bob, small side sway
         if (_torso != null)
-            _torso.localRotation = Quaternion.Euler(12f * runBlend + lookTilt, 0f, 0f);
+        {
+            float sideSway = Mathf.Sin(_phase * 1.5f) * (4f * runBlend);
+            float fwdLean = (12f + 6f * runBlend);
+            _torso.localRotation = Quaternion.Euler(fwdLean + lookTilt, sideSway * 0.4f, sideSway);
+        }
         if (_head != null)
             _head.localRotation = Quaternion.Euler(-(1f + 2f * runBlend) * Mathf.Sin(_phase * 2f) - 2f * runBlend, 0f, 0f);
         if (_body != null && _bodyBasePos != default)
