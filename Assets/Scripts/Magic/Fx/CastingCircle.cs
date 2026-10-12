@@ -401,6 +401,11 @@ public sealed class CastingCircle : MonoBehaviour
                 _innerRing.SetPosition(i, new Vector3(Mathf.Cos(ang) * ir, 0f, Mathf.Sin(ang) * ir));
             }
         }
+        // Disc also spins to match when not flat? Disc is a plane mesh - rotation applied to transform
+        if (_disc != null)
+        {
+            _disc.localRotation = Quaternion.Euler(0f, 0f, _spin);
+        }
         if (_innerMat != null && wantInner)
             _innerMat.color = new Color(_color.r, _color.g, _color.b, a * 0.8f);
 
