@@ -41,6 +41,9 @@ public partial class PlayerController
         }
     }
 
+    private float _currentMoveSpeed;
+    private float _moveAccel = 12f;
+
     private void HandleMovement()
     {
         bool dialogBlocked = (WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive) ||
@@ -69,9 +72,13 @@ public partial class PlayerController
         var playerStats = StatsCached;
         float moveSpeedPerkMult = playerStats != null && playerStats.BaseMoveSpeed > 0f
             ? playerStats.MaxMoveSpeed / playerStats.BaseMoveSpeed : 1f;
-        float speed = flying
+        float targetSpeed = flying
             ? FlightSpeed
             : MoveSpeed * _waterSpeedMul * (sprint ? SprintMultiplier : 1f) * moveSpeedPerkMult;
+        if (mag <= 0.01f)
+            targetSpeed = 0f;
+        _currentMoveSpeed = Mathf.Lerp(_currentMoveSpeed, targetSpeed, 1f - Mathf.Exp(-Time.deltaTime * _moveAccel));
+        float speed = _currentMoveSpeed;
         _lastEffectiveSpeed = speed;
 
         bool dodgePressed = !dialogBlocked && !flying && _controller != null && _controller.isGrounded &&
