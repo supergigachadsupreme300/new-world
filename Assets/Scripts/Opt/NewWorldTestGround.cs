@@ -86,6 +86,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public bool EnableVoxelSculptDemo = false;
     [Tooltip("QA/perf (1gd): wire the WorldStreamer's speed-decoupled renderer clock — the streaming/render loop runs on its OWN coroutine beat (StreamHz, default 20 Hz) and yields one cool-down frame after any busy poll, and edited-terrain seam rebuilds run on background threads instead of holding the gameplay frame. That is exactly the 'immense lag at high player speed' scenario. Config-only lane: no world placement — any WorldStreamer found in the scene gets StreamInUpdate=true + DecoupleRenderFromGameplay=true (it just uses the scene's own toggle values otherwise).")]
     public bool EnableSpeedDecoupleRender = false;
+    [Tooltip("QA/perf (1l6l): shrink the streamed chunk area so the world loads fast for non-terrain testing. Sets the streamer's RenderDistance radius (normally 30 ≈ 900 m) to TestRenderRadius in Awake, BEFORE the first stream poll. The radius also caps the real chunk ring (the streamer takes near = min(NearRingRadius, radius)), so a small value drops BOTH the real chunks and the far shell — e.g. 4 loads a 9x9 real ring centred on the player and no far cells. Temporary convenience only: flip OFF to restore the full ~900 m world, and set it back before any real look/streaming pass.")]
+    public bool ReduceRenderDistance = true;
+    [Tooltip("QA/perf (1l6l): the reduced render radius used while ReduceRenderDistance is ON. 4 = a 9x9 chunk island (~270 m square, ~120 chunks with the hysteresis ring) around the player's focus, wide enough to hold the 120 m test platform. Clamped to the RenderDistanceController's MinRadius/MaxRadius by SetRadius.")]
+    public int TestRenderRadius = 4;
     [Tooltip("QA (1gh): extend the FPS overlay with a chunk-diagnostics line for ChunkInspectX/Z — that chunk's real load state (loaded/dormant/absent), root GameObject active, renderer+mesh present, collider, and which far cell owns it (and whether that cell is LIVE or MISSING). For any 'chunk invisible for no reason' report: one screenshot answers whether it is missing, hidden by the distance cull, or under a dead far cell. Read-only; needs EnableFpsStats on to display.")]
     public bool EnableChunkDiagnostics = true;
     [Tooltip("QA (1gh): chunk coords inspected by the diagnostics line (the coords of the reported monster/relic chunk −8_3 in chunk-space, X −8, Z 3).")]
@@ -315,6 +319,30 @@ public sealed class NewWorldTestGround : MonoBehaviour
         else
             Debug.LogWarning("[NewWorldTestGround] EnableLowPolyTerrain: WorldStreamer not found yet — " +
                 "flip the toggle on the streamer object in the scene instead.");
+
+        // Render-area shrink (1l6l): load a tiny world for fast iteration. Same pre-first-poll
+        // contract as the voxel/low-poly lanes above — the streamer reads RenderDistance.Radius
+        // every frame, and GameBootstrap (which created this component) has already created the
+        // RenderDistanceController before this Awake runs, so setting the radius here is what the
+        // first poll sees. The near ring is clamped to the radius (WorldStreamer.cs), so a small
+        // value drops the real chunks as well as the far shell.
+        if (ReduceRenderDistance)
+        {
+            var rdStreamer = Object.FindAnyObjectByType<WorldStreamer>();
+            if (rdStreamer != null)
+            {
+                if (rdStreamer.RenderDistance == null)
+                {
+                    var rd = ScriptableObject.CreateInstance<RenderDistanceController>();
+                    rd.MaxRadius = 30;
+                    rdStreamer.RenderDistance = rd;
+                }
+                rdStreamer.RenderDistance.SetRadius(TestRenderRadius);
+            }
+            else
+                Debug.LogWarning("[NewWorldTestGround] ReduceRenderDistance: WorldStreamer not found yet — " +
+                    "set the radius on the streamer's RenderDistance asset instead.");
+        }
 
         if (AutoSpawnOnStart)
             StartCoroutine(RunBenchSpawn());

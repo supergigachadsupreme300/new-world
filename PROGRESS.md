@@ -1,3 +1,38 @@
+## 1l6l. QA lane: shrink the streamed chunk area (fast world loads for non-terrain testing)
+
+User: "reduce the map rendering area temporary too so it would load faster for me to test other thing."
+
+- `NewWorldTestGround` (rule 4's independent test platform): new serialized opt-in
+  `ReduceRenderDistance` (default **true** so it takes effect immediately) + `TestRenderRadius`
+  (default **4**). In `Awake` — after finding the `WorldStreamer` — the lane calls
+  `RenderDistance.SetRadius(TestRenderRadius)`, creating a default `RenderDistanceController` if the
+  streamer has none.
+- **Why this is sufficient to drop the real chunks too:** `WorldStreamer` clamps the near ring to the
+  view radius (`near = Mathf.Min(Mathf.Max(NearRingRadius, 0), view)`), so radius 4 caps the real
+  chunk ring at 4 (was `NearRingRadius` = 9) AND leaves the far shell empty (`near+1 > view`) — the
+  whole ~900 m world collapses to a 9x9 real ring (~120 chunks with the hysteresis ring) around the
+  player's focus, which is the platform after the auto-teleport.
+- **Ordering is the reason it works:** `NewWorldTestGround` is created by `GameBootstrap` via
+  `Ensure` at line 120, which is *after* the `RenderDistanceController` is created at line 83 — so
+  this component's `Awake` (which `AddComponent` runs synchronously) sees a non-null RenderDistance
+  and writes the radius before the streamer's first poll. The streamer re-reads the radius each
+  frame, so the one write holds for the session.
+- Temporary convenience only: flip `ReduceRenderDistance` off (or back to `30`) to restore the full
+  world; set it back before any real look/streaming pass.
+
+### 1l6l-status
+- [x] `ReduceRenderDistance` (bool, true) + `TestRenderRadius` (int, 4) fields added with tooltips.
+- [x] `Awake` sets the streamer's RenderDistance radius before the first poll; null-safe create.
+- [x] Verified by grep + reread (no build, rule 3). `tools\StaticChecks.ps1` run on
+  `NewWorldTestGround.cs` -> **0 candidates** (brace/paren 210/210, 1456/1456; no other checks
+  apply). No `WorldBuilder*.cs` touched.
+- [x] `skills: none applied` — a C# edit reviewed by a human (rule 3); no installed skill governs it
+  (rule 15).
+- [x] Docs kept in sync in the same pass: this entry + `THINKING.md` §1l6l.
+- [ ] **PLAY-TEST (user, Unity):** on next launch the world should load only a small island around
+  the platform (much faster). Confirm only a few chunks stream in, then set `ReduceRenderDistance`
+  back to false to restore the full world.
+
 ## 1l6k. Casting circle: drop the disc's own tilt, give the whole circle one Z-90 orientation
 
 User: "remove the casting circle disc rotation, and flip the whole casting circle z rotation to 90."

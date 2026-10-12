@@ -1,3 +1,43 @@
+## 1l6l. QA lane: shrink the streamed chunk area for fast non-terrain testing (SHIPPED, play-test pending)
+
+User: "reduce the map rendering area temporary too so it would load faster for me to test other thing."
+
+**Where the render area actually comes from.** The streamed world's extent is
+`WorldStreamer.RenderDistance.Radius` (a `RenderDistanceController` ScriptableObject, default 30 ≈
+900 m). `GameBootstrap.InitializeGameRoot` creates that controller at line 83 if the streamer has
+none (`rd.Radius = 30; rd.MaxRadius = 30`). So the knob is a single int, read every frame by the
+streamer.
+
+**The first question — is reducing `Radius` enough, or does the real chunk ring ignore it?** Reading
+`WorldStreamer.cs:437-438`: `int view = RenderDistance.Radius; int near = Mathf.Min(Mathf.Max(
+NearRingRadius, 0), view);`. The real ring is `min(NearRingRadius, view)`, so a radius *below*
+`NearRingRadius` (9) pulls the real ring down with it — and the far shell covers only
+`(near+1)..view`, which is empty when `near == view`. **So one int reduction drops both surfaces.**
+This was the load-bearer: had `near` ignored the radius, a small `Radius` would have left the 19x19
+real ring (441 chunks) on screen and the toggle would have done almost nothing.
+
+**The second question — where does the edit belong, and will it run before the first poll?** Rule 4
+says QA conveniences live on `NewWorldTestGround`, not the core. But `NewWorldTestGround` is *itself*
+created at runtime (`GameBootstrap:120`, `Ensure(root, ...)`), not placed in the scene — confirmed by
+grepping `SampleScene.unity` for both script GUIDs (no hits). The ordering therefore matters:
+`AddComponent` in `Ensure` runs `Awake` synchronously at line 120, which is *after* the
+`RenderDistanceController` is created at line 83. So in `Awake` the streamer's RenderDistance is
+already non-null, and a write there lands before the streamer's first `Update`. (Had the lane run at
+`AfterSceneLoad` before GameBootstrap, it would have needed to create the controller itself — the
+null branch is kept as that safety net either way.)
+
+**Consequence worth stating (rule 2):** because the component is runtime-created, the serialized
+field *initializers* are the effective values — there is no inspector instance to flip. So
+`ReduceRenderDistance` defaults **true** to take effect on the next launch, and restoring the world
+means editing the default (or the radius) back to 30.
+
+**Verdict: confirmed.** Single-int shrink, placed on the test platform, applied before first poll.
+Rule 3's `StaticChecks.ps1` run (mandatory for `NewWorldTestGround.cs`) -> 0 candidates.
+
+**Outstanding:** rule 4 wants a `Spawn*`-style lane method (`RunSafely("lane", SpawnLane)`), but this
+is a pre-poll *config* write in `Awake`, like the voxel/low-poly toggles it sits beside — those are
+also written inline, not as spawn lanes. Kept inline for consistency.
+
 ## 1l6k. Casting circle: drop the disc tilt, one Z-90 orientation for the whole circle (SHIPPED, play-test pending)
 
 User: "remove the casting circle disc rotation, and flip the whole casting circle z rotation to 90."
