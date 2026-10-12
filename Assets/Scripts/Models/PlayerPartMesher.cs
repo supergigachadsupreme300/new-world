@@ -42,9 +42,9 @@ public static class PlayerPartMesher
     // region can never show a lip or gap — the hair edge is simply where the outer surface dives into
     // the skull. Only the outer cap is visible; the caved interior is hidden inside the head.
     private const float HairShellInner = 0.30f;  // unit-space inner radius (deep inside the head → hidden)
-    private const float HairFrontE = 0.60f;      // front hairline elevation (cos φ) — forehead stays bare above
-    private const float HairBackE = -0.52f;      // nape elevation — back coverage drops low
-    private const float HairEdge = 0.14f;        // half-width of the soft hairline transition
+    private const float HairFrontE = 0.70f;      // front hairline elevation (cos φ) — forehead stays bare above
+    private const float HairBackE = -0.68f;      // nape elevation — back coverage drops low (longer)
+    private const float HairEdge = 0.16f;        // half-width of the soft hairline transition
 
     /// <summary>1ep: deterministic non-uniform step weight for schedule index i — 1 ± irregularity,
     /// hash-driven per part, clamped ≥ 0.4 so a row/column can wobble but never collapse to a sliver.</summary>

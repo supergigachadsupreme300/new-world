@@ -274,6 +274,15 @@ public static class WeaponRigBuilder
         t.localPosition = pos;
         t.localRotation = rot;
         t.localScale = ScaleForWorld(t.parent, DrawScale);
+        // 1l6: hold staff at middle, not at root (visual-only). Staff geometric middle ~y=0.58 model units
+        // above its base; shift the model down so middle sits at hand (rig root). Keep rig root at hand
+        // to preserve projectile/halo anchoring (MagicHand returns rig).
+        if (weapon != null && weapon.id == "staff")
+        {
+            var staffModel = t.Find("Staff");
+            if (staffModel != null)
+                staffModel.localPosition = new Vector3(0f, -0.58f, 0f);
+        }
     }
 
     /// <summary>

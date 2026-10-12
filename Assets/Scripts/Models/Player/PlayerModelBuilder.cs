@@ -208,19 +208,19 @@ public static class PlayerModelBuilder
 
         // 1l2: one wrapped hair shell around the head (size = head*1.15), replacing the old crown lens +
         // side panels + nape panel whose rims left gaps against the skull. Face = +z.
-        MapBuilder.MakePart("Hair", torso.transform, new Vector3(0.345f, 0.345f, 0.345f), new Vector3(0f, 0.65f, 0f), hairC, "HairCap");
+        MapBuilder.MakePart("Hair", torso.transform, new Vector3(0.345f, 0.48f, 0.345f), new Vector3(0f, 0.62f, -0.01f), hairC, "HairCap");
         if (female)
         {
-            MapBuilder.MakePart("HairBand", torso.transform, new Vector3(0.34f, 0.05f, 0.33f), new Vector3(0f, 0.79f, 0.01f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
-            MapBuilder.MakePart("Ponytail1", torso.transform, new Vector3(0.18f, 0.26f, 0.15f), new Vector3(0f, 0.63f, -0.21f), hairC, "Ponytail");
-            MapBuilder.MakePart("Ponytail2", torso.transform, new Vector3(0.16f, 0.24f, 0.14f), new Vector3(0f, 0.45f, -0.25f), hairC, "Ponytail");
-            MapBuilder.MakePart("Ponytail3", torso.transform, new Vector3(0.13f, 0.22f, 0.13f), new Vector3(0f, 0.27f, -0.27f), hairC, "Ponytail");
+            MapBuilder.MakePart("HairBand", torso.transform, new Vector3(0.34f, 0.05f, 0.33f), new Vector3(0f, 0.84f, -0.01f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("Ponytail1", torso.transform, new Vector3(0.18f, 0.30f, 0.15f), new Vector3(0f, 0.60f, -0.23f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail2", torso.transform, new Vector3(0.16f, 0.28f, 0.14f), new Vector3(0f, 0.40f, -0.27f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail3", torso.transform, new Vector3(0.13f, 0.26f, 0.13f), new Vector3(0f, 0.22f, -0.29f), hairC, "Ponytail");
         }
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
-        MapBuilder.MakePart("EyeWhiteL", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
-        MapBuilder.MakePart("EyeWhiteR", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.72f, 0.155f), eyeWhiteC, "EyeWhite");
-        MapBuilder.MakePart("EyeIrisL", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.72f, 0.165f), eyeC, "EyeIris");
-        MapBuilder.MakePart("EyeIrisR", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.72f, 0.165f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeWhiteL", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.72f, 0.115f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeWhiteR", torso.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.72f, 0.115f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeIrisL", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.72f, 0.125f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeIrisR", torso.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.72f, 0.125f), eyeC, "EyeIris");
 
         ApplyRaceLook(root.transform, race, calibrateFeet: true);
 
@@ -270,10 +270,10 @@ public static class PlayerModelBuilder
         }
         // ── Eyes ──
         Color eyeWhiteC = new Color(0.95f, 0.95f, 0.97f);
-        MapBuilder.MakePart("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-0.07f, 0.77f, 0.145f), eyeWhiteC, "EyeWhite");
-        MapBuilder.MakePart("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.07f, 0.77f, 0.145f), eyeWhiteC, "EyeWhite");
-        MapBuilder.MakePart("EyeIrisL", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(-0.07f, 0.77f, 0.155f), eyeC, "EyeIris");
-        MapBuilder.MakePart("EyeIrisR", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(0.07f, 0.77f, 0.155f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeWhiteL", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(-0.07f, 0.77f, 0.105f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeWhiteR", root.transform, new Vector3(0.08f, 0.06f, 0.03f), new Vector3(0.07f, 0.77f, 0.105f), eyeWhiteC, "EyeWhite");
+        MapBuilder.MakePart("EyeIrisL", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(-0.07f, 0.77f, 0.115f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeIrisR", root.transform, new Vector3(0.05f, 0.05f, 0.04f), new Vector3(0.07f, 0.77f, 0.115f), eyeC, "EyeIris");
         // ── Arms (shoulder -> elbow chain, reaching forward to the steering wheel) ──
         // Shoulder carries the reach (-60°), elbow flexes the forearm up toward the wheel so
         // the hands land on it. The driving cutscene rocks these pivots to simulate steering.
@@ -408,15 +408,18 @@ public static class PlayerModelBuilder
         // ── Neck + head ──
         MapBuilder.MakePart("Neck", root.transform, new Vector3(0.14f, 0.12f, 0.14f), new Vector3(0f, 0.62f, 0f), skinC, "Cylinder");
         MapBuilder.MakePart("Head", root.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.78f, 0f), skinC, "Head");
-        MapBuilder.MakePart("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
-        MapBuilder.MakePart("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.155f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
-        MapBuilder.MakePart("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
-        MapBuilder.MakePart("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.85f, 0.165f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeWhiteL", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(-0.08f, 0.85f, 0.115f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
+        MapBuilder.MakePart("EyeWhiteR", root.transform, new Vector3(0.09f, 0.07f, 0.03f), new Vector3(0.08f, 0.85f, 0.115f), new Color(0.95f, 0.95f, 0.97f), "EyeWhite");
+        MapBuilder.MakePart("EyeIrisL", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(-0.08f, 0.85f, 0.125f), eyeC, "EyeIris");
+        MapBuilder.MakePart("EyeIrisR", root.transform, new Vector3(0.055f, 0.055f, 0.04f), new Vector3(0.08f, 0.85f, 0.125f), eyeC, "EyeIris");
         // 1l2 wrapped hair shell (size = head*1.15), replacing the crown lens + side + nape panels.
-        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.345f, 0.345f, 0.345f), new Vector3(0f, 0.78f, 0f), hairC, "HairCap");
+        MapBuilder.MakePart("Hair", root.transform, new Vector3(0.345f, 0.48f, 0.345f), new Vector3(0f, 0.75f, -0.01f), hairC, "HairCap");
         if (female)
         {
-            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.34f, 0.05f, 0.33f), new Vector3(0f, 0.92f, 0.01f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("HairBand", root.transform, new Vector3(0.34f, 0.05f, 0.33f), new Vector3(0f, 0.97f, -0.01f), new Color(0.1f, 0.34f, 0.56f), "HairBand");
+            MapBuilder.MakePart("Ponytail1", root.transform, new Vector3(0.18f, 0.30f, 0.15f), new Vector3(0f, 0.73f, -0.23f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail2", root.transform, new Vector3(0.16f, 0.28f, 0.14f), new Vector3(0f, 0.53f, -0.27f), hairC, "Ponytail");
+            MapBuilder.MakePart("Ponytail3", root.transform, new Vector3(0.13f, 0.26f, 0.13f), new Vector3(0f, 0.35f, -0.29f), hairC, "Ponytail");
         }
 
         // ── Arms (shoulder -> elbow chain, hands resting on the lap) ──

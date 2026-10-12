@@ -84,7 +84,7 @@ public sealed class PlayerAnimator : MonoBehaviour
     [Tooltip("Metres the body travels per FULL gait cycle (two steps: left forward, right forward). "
           + "The cadence is speed / stride, so one cycle advancing the body by exactly this much is what "
           + "keeps the feet planted instead of sliding. Bigger stride = fewer, longer steps.")]
-      public float StrideLength = 6.2f;
+      public float StrideLength = 9f;
 
     [Tooltip("Hard ceiling on the gait cycle rate (Hz), so a very fast build cannot turn the run "
         + "into a blur. Above the ceiling the feet DO slide, because the animation can no longer "

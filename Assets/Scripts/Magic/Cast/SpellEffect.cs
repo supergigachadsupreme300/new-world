@@ -247,6 +247,18 @@ public class SpellEffect : MonoBehaviour
             if (_trail == null) _trail = TrailStrip.Spawn(transform.position, _look);
             else _trail.Push(transform.position);
         }
+
+        // 1l6: add a subtle spinning animation for flying projectiles (e.g. fireball)
+        if (!_wave && !_homing)
+        {
+            // spin around forward axis at ~600 deg/s
+            transform.Rotate(0f, 600f * Time.deltaTime, 0f);
+        }
+        else if (_wave)
+        {
+            // wave stays flat - minimal roll
+            transform.Rotate(0f, 150f * Time.deltaTime, 0f);
+        }
     }
 
     /// <summary>
