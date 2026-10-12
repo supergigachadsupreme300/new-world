@@ -1,3 +1,49 @@
+## 1l6r. Continuous Fireball born in the wrong place: the spawn and the follow measured from different points (SHIPPED, play-test pending)
+
+User (one report): "the spell will sometime bugged and not create behind player."
+
+**H1 — "sometimes" means a race or a null caster root, so the follow never runs. [REJECTED]**
+`_casterRoot = caster.transform.root` and `caster` is `this` (non-null) inside `ResolveSummon`, so
+`_casterRoot` is never null; `Update`'s `if (_follow && _casterRoot != null) FollowCaster();` therefore
+runs every frame. There is no path where the follow is skipped. So the wrong position cannot persist —
+which is the clue: the defect must be TRANSIENT (birth), not a permanently wrong station.
+
+**H2 — the spawn and the follow both apply `BackOffset`, but from different reference points, so the
+first rendered frame (and the birth flash) is misplaced. [CONFIRMED]**
+Read both:
+- `SpellCaster.ResolveSummon` seeded `center = pos + back` with `pos = origin.position`, and `origin`
+  is `MagicWeaponBehavior.CastOrigin` — the **magic hand/weapon** transform (`WeaponRigBuilder` sets it
+  to the weapon `go.transform`), which sits forward and to the side of the body.
+- `SpellSummon.FollowCaster` computes `_casterRoot.position + back`, i.e. from the **caster root**
+  (the body), the same basis every follow frame.
+Both use the body-yaw back offset, so the **bearing** agrees; the **origin point** does not. The
+GameObject is instantiated during the cast (inside `Update`), so it renders once at the ResolveSummon
+position before its own first `Update` moves it. Worse, `SkillFx.RingFlash` is spawned at
+`transform.position` during `Initialize` and lives 0.45 s, so the whole birth effect played wherever the
+hand was. The hand–body offset is pose-dependent (larger with the weapon raised mid-charge), which is
+exactly the "sometimes". Evidence for: 1jx's own comment asserts "spawn and follow now agree by
+construction" — a stated invariant the code does not satisfy (rule 8's rotted comment), and the user's
+word "create" points at the birth instant.
+
+**H3 — the fix is a value change (bigger `BackOffset`, or negate it). [REJECTED]**
+The bearing and distance are already right in FollowCaster; only the spawn's reference point was wrong.
+Changing the constant would move the correct station to compensate, then 1l6p/magic-skills readouts
+that quote the rear station would drift. Rule 8: a second spelling of one value is the bug class.
+
+**Verdict.** H2. Fix = ONE placement function. `SpellSummon.Initialize` calls `FollowCaster()` once,
+after `_follow`/`_casterRoot` are set and before `BuildVisual()` and `RingFlash`; `ResolveSummon` seeds
+the GameObject on the caster root and no longer computes a rival position (it was only ever a fallback
+for a caster root that cannot be null). Now 1jx's "agree by construction" is literal.
+
+**Kept deliberately:** the ring body (1l6p), the direction-based bolt aim (1l6q), the body-yaw bearing
+(1jx), the ground-snap constants (1jt), and `BackOffset`'s value. Only the spawn's reference point and
+the number of placements changed.
+
+**Honest caveat:** this is a code-reasoned defect, not a measured one (rule 7). The symptom could not be
+reproduced from the code alone beyond the frame-1/flash window, so if the play-test still shows a
+wrongly-placed familiar beyond birth, the next step is a read-only measurement lane (spawn point vs
+`FollowCaster` point, per cast), not another blind edit.
+
 ## 1l6q. Continuous Fireball: bolts fly parallel to the look, not converging on the cursor (SHIPPED, play-test pending)
 
 User (one report): "the firball still launching at the cursor rather than straight to where player

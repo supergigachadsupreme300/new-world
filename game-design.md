@@ -2001,6 +2001,13 @@ a school read distinctly instead of feeling like copies:
   used the *point-based* `CurrentAimDirection`, which aims from the offset muzzle at the crosshair's
   world point; the user reported that convergence as the bolts "launching at the cursor", so the spray
   now flies straight like a normal fireball instead of angling in toward the reticle.
+  **1l6r:** the follower is placed by **one function** (`SpellSummon.FollowCaster`), run both at birth
+  (inside `Initialize`, before the body is built and the birth flash is drawn) and every follow frame.
+  Previously the spawn offset was computed separately from the **cast origin** (the magic hand, which
+  sits forward and to the side of the body) while the follow used the **caster root (body)**, so the
+  familiar — and its 0.45 s birth flash — stood wherever the hand happened to be for the first frame,
+  then snapped behind on the next `Update`: the reported "sometimes not created behind the player".
+  Birth and follow now cannot disagree.
   Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
   Ember Effigy, Gust Totem.
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`

@@ -44,11 +44,11 @@ public class SpellSummon : MonoBehaviour
     /// free, which is a balance change nobody would be looking for. One flag, one meaning.</summary>
     private bool _sprayForward;
 
-    /// <summary>1is: how far BEHIND the caster the ring sits, in metres. Applied at spawn
-    /// (SpellCaster.ResolveSummon) and again every follow frame, from the same constant, or the
-    /// familiar would visibly jump forward on its first tick.
-    /// <para>Flattened against Y at the call site: an aim pointed at the ground must not bury the
-    /// ring, and one pointed at the sky must not launch it.</para>
+    /// <summary>1is: how far BEHIND the caster the ring sits, in metres. Applied by
+    /// <see cref="FollowCaster"/> — the ONE placement, run at birth (from Initialize) and every follow
+    /// frame — so spawn and follow cannot drift (1l6r). ResolveSummon no longer applies it.
+    /// <para>Flattened against Y inside <see cref="FollowCaster"/>: an aim pointed at the ground must
+    /// not bury the ring, and one pointed at the sky must not launch it.</para>
     /// <para><b>1jt: this is an alias of <see cref="SpellLook.CastFrontOffset"/>, not a second
     /// spelling of the same number.</b> The front casting halo and this rear familiar are meant to sit
     /// symmetrically about the player, so they are one value by construction: changing one without the
@@ -109,6 +109,13 @@ public class SpellSummon : MonoBehaviour
             _sprayForward = spell.SummonFiresForward;
         }
 
+        // 1l6r: place the follower through the SAME function that will place it every follow frame,
+        // BEFORE the body is built and the birth flash is drawn. The flash lives 0.45 s and is spawned
+        // at transform.position, so when the station was first set only in Update, the whole birth
+        // effect (and the first rendered frame) appeared wherever the spawn seed was rather than behind
+        // the player. Birth and follow now share one placement.
+        if (_follow && _casterRoot != null) FollowCaster();
+
         BuildVisual();
         SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius * 0.8f, 0.45f, _look.Scale);
     }
@@ -150,6 +157,10 @@ public class SpellSummon : MonoBehaviour
     /// hang in the air on a slope or float when they jump (1l6p: the ring itself rides
     /// <c>FamiliarRingHeight</c> above that anchor). Skips the caster's own colliders — see
     /// <see cref="SpellCaster.GroundProbeUp"/>.
+    /// <para>1l6r: this is ALSO the BIRTH placement. <see cref="Initialize"/> calls it once, before the
+    /// body is built and the birth flash is drawn, so the familiar is at its final station from the
+    /// first rendered frame — and, because birth and follow are the same function, they cannot
+    /// disagree (1jx's "agree by construction", made literal).</para>
     /// <para>1is: the offset is applied BEFORE the probe, not after. Probing at the caster and then
     /// moving the result 1.8 m back would keep the ring at the player's own floor height while it
     /// sits behind a step or the lip of a slope — the exact "circles at your feet, not where it is"

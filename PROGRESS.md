@@ -1,3 +1,40 @@
+## 1l6r. Continuous Fireball: the follower is placed at BIRTH by the same function that follows it (fixing "sometimes not created behind the player")
+
+User: "the spell will sometime bugged and not create behind player."
+
+- **One placement, not two.** `SpellCaster.ResolveSummon` seeded a caster-anchored summon at
+  `pos + back`, where `pos` is the **cast origin** (`MagicWeaponBehavior.CastOrigin` = the magic hand,
+  which sits forward and to the side of the body). `SpellSummon.FollowCaster` re-placed it from the
+  **caster root** (`transform.root`, the body). Two call sites both applied `BackOffset` but measured
+  from different points, so they did NOT agree — despite 1jx's comment claiming "spawn and follow now
+  agree by construction". For the first rendered frame, and the whole 0.45 s birth `RingFlash`
+  (spawned at `transform.position`), the familiar stood wherever the hand happened to be, then snapped
+  behind on the first `Update`. Pose-dependent, hence "sometimes".
+- **Fix.** `SpellSummon.Initialize` now calls `FollowCaster()` once, after `_follow`/`_casterRoot` are
+  set and **before** `BuildVisual()` and `RingFlash`. Birth and follow are literally the same function,
+  so they cannot disagree. `ResolveSummon` no longer computes a rival back-offset — it seeds the
+  GameObject on the caster root purely so the never-rendered instant before `Initialize` is sane.
+- **Not changed:** the ring body (1l6p), the bolt aim (1l6q), the station bearing (1jx body yaw),
+  the ground-snap constants (1jt), `BackOffset`'s value (still aliases `SpellLook.CastFrontOffset`).
+- **Doc-corrections (rule 8):** `SpellSummon.BackOffset` doc (no longer "applied at spawn in
+  ResolveSummon"), `FollowCaster` doc (now also the birth placement), the `ResolveSummon` comment
+  block (was the false "agree by construction" reasoning), `game-design.md` §3.8.
+
+### 1l6r-status
+- [x] `SpellSummon.cs`: `Initialize` calls `FollowCaster()` before `BuildVisual`/`RingFlash`; docs for
+  `BackOffset` + `FollowCaster` updated.
+- [x] `SpellCaster.Cast.cs`: `ResolveSummon` caster-anchored branch seeds on the caster root and no
+  longer duplicates the offset math; comment rewritten.
+- [x] Docs: `game-design.md` §3.8 Summon (1l6r sentence); this entry + `THINKING.md` §1l6r.
+- [x] Verified by grep + reread (no build, rule 3): `FollowCaster` called from `Initialize` + `Update`;
+  `BackOffset` now read only in `FollowCaster` (+ the `SpellLook` alias); `tools\StaticChecks.ps1` ->
+  0 candidates.
+- [x] `skills: none applied` — C# placement edit reviewed by a human (rule 3).
+- [ ] **PLAY-TEST (user, Unity):** cast Continuous Fireball repeatedly, including while charging and
+  while moving/turning — the familiar's ring AND its birth flash must appear **behind** the player
+  immediately, with no frame where it pops in front/on the body first; it must still follow and
+  ground-snap every frame afterward.
+
 ## 1l6q. Continuous Fireball: bolts fly parallel to the look (like a normal fireball), not converging on the cursor
 
 User: "the firball still launching at the cursor rather than straight to where player are facing."
@@ -4166,7 +4203,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-12 (1l6q). Read this first in a new session; then continue with the
+Last updated: 2026-10-12 (1l6r). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
