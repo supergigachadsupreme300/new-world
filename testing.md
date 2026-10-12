@@ -6,4 +6,4 @@
 
 4. (done - 1l6) 
 5. 
-6. 1l6: hair lengthened, eyes pulled back closer to head (across standing/seated/sit), staff held at middle via visual-only model offset (rig root preserved), projectile spin added (Y-axis) in flight.
+6. 1l6: hair lengthened, eyes pulled back closer to head (across standing/seated/sit), staff held at middle via visual-only model offset (rig root preserved), projectile spin on Z-axis (pre/post launch), charged preview pushed forward with scale, casting circle flat orientation matches aim.
