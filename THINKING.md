@@ -1,3 +1,43 @@
+## 1l6t. Conflagration ember curtain: no centre pull, doubled, emerging from the ground (SHIPPED, play-test pending)
+
+User (one report, three asks): "stop being sucked into the center as they're going up … not enough
+particle to cover up, double it at least … don't make the particle suddenly all appear at once, i need it
+to appear from below then going up."
+
+**Scoping.** "conflagration", "sucked into the center as they're going up" — the embers of the 1kc
+firestorm body (`SpellZoneModelBuilder.BuildConflagration` + its `VortexRiser`), not the enemy pull
+(`SpellZone.PullSpeed`, which moves foes on the ground, not upward). Confirmed by reading both: only the
+ember helix converges with height.
+
+**H1 — the centre pull is `orbit = radius·(1 − 0.80·cyc²)`. [CONFIRMED]**
+`VortexRiser.Update` shrank the orbit quadratically as the ember climbed (1l3's deliberate "hug the rim
+then pull to the apex"), which is exactly the "sucked into the centre" read. The user wants the opposite:
+a constant-radius rise. Fix: `orbit = _radius`.
+
+**H2 — count too low. [CONFIRMED]**
+48 embers (6 strands × 8) over an 8-tier climb leaves visible gaps. Doubled to 96 (12 strands × 8). Size
+(0.16) and apex height unchanged — the ask was count, not size.
+
+**H3 — "all appear at once": the embers were placed at their full-height phase at birth. [CONFIRMED]**
+Every ember existed from frame 1 at `cyc = phase = along/8`, i.e. distributed straight up the column, and
+`VortexRiser` used global `Time.time` with no birth ramp — so at the cast instant the whole curtain is
+already on screen. Two changes make it emerge bottom-first:
+- `_age` (component-local) + a per-tier `startDelay` (`along/(perRay−1)·0.7s`), so each tier ignites at
+  the ground in turn. Before its delay the ember is parked at **zero scale** (below ground, invisible).
+- a bottom/top scale envelope (`FadeFraction` 0.22): fade in over the first 22% of the climb, out over the
+  last 22%. So each ember reads as a tongue that *appears from below and rises*, and the curtain builds
+  up from the ground rather than snapping into being.
+Rejected alternate for H3: keep `Time.time` and just randomise phases — that distributes the pop but
+never makes it *start from the ground*, which is the literal ask.
+
+**Verdict.** All three confirmed and fixed in one builder pass. `VortexRiser.Init`'s arity changed
+(`phase`, `shrink` → `startDelay`, `seed`); exactly ONE call site (`BuildConflagration`), verified by
+grep. The QA bench mounts the same builder, so it shows the new look too.
+
+**Honest caveat:** code-reasoned, not measured (rule 7). The three readouts (straight/cylindrical, denser,
+bottom-first) all need the play-test; if 96 is still gappy the next step is a bigger count or ember size,
+not another blind helix edit.
+
 ## 1l6s. Continuous Fireball aim preview draws a ground AoE disc for a spell with no aim point (SHIPPED, play-test pending)
 
 User: "the prediction is placing a circle like other aoe spell while this spell function is totally

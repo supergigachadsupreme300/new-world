@@ -72,19 +72,22 @@ public static class SpellZoneModelBuilder
         ApplyShared(halo, sharedMat);
     }
 
-    /// <summary>The 1kc Conflagration body: a flat ground circle whose edge particles fly
-    /// up in a vortex, converging as they rise. Authored on Conflagration alone
-    /// (<c>ZoneBody.VortexCircle</c>). (1kf: Firestorm draws <see cref="BuildFunnel"/>
-    /// instead.) Two colours, both through the
+    /// <summary>The 1kc Conflagration body: a flat ground circle with a rising curtain of ember
+    /// tongues. Authored on Conflagration alone (<c>ZoneBody.VortexCircle</c>). (1kf: Firestorm
+    /// draws <see cref="BuildFunnel"/> instead.) Two colours, both through the
     /// colour-keyed shared cache: the circle takes the spell's Core, the rising flames the hot end
     /// (<see cref="SpellLook.HotCore"/>) — the same hot-end choice SpellBeam's funnel makes.
-    /// <para><b>1l3</b> answer to "only create one ember ray on the circle edge, i want more": every
-    /// ember used to ride the SAME helix, so 24 evenly-phased cubes traced ONE spiral strand. They are
-    /// now dealt into <c>rays</c> PARALLEL strands (a per-ember angular offset, <c>angOffset</c>), so
-    /// the rim carries several distinct tongues of flame; the count doubled (24 → 48, 8 per strand)
-    /// and the inward convergence is quadratic in the rise (<c>cyc²</c>) so each tongue HUGS the
-    /// perimeter for the first half of its climb before pulling to the apex. The apex is taller/wider
-    /// too (<c>max(3.2, radius·2.2)</c>, was <c>max(2.5, radius·1.6)</c>).</para></summary>
+    /// <para><b>1l3</b> ("only create one ember ray on the circle edge, i want more"): every ember
+    /// used to ride the SAME helix, so evenly-phased cubes traced ONE spiral strand. They are now
+    /// dealt into <c>rays</c> PARALLEL strands (a per-ember angular offset, <c>angOffset</c>), so the
+    /// rim carries several distinct tongues of flame.</para>
+    /// <para><b>1l6t</b> ("stop being sucked into the centre … double the particles … make them
+    /// appear from below, not all at once"): the tongues now rise <b>straight up at the ring
+    /// radius</b> — the old convergent helix (<c>orbit = radius·(1 − 0.80·cyc²)</c>) pulled every
+    /// ember to the centre as it climbed; the count doubled (48 → 96 = 12 strands of 8); and each
+    /// ember now <b>starts at the ground and climbs</b>, its own age-gated rise plus a bottom/top
+    /// scale envelope, so the curtain builds up from the ground instead of every ember popping into
+    /// place at once. The apex stays <c>max(3.2, radius·2.2)</c> with 1.8 turns per rise.</para></summary>
     public static void BuildConflagration(Transform parent, float radius, Color core, Color hot)
     {
         Material coreMat = SkillFx.SharedSpriteMaterial(core);
@@ -97,18 +100,19 @@ public static class SpellZoneModelBuilder
         disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
         ApplyShared(disc, coreMat);
 
-        const int rays = 6;                    // 1l3: parallel flame strands around the ring (was 1)
-        const int embers = rays * 8;           // 8 embers spread along each strand's climb
+        const int rays = 12;                   // 1l6t: parallel flame strands around the ring (was 6)
+        const int perRay = 8;                  // 8 tongues spread along each strand's climb
+        const int embers = rays * perRay;      // 96 total (doubled from 48)
         const float risesPerSecond = 0.45f;
         const float turnsPerRise = 1.8f;
-        const float shrink = 0.80f;
+        const float buildSeconds = 0.7f;       // the curtain fills from the ground over this window
         float height = Mathf.Max(3.2f, radius * 2.2f);
         for (int i = 0; i < embers; i++)
         {
             int ray = i % rays;
             int along = i / rays;
-            float phase = along / 8f;                          // spread along this strand's rise
-            float angOffset = ray * (2f * Mathf.PI / rays);    // separate the strands
+            float angOffset = ray * (2f * Mathf.PI / rays);              // separate the strands
+            float startDelay = along / (float)(perRay - 1) * buildSeconds; // tiers emerge bottom-first
             var ember = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ember.name = "SpellEmber_" + i;
             DestroyCollider(ember);
@@ -116,54 +120,70 @@ public static class SpellZoneModelBuilder
             ember.transform.localScale = Vector3.one * 0.16f;
             ember.transform.localRotation = Quaternion.Euler(0f, angOffset * Mathf.Rad2Deg, 0f);
             ApplyShared(ember, hotMat);
-            ember.AddComponent<VortexRiser>().Init(phase, angOffset, risesPerSecond, turnsPerRise, radius, height, shrink);
+            ember.AddComponent<VortexRiser>().Init(angOffset, startDelay, risesPerSecond, turnsPerRise, radius, height, i);
         }
     }
 
-    /// <summary>Moves one ember of the 1kc conflagration body (rule 19, twice): a per-frame effect
-    /// belongs to the loop that runs while it MOVES, not in the shape factory — so the factory
-    /// attaches this component and this component owns the rise, the same split
-    /// <c>SpellStormModelBuilder.BoltFader</c> uses for the storm bolts. The ember climbs the edge
-    /// circle and spirals inward toward the apex as it rises; the zone root's own pull-spin adds to
-    /// the whirl. Dies with the zone (it is a child of the zone root — nothing detaches it).</summary>
+    /// <summary>Moves one ember of the conflagration body (rule 19: the shape factory builds, the
+    /// component that runs while the pieces MOVE animates — the same split <c>BoltFader</c> uses for
+    /// the storm bars). 1l6t: the ember climbs the ring radius <b>straight up</b> — the old helix
+    /// pulled it toward the centre as it rose, the "sucked into the centre" report — starting from
+    /// the ground after its own <c>startDelay</c> so the curtain builds bottom-first, and fading in
+    /// low / out high so it reads as a tongue of flame that <b>appears from below and rises</b>. The
+    /// zone root's own pull-spin adds to the whirl. Dies with the zone (it is a child of the zone
+    /// root — nothing detaches it).</summary>
     private sealed class VortexRiser : MonoBehaviour
     {
-        private float _phase;
+        // Fraction of the climb spent fading in at the ground and out at the top, so the ends of
+        // the curtain melt in/out rather than every ember snapping to full size.
+        private const float FadeFraction = 0.22f;
+
         private float _angOffset;
+        private float _startDelay;
         private float _speed;
         private float _turns;
         private float _radius;
         private float _height;
-        private float _shrink;
+        private float _seed;
         private Vector3 _baseScale;
+        private float _age;
 
-        public void Init(float phase, float angOffset, float speed, float turns, float radius, float height, float shrink)
+        public void Init(float angOffset, float startDelay, float speed, float turns,
+            float radius, float height, float seed)
         {
-            _phase = phase;
             _angOffset = angOffset;
+            _startDelay = startDelay;
             _speed = speed;
             _turns = turns;
             _radius = radius;
             _height = height;
-            _shrink = shrink;
+            _seed = seed;
             _baseScale = transform.localScale;
+            // Parked at zero until its turn, so nothing shows above the ground before its tier's
+            // delay elapses — this is what makes the curtain build from the ground up.
+            transform.localScale = Vector3.zero;
         }
 
         private void Update()
         {
-            float cyc = Mathf.Repeat(_phase + Time.time * _speed, 1f);
+            _age += Time.deltaTime;
+            float t = _age - _startDelay;
+            if (t < 0f) return;   // still waiting below the ground — stays at zero scale
+
+            float cyc = Mathf.Repeat(t * _speed, 1f);
             float ang = _angOffset + cyc * _turns * Mathf.PI * 2f;
-            // 1l3: quadratic convergence (cyc², was linear) so the tongue hugs the rim for the first
-            // half of the climb, then pulls hard to the apex — keeps the ring perimeter densely lit.
-            float orbit = _radius * (1f - _shrink * cyc * cyc);
+            // 1l6t: constant radius — rise straight up at the ring edge, no inward convergence.
             transform.localPosition = new Vector3(
-                Mathf.Cos(ang) * orbit,
+                Mathf.Cos(ang) * _radius,
                 cyc * _height,
-                Mathf.Sin(ang) * orbit);
+                Mathf.Sin(ang) * _radius);
+            // Appears low, vanishes high, so the eye reads a stream rising from the ground rather
+            // than a set of cubes that all pop into place at once.
+            float env = Mathf.Clamp01(cyc / FadeFraction) * Mathf.Clamp01((1f - cyc) / FadeFraction);
             // Gentle shimmer so each tongue of flame reads alive — small and slow compared to the
             // beam's 23/41 Hz flutter (1jz/1kb), never a body-size "breathe".
-            float shimmer = 1f + 0.15f * Mathf.Sin(ang * 5f + _phase * 7f);
-            transform.localScale = _baseScale * shimmer;
+            float shimmer = 1f + 0.15f * Mathf.Sin(ang * 5f + _seed * 7f);
+            transform.localScale = _baseScale * (env * shimmer);
         }
     }
 

@@ -1,4 +1,44 @@
-## 1l6s. Continuous Fireball: the aim preview no longer draws a ground AoE disc (caster-anchored summon has no aim point)
+## 1l6t. Conflagration: ember curtain rises straight up (no centre pull), 96 particles, emerging from the ground
+
+User: "change conflagration spell effect to stop being sucked into the center as they're going up, and
+it still not enough particle to cover up, double it at least, and don't make the particle suddenly all
+appear at once, i need it to appear from below then going up."
+
+- **Root cause (three asks, one builder).** `SpellZoneModelBuilder.BuildConflagration` placed each ember
+  on a convergent helix (`orbit = radius·(1 − 0.80·cyc²)`), so the tongues were pulled to the centre as
+  they climbed (1l3's "hug the rim then pull to the apex"); the count was 48 (6 strands × 8); and every
+  ember was placed at its full-height phase at birth, so the whole column appeared at once.
+- **Fix (`SpellZoneModelBuilder.cs`, both callers — runtime `SpellZone` and the QA bench):**
+  - **Straight rise.** `VortexRiser` now holds a **constant radius** (`orbit = _radius`) — the tongues
+    climb the ring edge with no inward suck. The angular whirl (1.8 turns/rise + the zone root's 240°/s
+    pull-spin) is unchanged, so it still reads as a fire whirl, just a cylindrical one.
+  - **Doubled.** `rays` 6 → 12, still 8 per strand ⇒ **96** embers (was 48).
+  - **From the ground, bottom-first.** `VortexRiser` now owns its own `_age` (not `Time.time`) and a
+    per-ember `startDelay` (`along/(perRay−1) · 0.7 s`), so each tier ignites at the ground in turn; a
+    bottom/top scale envelope (`FadeFraction` 0.22) makes every ember fade in low and out high. The
+    curtain therefore builds up from the ground instead of all embers popping into place mid-air.
+  - Unchanged: apex height `max(3.2, 2.2·radius)`, 0.45 rises/s, 1.8 turns/rise, 0.16 ember size, the
+    Core disc, the hot-end flame colour, rule 19's factory/component split.
+- **Doc-corrections (rule 8):** `SpellZoneModelBuilder.BuildConflagration` + `VortexRiser` docs;
+  `game-design.md` §3.8.5 body + the 1kc intro sentence; `magic-skills.md` Vortex + Conflagration rows;
+  `SpellLook.ZoneBody.VortexCircle` doc. Historical 1l3 entries left as-is (they record what shipped then).
+
+### 1l6t-status
+- [x] `SpellZoneModelBuilder.cs`: `BuildConflagration` (12 strands × 8 = 96, per-tier `startDelay`) +
+  `VortexRiser` (age-gated rise, constant radius, bottom/top fade envelope).
+- [x] Docs: `game-design.md` §3.8.5, `magic-skills.md`, `SpellLook.cs`, this entry + `THINKING.md` §1l6t.
+- [x] Verified by grep + reread (no build, rule 3): `VortexRiser.Init` has exactly ONE call site
+  (`BuildConflagration`); the new 7-arg arity matches; no `_shrink`/`_phase` reference remains;
+  `Time.time` no longer used for the rise. `tools\StaticChecks.ps1` → 0 candidates (sanity; file outside
+  its `$files` list).
+- [x] `skills: none applied` — a procedural C# model edit; no installed skill governs the artifact (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** cast Conflagration — a burning ring whose ember curtain now rises
+  **straight up** at the edge (no funnel-to-centre), clearly denser (96), and **builds from the ground**
+  instead of all appearing at once; the zone still drags foes in and ticks Burn. QA bench (Conflagration
+  pedestal) shows the same. Regressions: other Vortex spells (Water Vortex, Frozen Touch, Cyclone Spin,
+  Whirlpool) and Firestorm still draw their funnels untouched.
+
+
 
 User: "the prediction is placing a circle like other aoe spell while this spell function is totally
 different, planning on the fix." Chose (rule 7 ask): **no ground disc** for a caster-anchored summon,
@@ -4238,7 +4278,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-12 (1l6s). Read this first in a new session; then continue with the
+Last updated: 2026-10-12 (1l6t). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

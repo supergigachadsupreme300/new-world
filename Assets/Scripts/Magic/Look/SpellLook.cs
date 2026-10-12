@@ -133,8 +133,9 @@ public enum ZoneBody
     /// <summary>The generic whirling pull funnel: 7 spinning rings + 6 orbiting debris blocks
     /// (tornado/vortex), or the flat ground disc for a non-pulling zone.</summary>
     Funnel = 1,
-    /// <summary>The 1kc conflagration/Firestorm look: a flat ground circle whose edge particles fly
-    /// up in a vortex, converging as they rise. Conflagration's own body.</summary>
+    /// <summary>The 1kc conflagration/Firestorm look: a flat ground circle with a rising curtain of
+    /// ember tongues (1l6t: they rise straight up at the ring radius and emerge from the ground,
+    /// rather than converging to the centre). Conflagration's own body.</summary>
     VortexCircle = 2
 }
 

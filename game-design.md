@@ -2491,7 +2491,8 @@ given Meteor a swarm half the time.
 **One spell drew a vortex the wrong way.** Conflagration is a `SpellDelivery.Vortex` (a pulling zone)
 and up to 1kc drew the generic pull funnel — a tornado of spinning rings — because `SpellZone.BuildVisual`
 branches on pull, not on identity. The user asked for a **firestorm**: a flat ground circle whose edge
-particles fly up in a vortex, converging as they rise. The tempting implementation — move Conflagration
+particles fly up in a vortex, converging as they rise (1l6t later dropped the convergence — see the body
+below). The tempting implementation — move Conflagration
 to `SpellDelivery.Summon` or a custom branch inside `SpellZone` keyed on spell id — is the exact pair of
 mistakes rule 13 exists to stop: `ResolveZone` is the only resolver that spawns falling rocks and applies
 zone terrain, so a delivery change deletes the spell's behaviour, and a consumer-side id check is a second
@@ -2506,13 +2507,18 @@ swirl IS the wind that drags foes in. Conflagration gained a profile carrying on
 authored count 25 → **26**.
 
 **Body:** `SpellZoneModelBuilder.BuildConflagration(transform, Radius, core, HotCore(core))` — a thin
-ground disc in the spell's Core colour, then ember cubes in the hot colour, each rising from the edge on
-a helix that shrinks toward the apex. **1l3** (testing.md task 7, "only create one ember ray on the circle
-edge, i want more"): the embers used to ride one shared helix, so they traced a *single* spiral strand —
-they are now dealt into **6 parallel strands** (a per-ember angular offset), 8 embers each (48 total), the
-inward convergence is quadratic in the rise (`cyc²`) so each tongue hugs the perimeter for the first half
-of its climb, and the apex is taller/wider at `max(3.2, 2.2·radius)` (0.45 rises/s, 1.8 turns per rise,
-80% shrink). The per-frame rise is owned by a builder-attached `VortexRiser` component — rule 19: the shape
+ground disc in the spell's Core colour, then ember cubes in the hot colour, each rising straight up at the
+ring edge (1l6t). **1l3** (testing.md task 7, "only create one ember ray on the circle edge, i want
+more"): the embers used to ride one shared helix, so they traced a *single* spiral strand — they are now
+dealt into parallel strands by a per-ember angular offset. **1l6t** ("stop being sucked into the centre …
+double the particles … make them appear from below, not all at once"): the tongues rise at a **constant
+radius** (the old helix converged to the apex as it climbed — `orbit = radius·(1 − 0.80·cyc²)` — the
+"sucked into the centre" read), the count **doubled to 96** (**12 strands × 8**), and each ember now
+**starts at the ground and climbs** — an age-gated rise after a per-tier `startDelay` (the curtain fills
+bottom-first over 0.7 s) plus a bottom/top scale envelope, so nothing pops in mid-air. The apex stays
+`max(3.2, 2.2·radius)` (0.45 rises/s, 1.8 turns per rise), so the whole thing is a rising cylindrical
+curtain of flame with a gentle whirl, not a narrowing spiral. The per-frame rise is owned by a
+builder-attached `VortexRiser` component — rule 19: the shape
 factory builds, the component that runs while the pieces *move* animates, the same split `BoltFader`
 uses for the storm bars. The disc takes the Core and the flames the hot end, the identical hot-end choice
 SpellBeam's funnel makes (Edge desaturates Fire toward peach and cannot supply the yellow).
