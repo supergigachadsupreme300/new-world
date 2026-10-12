@@ -262,11 +262,14 @@ public sealed class CastingCircle : MonoBehaviour
         if (!_flat && _anchor == null) { Hide(); return; }
         if (_flat)
         {
-            // Always world-up, never aim- or slope-tilted. A disc angled with the aim reads as part
-            // of the weapon (the very thing 1ka moved the charge away from); the ground-halo
-            // never-tilts rule from 1jt holds for the flat weapon halo unchanged.
+            // Flat at weapon - orient to aim direction (perpendicular in ground plane)
+            Vector3 fwd = _flatPos - (_anchor != null ? _anchor.position : _flatPos);
+            if (fwd.sqrMagnitude > 0.0001f) fwd.y = 0f;
+            if (fwd.sqrMagnitude > 0.0001f)
+                transform.rotation = Quaternion.LookRotation(fwd, Vector3.up) * Quaternion.Euler(90f, 0f, 0f);
+            else
+                transform.rotation = Quaternion.identity;
             transform.position = _flatPos;
-            transform.rotation = Quaternion.identity;
         }
         else
         {
@@ -402,10 +405,7 @@ public sealed class CastingCircle : MonoBehaviour
             }
         }
         // Disc also spins to match when not flat? Disc is a plane mesh - rotation applied to transform
-        if (_disc != null)
-        {
-            _disc.localRotation = Quaternion.Euler(0f, 0f, _spin);
-        }
+        // Disc follows aim (already parented correctly) - no spin needed.
         if (_innerMat != null && wantInner)
             _innerMat.color = new Color(_color.r, _color.g, _color.b, a * 0.8f);
 
