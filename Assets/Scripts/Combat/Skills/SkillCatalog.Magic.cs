@@ -299,16 +299,17 @@ public static partial class SkillCatalog
             // deterministic jitter across that many bolts would read as a different spell every
             // tick. Impact=Burst (small throw-out per bolt) + Cast=Halo (a soft disc around the
             // caster, matching a familiar that stays with you) is one steady identity instead.
-            // 1jx: the bolts are HOMING — projectileShape: Missile is the gameplay axis that makes
-            // SpellEffect._homing true, the same "flypath" every other guided projectile follows
-            // (Arcane Missiles, Chill Soul). Homing is what the pilot asked for ("no flypath update
-            // like other projectiles"). But SpellLook.Resolve INHERITS a non-Auto spell.Shape into
-            // DisplayShape, so a bare Missile would silently swap the drawn body to the arcane-missile
-            // cone — the Look below re-authors DisplayShape to Comet (the exact body the deterministic
-            // pick had already resolved for this id), which keeps the bolt looking exactly as before.
-            // One axis each: gameplay shape = homing, display shape = the fireball the spell has always
-            // had.
-            S("magic_fireball_meteor_continuous", "Continuous Fireball", Spell("magic_fireball_meteor_continuous_spell", "Continuous Fireball", DamageType.Fire, 36f, 28f, SpellDelivery.Summon, 8f, deliveryRadius: 5f, duration: 8f, tickInterval: 0.4f, projectileSpeed: 22f, statusEffect: StatusEffectType.Burn, casterAnchored: true, boltSplashRadius: 1.6f, summonFiresForward: true, projectileShape: ProjectileShape.Missile, look: Look(SpellImpactStyle.Burst, SpellCastStyle.Halo, scale: 1.1f, value: 1.12f, shape: ProjectileShape.Comet)), "A bound flame that takes up station behind you and pours molten bolts down your aim line.", Focus(28f), DamageType.Fire, true),
+            // 1l6o: the bolts fly STRAIGHT like a normal fireball. 1jx had made them HOMING
+            // (projectileShape: Missile -> SpellEffect._homing) on the 1jw read of "flypath update like
+            // other projectiles", but the user reported that path as wrong ("make it like a normal
+            // fireball path, and adapt shooting angle when the player turns"): a homing bolt ignores
+            // the aim and curves onto the nearest enemy, so turning does not change where it goes.
+            // Comet is a straight, non-guiding shape (Fire's own default — the base Fireball "Scorch"
+            // carries exactly this), so the stream now flies down the aim line and follows the view.
+            // The gameplay shape also supplies the drawn body: SpellLook.Resolve inherits a non-Auto
+            // spell.Shape, so Comet here IS the comet body and the Look no longer needs its 1jx
+            // `shape:` override (one axis, one spelling — a second would be the rot 1jx itself guarded).
+            S("magic_fireball_meteor_continuous", "Continuous Fireball", Spell("magic_fireball_meteor_continuous_spell", "Continuous Fireball", DamageType.Fire, 36f, 28f, SpellDelivery.Summon, 8f, deliveryRadius: 5f, duration: 8f, tickInterval: 0.4f, projectileSpeed: 22f, statusEffect: StatusEffectType.Burn, casterAnchored: true, boltSplashRadius: 1.6f, summonFiresForward: true, projectileShape: ProjectileShape.Comet, look: Look(SpellImpactStyle.Burst, SpellCastStyle.Halo, scale: 1.1f, value: 1.12f)), "A bound flame that takes up station behind you and pours molten bolts down your aim line.", Focus(28f), DamageType.Fire, true),
             S("magic_fireball_meteor_ember", "Ember Effigy", Spell("magic_fireball_meteor_ember_spell", "Ember Effigy", DamageType.Fire, 30f, 20f, SpellDelivery.Summon, 6f, deliveryRange: 8f, deliveryRadius: 6f, duration: 6f, statusEffect: StatusEffectType.Burn, projectileSpeed: 18f), "Summon a burning effigy that hurls embers at nearby foes.", Focus(20f), DamageType.Fire, true),
         };
 

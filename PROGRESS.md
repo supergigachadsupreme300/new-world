@@ -1,4 +1,55 @@
-## 1l6n. Charged projectile: explosion scales with charge, and push it further off the player
+## 1l6o. Continuous Fireball: bolts fly straight down the aim like a normal fireball, and the familiar circle is flat again
+
+User (one report, two asks): "the continuous fireball projectile path is wrong, fix it to be like a
+normal fireball path — and it should adapt shooting angle when the player turns"; plus "fix the circle
+behind the player, it was supposed to be 90 degrees Y-axis wise."
+
+- **Bolts are straight again, and they follow the FULL aim.** 1jw had set the spell's gameplay shape
+  to `ProjectileShape.Missile` (→ `SpellEffect._homing`) on an earlier "flypath update like other
+  projectiles" request; the user reported that curve as the wrong path. `SkillCatalog.Magic.cs` sets
+  `projectileShape: ProjectileShape.Comet` — the same straight, non-homing path a normal fireball
+  (`magic_fireball_scorch`) uses. `Comet` is a non-`Auto` shape, so `SpellLook.Resolve` inherits it into
+  `DisplayShape`, which means the look's `shape: ProjectileShape.Comet` override 1jw added to keep the
+  fire body is now **redundant** and was removed; the drawn bolt is unchanged (Comet was already the
+  Fire-family deterministic pick for this id).
+- **The spray no longer flattens the aim.** `SpellSummon.FireForward` built `flat = (aim.x, 0, aim.z)`
+  and added the fixed `ForwardSprayRise` (0.18 m), so the stream always flew level — it tracked the
+  player's yaw but never their pitch, which is exactly "does not adapt shooting angle when the player
+  turns". It now passes the raw `SpellCaster.CurrentAimDirection(...)` straight to `SpawnBolt` — the
+  SAME derivation `SpellBeam` uses (one helper, one fact), so the bolts leave the familiar's orb toward
+  the point the camera looks at and track yaw AND pitch. `ForwardSprayRise` (a public const, only ever
+  read in this file) is deleted with the flatten it compensated for — a fixed lift over an already-live
+  aim would now bias every shot above the reticle.
+- **The familiar circle is flat again.** `SummonModelBuilder.BuildFamiliarCircle` set the disc's
+  `localRotation` to `Euler(0, 0, 90)`, which stands a Cylinder on edge (a vertical ring the player saw
+  edge-on) while the method's own doc says "flat ground circle". Changed to `Euler(0, 90, 0)` — the
+  Y-axis spin, which keeps the disc's faces perpendicular to world Y, i.e. flat on the ground.
+- **Not changed:** the circle still stations on the caster body's yaw-only forward behind the player
+  (1jw), still ground-snapped (1is), and 1is's `SummonFiresForward` stream (no target test) is intact —
+  only the bolt's flight path and the disc's roll changed.
+
+### 1l6o-status
+- [x] `SkillCatalog.Magic.cs`: `projectileShape: ProjectileShape.Missile` -> `ProjectileShape.Comet`;
+  removed the look's redundant `shape:` override; comment rewritten (straight flight, Comet carries
+  body + path).
+- [x] `SpellSummon.cs`: `FireForward` fires the full 3D `CurrentAimDirection`; deleted the now-unused
+  `ForwardSprayRise` const; doc rewritten.
+- [x] `SummonModelBuilder.cs`: familiar disc rotation `Euler(0,0,90)` -> `Euler(0,90,0)`.
+- [x] Docs kept in sync: `game-design.md` §3.8 Summon delivery + the 1jw rear-direction note + the
+  `Shape` vs `DisplayShape` split; `magic-skills.md` Continuous Fireball flavor; this entry +
+  `THINKING.md` §1l6o.
+- [x] Verified by grep + reread (no build, rule 3): `ForwardSprayRise` had 2 hits (decl + the use
+  removed) -> 0; `SummonModelBuilder` is a bench-mounted builder so the circle fix is visible in
+  `NewWorldTestGround`'s magic-model grid; `SpellLook.Resolve` inherits a non-`Auto` `spell.Shape` into
+  `DisplayShape` (so Comet supplies the body). `tools\StaticChecks.ps1` run -> 0 candidates.
+- [x] `skills: none applied` — C# value/orientation edits reviewed by a human (rule 3);
+  `scenario-unity-vfx` does not govern a flight-path enum or a cylinder roll (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** cast Continuous Fireball in THIRD person — (a) the bolts must fly
+  STRAIGHT from the familiar's orb down your aim line (no curving onto targets), tracking your pitch up
+  and down as well as yaw; (b) the ground circle behind you must lie FLAT (a disc on the ground, not a
+  vertical ring). Confirm the circle still sits behind you and follows your body yaw.
+
+
 
 User (one report, two asks): "make the explode effect of projectile scale as much as they were charged
 too, and the projectile is getting pushed to the front when charging so the model wouldn't overlap with

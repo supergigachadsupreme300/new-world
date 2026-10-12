@@ -1,3 +1,54 @@
+## 1l6o. Continuous Fireball: straight bolts down the aim + a flat familiar circle (SHIPPED, play-test pending)
+
+User (one report, two asks): "the continuous fireball projectile path is wrong, fix it to be like a
+normal fireball path - and it should adapt shooting angle when the player turns"; plus "fix the circle
+behind the player, it was supposed to be 90 degrees Y-axis wise."
+
+**H1 (path): the bolts HOMING is the wrong path. CONFIRMED by history + the request.** "Normal
+fireball" = the base `magic_fireball_scorch`, which runs `ProjectileShape.Comet` (straight,
+non-homing). Continuous Fireball carried `Missile` since 1jw - the shape that turns on
+`SpellEffect._homing` - added on the user's EARLIER "flypath update like other projectiles" ask. The
+new report ("fix to be like a normal fireball path") reverses that ask. Evidence: `SpellEffect.Launch`
+sets `_homing = _spell.Shape == ProjectileShape.Missile` and `_wave = ... Wave`; Comet is neither, so
+it flies straight. `SkillCatalog.Magic.cs` -> `ProjectileShape.Comet`.
+
+**H1a: does the look's `shape: Comet` override survive? NO - remove it.** 1jw pinned the look's
+`shape:` to Comet so `DisplayShape` would not inherit `Missile` (a non-Auto gameplay shape inherits
+into `DisplayShape`; the body would have swapped to the arcane-missile cone). Now that the gameplay
+shape IS Comet, the override is redundant. Checked the drawn bolt is unchanged: Comet was already the
+Fire-family deterministic pick for this id (the 1jw note records exactly that), so the body does not
+move. Removing a redundant override is not a look change.
+
+**H2 ("adapt shooting angle when the player turns"): the FLATTEN drops pitch. CONFIRMED.**
+`SpellSummon.FireForward` computed `flat = (aim.x, 0, aim.z)` then `dir = (flat.normalized +
+Vector3.up * ForwardSprayRise).normalized`. The horizontal component tracked yaw; the vertical was a
+CONSTANT 0.18, so the stream never pitched with the view - precisely "does not adapt shooting angle".
+Fix: pass the raw `SpellCaster.CurrentAimDirection(...)` - the same helper `SpellBeam.cs` uses - so
+yaw AND pitch both come from the live aim point. (Considered `StraightFlightDirection`; rejected
+because `CurrentAimDirection` is the beam's own derivation and the spray is the summon's beam
+-equivalent. One helper, one fact.)
+
+**H3: is `ForwardSprayRise` still needed? NO - delete.** Grepped `ForwardSprayRise` in Assets -> 2
+hits: the decl and the single use being removed. It existed only to lift the FLATTENED aim; a fixed
+lift over the now-live 3D aim would bias every shot above the reticle. Deleted (a public const, never
+serialized - not a save key, so rule 14's key sweep does not apply).
+
+**H4 (circle): `Euler(0,0,90)` stands a Cylinder on edge. CONFIRMED.** `SummonModelBuilder.
+BuildFamiliarCircle`'s doc says "flat ground circle" but set `localRotation = Euler(0,0,90)`. A
+default Unity Cylinder's flat faces are perpendicular to local Y; a Z-roll tips it 90° so it reads as
+a vertical ring seen edge-on. The Y-spin `Euler(0,90,0)` leaves the faces perpendicular to world Y -
+flat on the ground - and only spins the (symmetric) disc about the vertical, i.e. a visual no-op apart
+from the geometry now being flat. That is the "supposed to be 90 degrees Y-axis wise" the user asked
+for. The parent (`SpellSummon.FollowCaster`) rotates yaw-only with `Vector3.up`, so Y stays world
+-vertical and the disc stays flat.
+
+**Verdict: confirmed, four code edits (1 catalog value + 1 override removal, 1 aim, 1 const delete, 1
+rotation) + docs.** Verified by grep + reread (no build, rule 3). `StaticChecks.ps1` -> 0 candidates.
+
+**Open / play-test:** (a) do the straight bolts read as "the fireball path" for a stream (vs. 1jw's
+curve), and does firing from BEHIND the player *through* them look right now the direction is the full
+aim? (b) the circle's flatness + edge-on legibility in third person.
+
 ## 1l6n. Charged projectile: explosion scales with charge + push the held body further off the player (SHIPPED, play-test pending)
 
 User: "make the explode effect of projectile scale as much as they were charged too, and the projectile

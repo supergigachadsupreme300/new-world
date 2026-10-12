@@ -47,7 +47,10 @@ public static class SummonModelBuilder
         disc.transform.SetParent(parent, false);
         disc.transform.localPosition = new Vector3(0f, 0.05f, 0f);
         disc.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
-        disc.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        // 1l6o: a Cylinder's faces are perpendicular to its LOCAL Y, so a flat ground disc needs the
+        // Y-axis spin (0,90,0) and NOT the Z-axis roll (0,0,90) that stood the disc on edge — a
+        // vertical ring the player saw edge-on instead of the flat circle the doc above describes.
+        disc.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         SetMaterial(disc.transform, shader, color);
 
         Transform head = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;

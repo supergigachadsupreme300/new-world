@@ -1985,11 +1985,13 @@ a school read distinctly instead of feeling like copies:
   (enemies still take damage). A **caster-anchored** summon (`CasterAnchored`, e.g. Continuous
   Fireball) takes up station directly behind the caster and follows them each frame instead of
   sitting on a fixed point; the station bearing is the **player body's yaw-only forward**, flattened
-  and applied before the shared ground probe (§3.8.3), and its spawn shares that basis. **1jw:** a
-  caster-anchored summon's auto-fired bolts can be guided — Continuous Fireball carries `Missile` as
-  its gameplay shape (`SpellEffect._homing`) while its authored `DisplayShape` stays `Comet`, so the
-  bolts now curve onto targets like every other guided projectile while keeping the fireball body they
-  have always drawn. Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
+  and applied before the shared ground probe (§3.8.3), and its spawn shares that basis. **1l6o:** a
+  caster-anchored summon's auto-fired bolts fly **straight down the caster's full 3D aim** — the plain
+  non-homing projectile path a normal fireball uses (`ProjectileShape.Comet`), so the stream adapts to
+  the player's yaw AND pitch as they turn. 1jw had briefly made them *homing* (`Missile` →
+  `SpellEffect._homing`) on an earlier "flypath update" request; the user reported that curve as the
+  wrong path, so the gameplay shape is back to straight flight and the aim is no longer flattened.
+  Examples: Frost Obelisk, Shadow Totem, Arcane Rune, Healing Shrine,
   Ember Effigy, Gust Totem.
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`
   (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
@@ -2246,7 +2248,9 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   feet when aiming steeply down. The summon's **spawn** uses the same basis (`transform.root.forward`,
   the identical reference `SpellSummon` receives as its root), so it never appears off the body for a
   frame and snaps back. The auto-fired bolt *direction* stays on the aim line — the circle follows the
-  body, the fire follows the aim; the two are deliberately different. (This is the summon's own
+  body, the fire follows the aim; the two are deliberately different. **1l6o:** that fire now follows
+  the *full* aim line, pitch included — the flatten that used to drop the vertical component is gone,
+  so the stream tracks the reticle up and down, not just left and right. (This is the summon's own
   following circle, distinct from the armed charge halo above, which is deliberately on the aim line.)
   (`CastingCircle` keeps a `_flat` mode flag because `Update` re-derives the transform every frame
   from `_anchor`; a position handed to `Show` would simply be overwritten — 1jt's rule-4 lesson in its
@@ -2363,12 +2367,14 @@ colours, `Trail`, `Scale`, `Tempo`.
   key bits) is a separate removal task (rule 14).
 - **`Shape` vs `DisplayShape`** — `spell.Shape` is a *gameplay* flag (`Missile` = homing, see
   §3.8.1); `DisplayShape` is what gets drawn. They are separate fields because a spell can be a
-  homing missile and still want its school's family body. **1jw is that split in the wild:**
-  Continuous Fireball's auto-fired bolts gained homing (`spell.Shape = Missile`) while its authored
-  `DisplayShape` stayed `Comet` — the exact body the deterministic Fire-family pick had already
-  resolved for that spell id, so the drawn bolt did not change a pixel. A bare `Missile` would have
-  inherited into `DisplayShape` (Resolve only overrides a non-Auto shape when a profile re-authors it)
-  and silently swapped the body for the arcane-missile cone.
+  homing missile and still want its school's family body. **1jw put that split in the wild, and 1l6o
+  reversed the gameplay half:** 1jw gave Continuous Fireball's auto-fired bolts homing
+  (`spell.Shape = Missile`) while pinning the look's `shape:` override to `Comet` to keep the drawn
+  fireball body — a bare `Missile` would have inherited into `DisplayShape` (Resolve only overrides a
+  non-Auto shape when a profile re-authors it) and silently swapped the body for the arcane-missile
+  cone. 1l6o made the bolts straight again (`spell.Shape = Comet`), which now supplies **both** the
+  flight and the drawn body, so the look's `shape:` override was removed and the bolt's body is
+  unchanged.
 
 **The single sanctioned exception:** `MagicTestMatrix`'s school **header swatch** keeps its own table
 rather than calling `SpellLook.SchoolColor`. It is a QA surface, not a readout — when the swatch and

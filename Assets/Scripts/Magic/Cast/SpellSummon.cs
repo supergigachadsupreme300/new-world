@@ -51,11 +51,6 @@ public class SpellSummon : MonoBehaviour
     /// other would silently break the symmetry, and nothing else in the game would notice.</para></summary>
     public const float BackOffset = SpellLook.CastFrontOffset;
 
-    /// <summary>1is: constant upward lead on a forward-sprayed bolt. The old nearest-target path
-    /// computed its rise from the height DIFFERENCE to a target; with no target there is nothing to
-    /// differ from, so this is a fixed nudge that clears the lip of ground the circle sits on.</summary>
-    public const float ForwardSprayRise = 0.18f;
-
     /// <summary>1is: cached camera for the shared aim derivation — this runs every frame the familiar
     /// is alive, and Camera.main is a tag lookup (same reason SpellBeam caches one).</summary>
     private Camera _mainCam;
@@ -200,20 +195,24 @@ public class SpellSummon : MonoBehaviour
         }
     }
 
-    /// <summary>1is: spray straight forward along the caster's aim, unconditionally — no target test.
+    /// <summary>1is: spray forward along the caster's aim, unconditionally — no target test.
     /// This is what makes the familiar a stream rather than a turret, and it is why
     /// <see cref="Radius"/> no longer bounds anything for this spell (see Initialize).
-    /// <para>The muzzle is the circle's own orb, so the bolts visibly leave the familiar.</para></summary>
+    /// <para>The muzzle is the circle's own orb, so the bolts visibly leave the familiar.</para>
+    /// <para><b>1l6o: it fires the FULL 3D aim, not a flattened one.</b> The old body flattened the
+    /// aim to horizontal and added a fixed 0.18 m forward-spray rise, so the stream always flew level —
+    /// it tracked the player's yaw but never their pitch, and could not "adapt shooting angle when the
+    /// player turns" (the report). It is now the SAME derivation <see cref="SpellBeam"/> uses — the
+    /// shared helper, one fact — so the bolts leave the orb toward the point the camera looks at and
+    /// track yaw AND pitch as the player aims. The 0.18 m rise went with the flatten it compensated
+    /// for: the 3D aim already points where the player is looking, so a fixed lift would now bias
+    /// every shot above the reticle.</para></summary>
     private void FireForward()
     {
         if (_mainCam == null) _mainCam = Camera.main;
         Vector3 from = _head != null ? _head.position : transform.position + Vector3.up * 1.6f;
-        Vector3 aim = SpellCaster.CurrentAimDirection(from, Mathf.Max(_spell.Range, 5f),
+        Vector3 dir = SpellCaster.CurrentAimDirection(from, Mathf.Max(_spell.Range, 5f),
             _spell != null && _casterRoot != null ? _casterRoot.forward : Vector3.forward, _mainCam);
-        Vector3 flat = new Vector3(aim.x, 0f, aim.z);
-        Vector3 dir = flat.sqrMagnitude > 0.0001f
-            ? (flat.normalized + Vector3.up * ForwardSprayRise).normalized
-            : aim;
         SpawnBolt(from, dir);
     }
 
