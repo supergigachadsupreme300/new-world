@@ -1,3 +1,45 @@
+## 1l6n. Charged projectile: explosion scales with charge + push the held body further off the player (SHIPPED, play-test pending)
+
+User: "make the explode effect of projectile scale as much as they were charged too, and the projectile
+is getting pushed to the front when charging so the model wouldn't overlap with player but thats not
+enough, increase the push ratio."
+
+**Part 1 — the explosion is the impact flash, and it was the one chargeable thing ignoring charge.**
+Tracing "the explode effect" to `SpellEffect.ResolveProjectileImpact`: the impact visual is
+`SpellImpactFx.Spawn(pos, up, look, radius)`, whose radius arg becomes the drawn `_scale`. The call
+passed `Mathf.Max(0.8f, _spell.Radius)` — the AUTHORED radius. Three sibling uses of "how big is this
+burst" in the SAME class already scale with charge:
+- the damage walk: `OverlapSphereNonAlloc(transform.position, SplashRadius, ...)`;
+- the wave's end-burst: `SpellImpactFx.Spawn(..., Mathf.Max(0.8f, SplashRadius))` (in `Update`);
+- `SplashRadius` itself = `Radius * _radiusMult`.
+So the projectile flash was the odd one out. `_radiusMult` is `Initialize`'s `radiusMult` =
+`FireProjectile`'s `sizeScale` = `SizeScale(charge) * mods.RadiusMult` — i.e. exactly the factor
+`go.transform.localScale *= sizeScale` scales the body by. Using `SplashRadius` therefore ties the
+flash to the body 1:1. VERDICT: confirmed; one-expression fix, no new ladder. (The terrain dent stays
+authored-sized by design — its comment calls the local bowl deliberate — so it is not touched.)
+
+**Part 2 — the push is `ChargedProjectilePreview.Show`'s forward nudge.** The held body is placed at
+the muzzle `hand + fwd*0.5`, then pushed `d * push` with `push = Clamp(0.25*(s-1), 0, 0.5)`. Two
+reasons the cap was the binding limit, not the ratio: (a) `s = SizeScale(charge)` reaches `1 + 1*1.2 =
+2.2` at full charge (`ChargeSizeBonus = 1.2`) and keeps climbing while the pool lasts (charge is
+uncapped, `SpellChargeLevel`), so `0.25*(s-1)` hits 0.5 at `s = 3` and binds; (b) the body's TAIL
+extends back from its origin (e.g. the default orb cluster stacks back to `-0.4` local Z, ×s), so the
+overlap is with the trailing voxels, i.e. it wants MORE than the absolute radius growth. Raised the
+ratio 0.25->0.5 AND the cap 0.5->1.0, so the growth term and its ceiling both doubled.
+
+**Why not mirror the push at launch (the 1l1 "hold is the shot" question).** 1l1's doc says the bolt
+appears where the hold was; with `push > 0` that is already off by `push`. Considered applying the same
+push in `FireProjectile` (it has `sizeScale`; only player projectile casts go through it — the turret
+uses `DecorateProjectile`). Rejected for now: the launch point is deliberately a FIXED 0.5 m from the
+hand, and pushing it a charge-dependent distance forward could spawn the bolt inside a wall the player
+is standing against (the `caster-root` skip stops self-hits but not world-geometry overlap, and the
+ground probe would eat it). A fixed muzzle is the safer spawn; the resulting preview→launch offset is
+a small backward pop hidden by flight speed. Documented in `ChargedProjectilePreview`'s class remarks
+and the `game-design.md` bullet, and flagged as a play-test read rather than silently shared.
+
+**Verdict: confirmed, both edits are single expressions + docs.** Verified by grep + reread (no build,
+rule 3). `StaticChecks.ps1` -> 0 candidates (neither file is in its `$files` list; run for regression).
+
 ## 1l6m. Casting circle must follow the player's aim up/down and left/right (SHIPPED, play-test pending)
 
 User: "the casting circle does not rotate along with player either up/down or left/right, fix that."

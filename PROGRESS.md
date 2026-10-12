@@ -1,3 +1,41 @@
+## 1l6n. Charged projectile: explosion scales with charge, and push it further off the player
+
+User (one report, two asks): "make the explode effect of projectile scale as much as they were charged
+too, and the projectile is getting pushed to the front when charging so the model wouldn't overlap with
+player but that's not enough, increase the push ratio."
+
+- **Explosion didn't scale (bug).** `SpellEffect.ResolveProjectileImpact` sized the impact flash from
+  the AUTHORED radius — `SpellImpactFx.Spawn(..., Mathf.Max(0.8f, _spell.Radius))` — while the damage
+  splash and the wave's own end-burst both use the charge-scaled `SplashRadius` (= `Radius *
+  _radiusMult`). So an overcharged bolt hit with a bigger body, a bigger splash and a bigger wave
+  burst, but the SAME-size flash. Fix: pass `Mathf.Max(0.8f, SplashRadius)` — one expression with the
+  damage walk and the wave burst (rule 8), no second charge ladder. `_radiusMult` is the caster's
+  `SizeScale(charge)` (× the skill `RadiusMult`), i.e. exactly the factor the body itself is scaled by,
+  so the flash now tracks the body.
+- **Push ratio increased.** `ChargedProjectilePreview.Show` nudged the held body `0.25 * (s - 1)` m
+  along the aim, capped at 0.5 m. At full overcharge `s` reaches ~2.2 and beyond, so the cap bound
+  before the (back-extending) body had cleared the player. Raised to `0.5 * (s - 1)` capped at 1.0 m.
+  Play-test knob if still not enough.
+- The launched bolt keeps the fixed 0.5 m muzzle (not the preview push), so it spawns at a fixed,
+  wall-safe distance; the preview→launch offset is a documented under-report (an invisible pop at
+  flight speed) rather than a second, potentially wall-clipping spawn point.
+
+### 1l6n-status
+- [x] `SpellEffect.cs`: projectile impact flash uses `Mathf.Max(0.8f, SplashRadius)` (charge-scaled).
+- [x] `ChargedProjectilePreview.cs`: push ratio `0.25`->`0.5`, cap `0.5`->`1.0`; class + method docs
+  updated (including why the launch does not carry the push).
+- [x] Docs kept in sync: `game-design.md` §3.8 impact note + the 1l1 held-projectile bullet; this
+  entry + `THINKING.md` §1l6n.
+- [x] Verified by grep + reread (no build, rule 3): `SplashRadius` is the only charge-scaled burst
+  radius and is already used by the damage walk + wave burst; only one caller of `SpellImpactFx.Spawn`
+  per path. `tools\StaticChecks.ps1` run -> 0 candidates (neither changed file is a script `$files`
+  entry; run for regression).
+- [x] `skills: none applied` — C# setters/constants reviewed by a human (rule 3); no installed skill
+  governs a scale value (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** charge a projectile spell to full/overcharge and release — the
+  impact flash should grow with the charge; while charging, the held body should sit fully clear of the
+  player (no clipping into the torso/arms). Report if the push needs to go further.
+
 ## 1l6m. Casting circle: face the player's aim (pitch up/down, yaw left/right)
 
 User: "the casting circle does not rotate along with player either up/down or left/right, fix that."

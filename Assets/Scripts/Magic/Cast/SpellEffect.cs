@@ -449,7 +449,11 @@ public class SpellEffect : MonoBehaviour
             // a fireball's Burst, a lance's Cross, a boulder storm's Pillar all read differently,
             // and the shape choice is per-spell while the fade/lifetime stay shared. The sphere
             // survives as the Sphere family, so no spell lost its old look by accident.
-            SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Mathf.Max(0.8f, _spell.Radius));
+            // 1l6n: the flash reads at the charge-scaled SplashRadius — the SAME burst radius the
+            // damage walk above uses and the SAME expression the wave end-burst (Update) uses —
+            // so an overcharged bolt explodes as big as its grown body instead of at the authored
+            // radius. Before this it was the one chargeable thing on the spell that ignored charge.
+            SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Mathf.Max(0.8f, SplashRadius));
 
             // 1jh: rock chips off the impact, ADDITIVE to the sphere above rather than replacing it —
             // the sphere is the spell's identity (per-school family) and the chips are the world

@@ -11,6 +11,14 @@ using UnityEngine;
 /// The caller hides this body before launching, so the two never coexist — the real bolt appears where
 /// this one was, at the charge size this one already showed.</para>
 ///
+/// <para><b>It nudges ahead of the muzzle as it grows.</b> The muzzle is a fixed 0.5 m point, but the
+/// body's trailing voxels extend BACK from its origin, so a big charged body would sink into the
+/// player's torso/arms. The body is pushed further along the aim the larger the charge (see
+/// <see cref="Show"/>'s <c>push</c>), so a full overcharge floats a metre clear of the weapon. The
+/// launch does not carry this offset (it spawns at the fixed muzzle), so a released bolt appears
+/// slightly behind the hold's center — negligible at flight speed, and a deliberate under-report in
+/// favour of keeping the spawn point a fixed, wall-safe distance from the caster.</para>
+///
 /// <para><b>1l1: why the body comes from <see cref="MagicProjectileModelBuilder"/> and not its own
 /// art.</b> The whole point is that the hold IS the shot, so it resolves the shape and colour the same
 /// way a live cast does (<c>SpellLook.Resolve</c> — rule 13's one resolver) and asks the same builder
@@ -91,8 +99,13 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
 
         Vector3 d = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.forward;
         float s = Mathf.Max(0.05f, chargeScale);
-        // Push forward slightly so larger preview doesn't engulf player
-        float push = Mathf.Clamp(0.25f * (s - 1f), 0f, 0.5f);
+        // Push the body further along the aim as it grows, so a big charged body's trailing voxels
+        // do not sink into the player's torso/arms (the body's tail extends BACK from the muzzle).
+        // 1l6n: the ratio was doubled (0.25 -> 0.5 m of push per +1.0 of charge scale) and the cap
+        // raised (0.5 -> 1.0 m) because a full overcharge reaches s ~= 2.2 and beyond, where the old
+        // cap bound before the body had cleared the player. Play-test knob: raise the 0.5 if a large
+        // hold still overlaps, or the 1.0 cap to let extreme overcharges push further.
+        float push = Mathf.Clamp(0.5f * (s - 1f), 0f, 1f);
         _body.transform.SetPositionAndRotation(pos + d * push, Quaternion.LookRotation(d));
         _body.transform.localScale = Vector3.one * s;
         _body.SetActive(true);

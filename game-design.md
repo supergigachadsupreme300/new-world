@@ -1770,7 +1770,11 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   1gb gave every projectile hit a solid sphere growing from a quarter to the spell's radius while
   fading out over ~0.45 s; `SkillFx.ImpactSphere` was deleted in 1ig and
   `SpellImpactFx.Spawn(worldPos, upDir, look, radius, scaleMul)` took its place, choosing one of the
-  impact families in §3.8.3 from the spell's resolved look. **The per-tick load is why it had to go:**
+  impact families in §3.8.3 from the spell's resolved look. **The flash reads at the charge-scaled
+  burst radius (1l6n):** a projectile's impact flash is sized from the same `SplashRadius`
+  (`radius * chargeSize`) the damage walk and the wave's end-burst use, so an overcharged bolt explodes
+  as big as its grown body — before this it was the one chargeable thing on the spell that ignored
+  charge. (The terrain dent stays authored-sized on purpose — see the note below.) **The per-tick load is why it had to go:**
   the old path was reached only by Projectile spells, and it allocated a fresh primitive *and a fresh
   `Material`* per impact; 1ih adds on-hit flashes to Zone (77), Beam (11) and Vortex (8) spells that
   had none, so a single blizzard alone is ~2 flashes/s and a screen with several is where one
@@ -2260,6 +2264,11 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   appears exactly where and how big the hold showed it. Only Projectile-delivery magic gets it; a spell
   with an authored `CastEffectPrefab` is skipped (the launch would wear the prefab, which the preview
   cannot build). `ChargedProjectilePreview.cs`, driven by `PlayerController`.
+  **1l6n: the held body also slides further along the aim as it grows** (0.5 m of push per +1.0 charge
+  scale, capped at 1.0 m), because the body's trailing voxels extend back from its origin and a big
+  charged body would otherwise sink into the player's torso/arms. The launch keeps the fixed 0.5 m
+  muzzle (it must not push into a wall the caster is standing against), so a released bolt appears
+  slightly behind the hold's center — invisible at flight speed.
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
   tinted by the spell's resolved core colour (1ij), matching the projectile **ray** colour (1iq turned
   that shared charge readout from a cone into a ray) so a charge reads in one colour from aim to release.
