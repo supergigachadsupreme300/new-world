@@ -1,3 +1,49 @@
+## 1l6k. Casting circle: drop the disc tilt, one Z-90 orientation for the whole circle (SHIPPED, play-test pending)
+
+User: "remove the casting circle disc rotation, and flip the whole casting circle z rotation to 90."
+Two literal edits, plus one finding that the second edit's OLD code was dead.
+
+**Where the two rotations live.** Searching the casting-circle files for `rotation`/`Euler` gives exactly
+two 90° literals: the disc child's `localRotation = Quaternion.Euler(90f, 0f, 0f)` in
+`CastingCircleModelBuilder.Build`, and the flat branch of `CastingCircle.Update`'s
+`LookRotation(fwd, up) * Quaternion.Euler(90f, 0f, 0f)`. The user's "disc rotation" = the first; "the
+whole casting circle" = the second (the root). So: delete the first; change the second's axis from X to
+Z (Z -> 90).
+
+**H1 (confirmed) — the disc's own rotation put it in a different plane from the rings.** A Cylinder
+primitive's axis is local Y and its flat faces are the caps, so at identity it already lies flat in the
+host's XZ plane — the same plane the LineRenderer rings are drawn in (`SetPosition(cos*r, 0, sin*r)`).
+`Euler(90,0,0)` then stands the cylinder's faces vertical (normal ±Z): the disc and the rings are 90°
+apart. Removing it makes the disc share the rings' plane. VERDICT: confirmed by reading `Build` vs
+`Apply`'s ring placement (rule 13's "one plane" for one drawn object).
+
+**H2 (confirmed) — the root's aim-matching rotation NEVER RAN, so "flip it to 90" changes a dead line.**
+`Update`'s flat branch read `Vector3 fwd = _flatPos - (_anchor != null ? _anchor.position : _flatPos);`
+and `ShowFlat` sets `_anchor = null`, so `fwd` is always `Vector3.zero` and the `if (fwd.sqrMagnitude >
+0.0001f)` Look branch is unreachable; every frame took the `else` → `Quaternion.identity`. So 1l6d's
+"flat orientation matches aim direction" (which added that block and removed 1l6c's disc spin) was dead
+on arrival for the flat path. Consequence: the pre-fix root was identity (world-up rings) and the disc
+was the only vertically-oriented piece. VERDICT: confirmed — this is why the change must set the root
+rotation DIRECTLY (a replacement, not a tweak to the Look expression), and why one constant
+(`FlatRotation`) is the right shape: `ShowFlat` (identity) and `Update` (identity) were already two
+spellings that happened to agree (rule 10).
+
+**Chosen fix.** `private static readonly Quaternion FlatRotation = Quaternion.Euler(0f, 0f, 90f);` read
+by both `ShowFlat` overloads and the flat `Update` branch. Net geometry: the whole circle (disc + rings)
+takes one orientation, Z spun 90° from world-up → the assembly stands upright, its plane normal along
+world X, containing world up and world forward. This DELIBERATELY replaces the old "world-up plane"
+claim (class doc + `game-design.md` §3.3 rewritten to say "fixed whole-assembly orientation"): the
+request is a fixed 90, not aim-following, and not world-up.
+
+**Ruled out (rejected) — "flip" as an in-plane (yaw) rotation of the flat pattern.** Rotating a
+world-up disc about the vertical axis would be a Y rotation and would leave the rings/hex/rune in a
+horizontal plane; the user said Z, and Z on an identity root tips the circle vertical. So this is not
+"rotate the hexagon".
+
+**Open question for the play-test.** FlatRotation is a FIXED world rotation. If the halo should instead
+follow the aim (the apparent intent of 1l6d), that is a live aim basis (e.g. the hand's flattened
+forward), not this literal edit — flagged, not implemented.
+
 ## 1l5. Casting visuals: low projectile, circle-on-bolt, weapon/hand gap (SHIPPED, play-test pending)
 
 User (3 defects, one report): (1) held magic projectile too low; (2) cast circle should be behind the

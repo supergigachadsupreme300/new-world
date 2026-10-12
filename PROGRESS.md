@@ -1,3 +1,41 @@
+## 1l6k. Casting circle: drop the disc's own tilt, give the whole circle one Z-90 orientation
+
+User: "remove the casting circle disc rotation, and flip the whole casting circle z rotation to 90."
+
+- `CastingCircleModelBuilder.Build`: the disc child no longer gets `localRotation =
+  Quaternion.Euler(90f, 0f, 0f)`. That tilt stood the Cylinder's flat faces vertical (normal ±Z) while
+  the LineRenderer rings, drawn in the host's XZ plane, stayed in another plane — the disc and the
+  rings disagreed by 90°. A Cylinder primitive is already a flat disc (axis = local Y), so identity
+  here means "share the host's plane".
+- `CastingCircle`: new `private static readonly Quaternion FlatRotation = Quaternion.Euler(0f, 0f,
+  90f)`. The flat charge halo's root now takes this one fixed orientation, read by BOTH `ShowFlat`
+  overloads (was `Quaternion.identity`) and the flat branch of `Update` (was a `LookRotation(fwd,
+  up) * Euler(90,0,0)` block). That Update block was **dead**: flat mode keeps `_anchor == null`, so
+  `fwd` was always zero and every frame fell through to its `else` (identity) — 1l6d's "matches aim
+  direction" never executed (1l6c added a disc spin, 1l6d removed it; neither is live now). One
+  constant for a metric two paths must agree on (rule 10).
+- Removed the stale `// Disc also spins ... // Disc follows aim` comment left by 1l6c/1l6d.
+
+### 1l6k-status
+- [x] Disc's own 90° X tilt removed (`CastingCircleModelBuilder.Build`).
+- [x] Whole circle takes `FlatRotation` = `Euler(0, 0, 90)` in flat mode (both `ShowFlat` overloads +
+  `Update`); disc and rings now share one plane.
+- [x] Verified by grep + reread (no build, rule 3). `tools\StaticChecks.ps1` not required — no
+  `WorldBuilder*.cs` / `NewWorldTestGround.cs` touched.
+- [x] `skills: none applied` — a two-line geometry/transform tweak in existing C#, reviewed by a human;
+  no installed skill governs it (rule 15).
+- [x] Docs kept in sync in the same pass: `CastingCircle.cs` class + `ShowFlat` docs, this entry,
+  `THINKING.md` §1l6k, `game-design.md` §3.3 (charging & casting circle).
+- [ ] **PLAY-TEST (user, Unity):** the charge halo's disc should now sit **in the same plane as its
+  rings** (no more vertical disc behind a horizontal ring), and the whole assembly should carry the
+  fixed **Z-90** orientation. NOTE the orientation is now a fixed world rotation, not world-up and not
+  aim-following — confirm it reads the way you want; if it should follow aim, that is a further change
+  (live aim basis), not this literal edit.
+
+> **Task-id note (rule 8):** `PROGRESS.md`'s highest heading before this one is `1l5`, but commits
+> `1l6`–`1l6j` were shipped (hair/eyes/staff/projectile-spin/casting-circle tweaks) with no PROGRESS
+> entry. This entry continues that series as `1l6k` rather than re-using `1l6`.
+
 ## 1l5. Casting visuals: restore the staff hold (weapon/hand gap + low projectile), pull the halo behind the bolt
 
 User reports three casting-visual defects: (1) the magic projectile model is too low when casting; (2)

@@ -2,19 +2,23 @@ using UnityEngine;
 
 /// <summary>
 /// Halo-style casting circle shown while a spell is being aimed/charged (driven by
-/// <see cref="PlayerController"/>). Two placements: the armed per-spell charge floats FLAT
-/// (world-up plane) just ahead of the magic weapon at the weapon's own height, and the preview /
-/// ranged-draw variants wrap the held weapon and tilt with it like a halo. Either way it grows
-/// brighter and spins faster as the charge level (0..1) builds. Released on cast with a quick
-/// outward ring burst. Prefab-free, built from a translucent disc + LineRenderer rings. Pure
-/// visual: no colliders and nothing blocking gameplay.
+/// <see cref="PlayerController"/>). Two placements: the armed per-spell charge floats just ahead of
+/// the magic weapon at the weapon's own height with one fixed whole-assembly orientation
+/// (<see cref="FlatRotation"/>, a 90 deg Z spin — 1l6k), and the preview / ranged-draw variants wrap
+/// the held weapon and tilt with it like a halo. Either way it grows brighter and spins faster as the
+/// charge level (0..1) builds. Released on cast with a quick outward ring burst. Prefab-free, built
+/// from a translucent disc + LineRenderer rings. Pure visual: no colliders and nothing blocking
+/// gameplay.
 ///
-/// <para><b>1ka: the armed per-spell charge is FLAT, in front of the weapon.</b> It is placed by
-/// the caller through <see cref="ShowFlat(Vector3, float, in SpellLook)"/> at a refreshed world
+/// <para><b>1ka: the armed per-spell charge sits in front of the weapon, placed by the caller.</b>
+/// It is positioned through <see cref="ShowFlat(Vector3, float, in SpellLook)"/> at a refreshed world
 /// point just ahead of the magic hand, behind where the held projectile floats (see
-/// <c>PlayerController.WeaponCastPoint</c>). Its
-/// plane is always world-up, never tilted with the aim or the terrain, because a disc angled with
-/// the staff reads as part of the weapon rather than as the cast (rule 20).</para>
+/// <c>PlayerController.WeaponCastPoint</c>). <b>1l6k: the whole assembly is one fixed orientation
+/// (<see cref="FlatRotation"/>), not world-up.</b> The disc and the rings share that single plane:
+/// <c>CastingCircleModelBuilder.Build</c> no longer gives the disc its own 90 deg tilt, which used to
+/// stand the disc in a different plane from the rings, and the old <c>Update</c> aim-matching
+/// LookRotation was dead anyway (flat mode keeps <c>_anchor == null</c>, so its forward was always
+/// zero and every frame fell through to identity).</para>
 ///
 /// <para><b>1if: the halo family is per-spell.</b> There are seven <see cref="SpellCastStyle"/>
 /// families and this component draws all of them. They are built ONCE in <see cref="Build"/> and
@@ -47,6 +51,15 @@ public sealed class CastingCircle : MonoBehaviour
     private const int RuneTicks = 8;
     private const float BaseRadius = 0.35f;
     private const float FullRadius = 0.75f;
+
+    // 1l6k: the flat charge halo's whole-assembly orientation. Both ShowFlat and Update used two
+    // different spellings of it (Identity in ShowFlat, a Look-at-aim result in Update), and Update's
+    // aim branch never fired anyway — _anchor is null in flat mode, so its fwd was always zero and
+    // the halo fell through to Identity. One named constant now drives both readers (rule 10: a
+    // metric two code paths must agree on is one constant), and the disc no longer counter-tilts
+    // against it (CastingCircleModelBuilder.Build dropped the disc's own 90 deg X rotation), so the
+    // disc and the rings share this single plane.
+    private static readonly Quaternion FlatRotation = Quaternion.Euler(0f, 0f, 90f);
 
     private Transform _disc;
     private Renderer _discRenderer;
@@ -175,7 +188,8 @@ public sealed class CastingCircle : MonoBehaviour
     }
 
     /// <summary>1ka: the plain-family flat halo — no spell behind it, so no identity to invent. Drawn
-    /// in a world-up plane at the given world point, parallel to the ground.</summary>
+    /// at the given world point with the whole-assembly orientation <see cref="FlatRotation"/>
+    /// (1l6k; not world-up — the disc and rings share this one plane).</summary>
     public void ShowFlat(Vector3 flatPos, float charge, Color color)
     {
         _active = true;
@@ -188,7 +202,7 @@ public sealed class CastingCircle : MonoBehaviour
         _scale = 1f;
         _tempo = 1f;
         transform.position = _flatPos;
-        transform.rotation = Quaternion.identity;
+        transform.rotation = FlatRotation;
         gameObject.SetActive(true);
         Apply();
     }
@@ -212,7 +226,7 @@ public sealed class CastingCircle : MonoBehaviour
         _scale = Mathf.Max(0.2f, look.Scale);
         _tempo = Mathf.Max(0.2f, look.Tempo);
         transform.position = _flatPos;
-        transform.rotation = Quaternion.identity;
+        transform.rotation = FlatRotation;
         gameObject.SetActive(true);
         Apply();
     }
@@ -262,13 +276,10 @@ public sealed class CastingCircle : MonoBehaviour
         if (!_flat && _anchor == null) { Hide(); return; }
         if (_flat)
         {
-            // Flat at weapon - orient to aim direction (perpendicular in ground plane)
-            Vector3 fwd = _flatPos - (_anchor != null ? _anchor.position : _flatPos);
-            if (fwd.sqrMagnitude > 0.0001f) fwd.y = 0f;
-            if (fwd.sqrMagnitude > 0.0001f)
-                transform.rotation = Quaternion.LookRotation(fwd, Vector3.up) * Quaternion.Euler(90f, 0f, 0f);
-            else
-                transform.rotation = Quaternion.identity;
+            // 1l6k: one fixed whole-assembly orientation (see FlatRotation). The old aim-matching
+            // LookRotation never ran here — _anchor is null in flat mode, so fwd was always zero and
+            // the else-branch (Identity) is what every frame actually used.
+            transform.rotation = FlatRotation;
             transform.position = _flatPos;
         }
         else
@@ -404,8 +415,10 @@ public sealed class CastingCircle : MonoBehaviour
                 _innerRing.SetPosition(i, new Vector3(Mathf.Cos(ang) * ir, 0f, Mathf.Sin(ang) * ir));
             }
         }
-        // Disc also spins to match when not flat? Disc is a plane mesh - rotation applied to transform
-        // Disc follows aim (already parented correctly) - no spin needed.
+        // 1l6k: the disc carries no rotation of its own and is not spun. 1l6c gave it a per-frame
+        // Quaternion.Euler(0f, 0f, _spin) and 1l6d dropped that again; the whole assembly now takes
+        // one fixed orientation (FlatRotation on the host in flat mode), so a disc-local spin would
+        // be a second, drifting plane inside the one the rings use.
         if (_innerMat != null && wantInner)
             _innerMat.color = new Color(_color.r, _color.g, _color.b, a * 0.8f);
 

@@ -2201,15 +2201,18 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   builds a **charge level** (0–100%, ~2 s, no auto-fire). **Releasing LMB** fires at the frozen level.
   Charge scales the cast: FP cost (up to ×1.6), damage (up to ×2.0), and AoE radius (up to ×1.8), so
   a deeper charge is always a gamble for more FP — never a dud.
-- While aiming/charging, the **spell's casting circle halo** is drawn **FLAT** — a world-up plane,
-  never tilted with the aim — **right in front of the held magic weapon**: at the weapon's own height,
+- While aiming/charging, the **spell's casting circle halo** is drawn in a **fixed whole-assembly
+  orientation** (`CastingCircle.FlatRotation`, a 90° Z spin — 1l6k; it is no longer a world-up plane,
+  and its disc and LineRenderer rings share this one plane) — **right in front of the held magic
+  weapon**: at the weapon's own height,
   a short way ahead of the hand via `PlayerController.WeaponCastPoint` (1ka; 1l5 pulled the offset in to
   **0.2 m** so the ring floats **behind the held projectile**, whose muzzle sits 0.5 m ahead — the same
   muzzle the path preview and `FireProjectile` use, `pos + fwd * 0.5f`), tinted by the armed spell's **resolved look**
   (§3.8.3). (1jt parked it on the ground at the player's feet or `CastFrontOffset` 1.8 m ahead, which
   read as "the cast is out there"; 1ka brings it back to the weapon so the charge visibly belongs to
-  the thing about to fire — but flat rather than halo-tilted, because a disc angled with the staff
-  reads as part of the weapon.) It is no longer one ring: the halo picks one of **seven
+  the thing about to fire. 1l6k: the disc used to carry its own 90° tilt, which stood it in a plane of
+  its own while the rings stayed in the host's; the tilt is gone and the whole circle takes one
+  orientation.) It is no longer one ring: the halo picks one of **seven
   cast families** from the spell's look, and the *parts* that family enables differ — Disc / outer Halo /
   spinning Rune (8 radial tick marks) / HexRing / inner segments. So the same Wind spell and the same
   Earth spell no longer wear the same halo, and the family is visible before the cast resolves. Radius,
@@ -2340,7 +2343,8 @@ colours, `Trail`, `Scale`, `Tempo`.
   that applies a Zone `TerrainShape`, so a `Summon` Meteor would lose its falling rock and carve its
   crater behind the player. This is rule 13's drawn-vs-gameplay split: `CastAnchor` changes the halo's
   position and nothing else.
-  **1ka: the axis is now INERT for placement.** The per-spell charge halo is flat, 0.2 m in
+  **1ka: the axis is now INERT for placement.** The per-spell charge halo is drawn at a fixed
+  whole-assembly orientation (1l6k), 0.2 m in
   front of the magic weapon at the weapon's own height (`PlayerController.WeaponCastPoint`, just behind
   the 0.5 m projectile muzzle; 1l5), so no placement reads `CastAnchor` anymore. It is still resolved and packed
   into the F4 audit key so that key never changes; deleting the axis (field + profile + resolve + 2
