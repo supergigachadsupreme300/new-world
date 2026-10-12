@@ -71,7 +71,8 @@ public enum SpellCastStyle
 /// reason. Authored value wins; otherwise <c>Delivery == Summon</c> → <see cref="Feet"/>, and
 /// everything else → <see cref="Front"/>.</para>
 /// <para><b>1ka: resolved but no longer placement-authoritative.</b> The armed per-spell halo now
-/// floats flat at the magic weapon (testing.md task 4, <c>PlayerController.WeaponCastPoint</c>), so
+/// floats in front of the magic weapon and faces the player's aim (testing.md task 4,
+/// <c>PlayerController.WeaponCastPoint</c>/<c>CastHaloAim</c>; 1l6m), so
 /// the player halo path no longer reads this axis. It is still resolved and packed into the F4 audit
 /// fingerprint so that key stays stable; deleting the whole axis is a separate removal task (rule 14)
 /// recorded in PROGRESS.md.</para>
@@ -186,7 +187,7 @@ public sealed class SpellLookProfile
     public SpellImpactStyle Impact = SpellImpactStyle.Inherit;
     [Tooltip("Casting halo family. Inherit = deterministic pick.")]
     public SpellCastStyle Cast = SpellCastStyle.Inherit;
-    [Tooltip("Where the casting halo is drawn (1jt). 1ka: INERT — the armed halo is flat at the weapon (PlayerController.WeaponCastPoint), so placement ignores this; kept only for the F4 audit key. Inherit = feet for Summon spells, in front for everything else.")]
+    [Tooltip("Where the casting halo is drawn (1jt). 1ka: INERT — the armed halo is in front of the weapon and faces the aim (PlayerController.WeaponCastPoint/CastHaloAim; 1l6m), so placement ignores this; kept only for the F4 audit key. Inherit = feet for Summon spells, in front for everything else.")]
     public SpellCastAnchor CastAnchor = SpellCastAnchor.Inherit;
     [Tooltip("Projectile body shape. Auto = inherit (never Missile — see SpellLook.DisplayShape).")]
     public ProjectileShape DisplayShape = ProjectileShape.Auto;

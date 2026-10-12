@@ -1,3 +1,54 @@
+## 1l6m. Casting circle must follow the player's aim up/down and left/right (SHIPPED, play-test pending)
+
+User: "the casting circle does not rotate along with player either up/down or left/right, fix that."
+
+**The clue is "up/down".** A circle that tracked yaw only wouldn't prompt this phrasing; the report is
+that it does not follow the *view* in EITHER axis. 1l6k left the assembly on a fixed `Euler(0,0,90)`,
+so "not at all" is already the expected baseline. The interesting question is what a correct basis
+must be, and whether the old weapon-forward basis was even capable of pitch.
+
+**H1 (confirmed) — the magic hand's `forward` is yaw-only, so pitch was unreachable from it.** The
+body rig is rotated by `PlayerController.Camera.HandleMouseLook` as `Quaternion.Euler(0, yaw, 0)`;
+pitch is applied to `PlayerCameraPivot` (the camera child), never to the body/hand. So
+`hand.transform.forward` has `.y == 0` always. Any halo built on the hand's forward can only ever yaw.
+This is exactly the "doesn't rotate up/down" half; the "left/right" half is that 1l6k then pinned it to
+a constant, so it didn't rotate at all. VERDICT: confirmed by reading `HandleMouseLook` and the 1l5
+`WeaponCastPoint` (which explicitly flattened `fwd.y`).
+
+**H2 — how the projectile already solves it (the reference to copy, rule 3).** The held projectile and
+the pre-cast preview both use `SpellCaster.StraightFlightDirection(MainCam, PlayerCameraPivot,
+hand.transform.forward)`: it reads the **look pivot's forward** (pitch + yaw, current frame), falling
+back to the camera, then to the caller's forward. Since the projectile works, the halo should use the
+SAME direction — rule 8 (one derivation) and rule 3 (copy the proven local use). VERDICT: adopt it.
+
+**H3 (rejected) — derive the halo point from the camera (`CurrentAimDirection`/`FireProjectile`).**
+That is a **point** on the aim line, which carries the third-person shoulder offset (1jl,
+`CameraModeSwitch.ThirdPersonSideOffset`) and the camera position; 1jw was specifically the bug where
+that slid a circle sideways and collapsed it on steep-down aims. `StraightFlightDirection` is a
+**direction** and carries neither. VERDICT: rejected — direction, not point.
+
+**H4 — orientation math.** The rings are `SetPosition(cos*r, 0, sin*r)` (host XZ plane) and the disc is
+a Y-axis Cylinder, so the assembly's plane normal is local **+Y**. Facing direction `d` therefore is
+`Quaternion.FromToRotation(Vector3.up, d)`. (Same shape as the weapon-anchored branch's existing
+`FromToRotation(Vector3.up, _anchor.up)` — local precedent.) VERDICT: adopt.
+
+**Implementation.** `_flatRot` becomes state (rule from `CastingCircle`'s own `_flat` flag: `Update`
+re-derives the transform every frame, so a one-shot orientation would be overwritten). Both `ShowFlat`
+overloads take `Vector3 facing` and set `_flatRot = FacingRotation(facing)`. `CastHaloAim` supplies
+that direction; `WeaponCastPoint(hand, aim)` now offsets along the full aim (pitch included) so the
+point is on the bolt's axis, not at weapon height. `BurstCastingCircle` passes the same `aim` as the
+release ring's `upDir`, so charge and release share one derivation (they used to be `_flatPos`-derived
++ `Vector3.up`).
+
+**Fixed constant.** `FlatRotation` deleted; no serialized asset changes.
+
+**Verdict: confirmed**, verified by grep + reread (no build, rule 3): only `PlayerController.Combat.cs`
+calls `ShowFlat`/`WeaponCastPoint`; `FlatRotation` and the old signatures are gone. `StaticChecks.ps1`
+run — `CastingCircleModelBuilder.cs` is a `$files` entry — 0 candidates.
+
+**Open item (play-test).** Whether the ring "behind the bolt" reads correctly at steep pitches; the
+0.2 m offset vs the 0.5 m muzzle (`WeaponCastFrontOffset`) is the knob if not.
+
 ## 1l6l. QA lane: shrink the streamed chunk area for fast non-terrain testing (SHIPPED, play-test pending)
 
 User: "reduce the map rendering area temporary too so it would load faster for me to test other thing."

@@ -2201,37 +2201,39 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   builds a **charge level** (0–100%, ~2 s, no auto-fire). **Releasing LMB** fires at the frozen level.
   Charge scales the cast: FP cost (up to ×1.6), damage (up to ×2.0), and AoE radius (up to ×1.8), so
   a deeper charge is always a gamble for more FP — never a dud.
-- While aiming/charging, the **spell's casting circle halo** is drawn in a **fixed whole-assembly
-  orientation** (`CastingCircle.FlatRotation`, a 90° Z spin — 1l6k; it is no longer a world-up plane,
-  and its disc and LineRenderer rings share this one plane) — **right in front of the held magic
-  weapon**: at the weapon's own height,
-  a short way ahead of the hand via `PlayerController.WeaponCastPoint` (1ka; 1l5 pulled the offset in to
-  **0.2 m** so the ring floats **behind the held projectile**, whose muzzle sits 0.5 m ahead — the same
-  muzzle the path preview and `FireProjectile` use, `pos + fwd * 0.5f`), tinted by the armed spell's **resolved look**
+- While aiming/charging, the **spell's casting circle halo** is drawn **right in front of the held
+  magic weapon** and **faces the player's aim** — its ring normal is the live look direction, so it
+  pitches up/down and yaws left/right with the view (1l6m; it replaces 1l6k's *fixed* whole-assembly
+  orientation `CastingCircle.FlatRotation = Euler(0,0,90)`, which faced a constant world axis and so
+  never followed the player). The disc and the LineRenderer rings still share this one plane (1l6k
+  removed the disc's own 90° tilt). It sits **0.2 m ahead** of the hand via
+  `PlayerController.WeaponCastPoint`, along the **same aim direction** the held projectile and the
+  pre-cast preview fly (so the ring stays behind the encountered bolt at every pitch; the muzzle is
+  0.5 m, the ring 0.2 m, `pos + fwd * 0.5f` — 1ka/1l5), tinted by the armed spell's **resolved look**
   (§3.8.3). (1jt parked it on the ground at the player's feet or `CastFrontOffset` 1.8 m ahead, which
   read as "the cast is out there"; 1ka brings it back to the weapon so the charge visibly belongs to
-  the thing about to fire. 1l6k: the disc used to carry its own 90° tilt, which stood it in a plane of
-  its own while the rings stayed in the host's; the tilt is gone and the whole circle takes one
-  orientation.) It is no longer one ring: the halo picks one of **seven
+  the thing about to fire.) It is no longer one ring: the halo picks one of **seven
   cast families** from the spell's look, and the *parts* that family enables differ — Disc / outer Halo /
   spinning Rune (8 radial tick marks) / HexRing / inner segments. So the same Wind spell and the same
   Earth spell no longer wear the same halo, and the family is visible before the cast resolves. Radius,
   brightness and spin still ramp with charge level; `Scale`/`Tempo` from the look scale it.
   Releasing the cast pops a one-shot expanding ring **in the spell's own colour and size**, **at the
-  same flat point the halo was charging on** (release re-derives the point through the same
-  `WeaponCastPoint`, so ring and circle cannot disagree). (`CastingCircle.cs`, driven by
+  same point and facing the halo was charging on** (release re-derives both through the same
+  `CastHaloAim`/`WeaponCastPoint`, so ring and circle cannot disagree). (`CastingCircle.cs`, driven by
   `PlayerController`; split aim → charge → release is used by both magic and ranged.)
   **Unarmed / no-spell-armed casts still play a plain white hand glow on the weapon** — a weapon
   release with no spell behind it keeps the neutral colour *and* the weapon anchor, because a white
   burst reads as "released the weapon" and an Arcane-pink one would read as "cast an Arcane spell",
   and because with no spell there is no delivery to classify.
-- The flat halo's **point** comes from one place (`PlayerController.WeaponCastPoint`): the magic
-  hand's own forward, flattened to strip pitch (a yaw-only rig cannot produce a vertical forward — the
-  guard exists so a pitch regression reads as "halo at the hand", not NaN), plus a constant 0.2 m
-  offset (1ka used 0.5 m, on the projectile muzzle; **1l5 pulled it to 0.2 m so the ring sits behind the
-  held projectile**, `WeaponCastFrontOffset`). The front direction is the **weapon's** forward — deliberately not the camera's, so moving
-  the camera cannot skew where a spell casts (1jl's shoulder offset and 1jm's camera-position coupling
-  would both drift the halo with the view).
+- The halo's **point and facing come from one place** (`PlayerController.CastHaloAim` →
+  `SpellCaster.StraightFlightDirection`, then `WeaponCastPoint`): the **look direction** off the
+  current-frame camera pivot (1l6m) — yaw *and* pitch, so the circle follows the view. This is a
+  **direction**, independent of where the camera *is*, so it carries neither `CameraModeSwitch`'s
+  `ThirdPersonSideOffset` (1jl's shoulder offset) nor a camera-position ray (1jm's coupling); the
+  earlier yaw-only `hand.transform.forward` (the body rig's forward, which cannot aim up/down) is
+  what produced the "casting circle does not rotate with the player up/down or left/right" report.
+  `WeaponCastFrontOffset` (0.2 m, 1l5) is the authored knob; the ring sits behind the 0.5 m muzzle so
+  the bolt leads.
   **1jw: the rear direction obeys the same body-yaw rule.** The following circle for a caster-anchored
   summon places itself at `-body.forward` (yaw-only, flattened) on every frame, so it reads as
   *directly behind the player* and rotates with their body. Its old bearing came from the shared
@@ -2240,7 +2242,8 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   feet when aiming steeply down. The summon's **spawn** uses the same basis (`transform.root.forward`,
   the identical reference `SpellSummon` receives as its root), so it never appears off the body for a
   frame and snaps back. The auto-fired bolt *direction* stays on the aim line — the circle follows the
-  body, the fire follows the aim; the two are deliberately different.
+  body, the fire follows the aim; the two are deliberately different. (This is the summon's own
+  following circle, distinct from the armed charge halo above, which is deliberately on the aim line.)
   (`CastingCircle` keeps a `_flat` mode flag because `Update` re-derives the transform every frame
   from `_anchor`; a position handed to `Show` would simply be overwritten — 1jt's rule-4 lesson in its
   1ka name.)
@@ -2343,9 +2346,9 @@ colours, `Trail`, `Scale`, `Tempo`.
   that applies a Zone `TerrainShape`, so a `Summon` Meteor would lose its falling rock and carve its
   crater behind the player. This is rule 13's drawn-vs-gameplay split: `CastAnchor` changes the halo's
   position and nothing else.
-  **1ka: the axis is now INERT for placement.** The per-spell charge halo is drawn at a fixed
-  whole-assembly orientation (1l6k), 0.2 m in
-  front of the magic weapon at the weapon's own height (`PlayerController.WeaponCastPoint`, just behind
+  **1ka: the axis is now INERT for placement.** The per-spell charge halo is drawn facing the player's
+  aim (1l6m), 0.2 m in
+  front of the magic weapon (`PlayerController.WeaponCastPoint`, just behind
   the 0.5 m projectile muzzle; 1l5), so no placement reads `CastAnchor` anymore. It is still resolved and packed
   into the F4 audit key so that key never changes; deleting the axis (field + profile + resolve + 2
   key bits) is a separate removal task (rule 14).

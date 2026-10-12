@@ -65,9 +65,9 @@ public static class CastingCircleModelBuilder
         // 1l6k: no tilt of its own. The disc used to carry Quaternion.Euler(90f, 0f, 0f), which made
         // the cylinder's flat faces vertical while the LineRenderer rings (drawn in the host's XZ
         // plane) stayed behind — the disc and the rings were in two different planes. The whole
-        // circle's plane is now set on the HOST, once (CastingCircle.FlatRotation), and every piece
-        // including the disc shares it. A Cylinder primitive is already a flat disc (axis = local Y),
-        // so identity here means "lie in the host's plane", not "stand up".
+        // circle's plane is now set on the HOST, once (CastingCircle's aim-facing host rotation; 1l6m),
+        // and every piece including the disc shares it. A Cylinder primitive is already a flat disc
+        // (axis = local Y), so identity here means "lie in the host's plane", not "stand up".
         result.Disc.Root = discGo;
         result.Disc.Renderer = discGo.GetComponent<MeshRenderer>();
         if (shader != null && result.Disc.Renderer != null)

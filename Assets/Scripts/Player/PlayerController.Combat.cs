@@ -338,16 +338,18 @@ public partial class PlayerController
     /// <summary>
     /// Show/refresh the halo casting circle each aim frame. Only armed magic gets the halo — ranged
     /// draws show their own weapon accent instead.
-    /// <para><b>1ka: a spell's halo is FLAT, IN FRONT OF THE MAGIC WEAPON.</b> It used to be handed
+    /// <para><b>1ka: a spell's halo is IN FRONT OF THE MAGIC WEAPON.</b> It used to be handed
     /// <c>MagicHand(combat).transform</c> (parked at the staff, so it read as part of the weapon),
     /// and 1jt parked it on the ground at the player's feet or <see cref="SpellLook.CastFrontOffset"/>
-    /// ahead of them. 1ka moves it to a flat world-up circle at the weapon's own height, slightly
-    /// ahead of the hand along the flattened aim (testing.md task 4: "like the continuous fireball
-    /// follow circle but in front of the magic weapon"); 1l5 pulls that offset in to 0.2 m so the ring
-    /// floats BEHIND the held projectile rather than on it. The caller refreshes the point every frame
-    /// via <see cref="WeaponCastPoint"/>, so the circle follows a walking/turning player. The no-spell
-    /// paths — the cast preview and the ranged-draw accent — keep the weapon anchor, because with no
-    /// spell there is no delivery to classify and the old read was correct.</para>
+    /// ahead of them. 1ka moves it to a circle in front of the weapon (testing.md task 4: "like the
+    /// continuous fireball follow circle but in front of the magic weapon"); 1l5 pulls the offset in
+    /// to 0.2 m so the ring floats BEHIND the held projectile rather than on it. The caller refreshes
+    /// the point every frame via <see cref="WeaponCastPoint"/>, so the circle follows a
+    /// walking/turning player. <b>1l6m: it also now FACES the player's aim</b> (the ring normal is
+    /// the live look direction — see <see cref="CastHaloAim"/>), so it pitches up/down with the view
+    /// instead of 1l6k's fixed world axis. The no-spell paths — the cast preview and the ranged-draw
+    /// accent — keep the weapon anchor, because with no spell there is no delivery to classify and
+    /// the old read was correct.</para>
     /// </summary>
     private void UpdateCastingCircle(float charge)
     {
@@ -370,7 +372,10 @@ public partial class PlayerController
         if (spell != null)
         {
             var look = SpellLook.Resolve(spell);
-            Casting().ShowFlat(WeaponCastPoint(hand), charge, look);
+            // 1l6m: one aim direction drives both the point and the facing, so the ring sits on the
+            // same axis the held projectile flies and faces that way (rule 8: one derivation).
+            Vector3 aim = CastHaloAim(hand);
+            Casting().ShowFlat(WeaponCastPoint(hand, aim), aim, charge, look);
             return;
         }
         var skill = SkillCatalog.Find(MagicWheelUI.ArmedSkillId);
@@ -378,42 +383,53 @@ public partial class PlayerController
         Casting().Show(hand.transform, charge, color);
     }
 
-    /// <summary>1ka: the world point a spell's casting halo floats at — a flat world-up circle in
-    /// front of the magic weapon, at the weapon's own height.
-    /// <para><b>The front direction is the MAGIC WEAPON'S forward, flattened, and that choice is
-    /// load-bearing.</b> The magic hand's own forward IS the aim (yaw-only, no pitch), so the halo
-    /// leads the hand the way a cast does. It is deliberately NOT <c>CameraModeSwitch</c>'s
-    /// <c>lookTarget</c>, which adds <c>ThirdPersonSideOffset</c> (1jl's shoulder offset — keying off
-    /// it would slide the halo sideways with the camera) and NOT a camera-derived ray, which makes the
-    /// halo depend on where the camera IS rather than which way the player looks (1jm's coupling —
-    /// moving the camera 0.6 m sideways would have skewed it).</para>
-    /// <para><b>Why the offset sits behind the muzzle.</b> The held projectile floats
-    /// <c>0.5 m</c> ahead of the hand (the muzzle the path preview and <c>SpellCaster.FireProjectile</c>
-    /// share, see <see cref="UpdatePathPreview"/> / <see cref="UpdateChargedProjectile"/>), while
+    /// <summary>1l6m: the live aim direction the casting halo is placed and faced with — the SAME
+    /// direction the held projectile and the pre-cast preview fly along (see
+    /// <see cref="UpdateChargedProjectile"/>), so the ring leads the bolt in pitch as well as yaw.
+    /// <para>This replaces the yaw-only <c>hand.transform.forward</c> the halo used to read: the magic
+    /// hand hangs off the body rig, whose rotation is yaw only (<c>HandleMouseLook</c> writes
+    /// <c>Euler(0, yaw, 0)</c> and keeps pitch on the camera pivot), so the hand's forward is a FLAT
+    /// shot that cannot aim up or down — the reported "casting circle does not rotate with the player
+    /// up/down". <see cref="SpellCaster.StraightFlightDirection"/> reads the look SOURCE
+    /// (<see cref="PlayerCameraPivot"/>, current-frame) as a direction, so it carries pitch and yaw
+    /// WITHOUT the camera-position or shoulder-offset coupling the old weapon-forward choice was
+    /// guarding against.</para></summary>
+    private Vector3 CastHaloAim(GameObject hand)
+        => SpellCaster.StraightFlightDirection(MainCam, PlayerCameraPivot, hand.transform.forward);
+
+    /// <summary>1l6m: the world point a spell's casting halo floats at — in front of the magic weapon,
+    /// along the aim direction <paramref name="aim"/> the caller derived once (so the point and the
+    /// facing come from one direction, rule 8).
+    /// <para><b>Why along the aim, not the yaw-only hand forward.</b> The held projectile and the
+    /// pre-cast preview both float at <c>hand + StraightFlightDirection * 0.5 m</c> (see
+    /// <see cref="UpdateChargedProjectile"/>). Placing the halo on the SAME aim axis keeps it behind
+    /// the bolt at every pitch; the old flattened-hand offset left it at weapon height while the bolt
+    /// flew up or down, so the ring stopped being the thing the bolt passed through.</para>
+    /// <para><b>Why not a camera-derived point.</b> <paramref name="aim"/> is a direction off the look
+    /// pivot, independent of where the camera IS, so the 1jl shoulder offset and moving the camera
+    /// cannot slide the halo sideways — that coupling is the point-based <c>CurrentAimDirection</c>
+    /// helper's (1jm), and this stays clear of it.</para>
+    /// <para><b>Why the offset sits behind the muzzle.</b> The muzzle is <c>0.5 m</c> ahead, while
     /// <see cref="WeaponCastFrontOffset"/> pulls the halo to 0.2 m — so the ring floats behind the
     /// bolt and the bolt leads. <see cref="WeaponCastFrontOffset"/> is the authored knob.</para>
     /// </summary>
-    private Vector3 WeaponCastPoint(GameObject hand)
+    private Vector3 WeaponCastPoint(GameObject hand, Vector3 aim)
     {
-        Vector3 fwd = hand.transform.forward;
-        // Yaw-only weapon rotation means forward is already horizontal, but flattening it here makes
-        // the flat halo immune to any future pitch being written onto the weapon's own transform —
-        // the halo's plane is fixed world-up, and a pitched hand must not lift or bury the point.
-        fwd.y = 0f;
         Vector3 at = hand.transform.position;
-        // Degenerate only if forward is exactly vertical, which yaw-only rotation cannot produce.
-        // The guard is here so a pitch regression shows up as "halo at the hand", not as NaN.
-        if (fwd.sqrMagnitude > 0.0001f)
-            at += fwd.normalized * WeaponCastFrontOffset;
+        // Degenerate only if the aim is exactly zero (no pivot/camera/hand forward). The guard is the
+        // same shape as CastingCircle.FacingRotation's, so a broken aim reads as "halo at the hand",
+        // not as NaN.
+        if (aim.sqrMagnitude > 0.0001f)
+            at += aim.normalized * WeaponCastFrontOffset;
         return at;
     }
 
-    /// <summary>1ka: authored forward offset for the flat casting halo, in metres — where along the
-    /// flattened aim the ring floats, measured from the weapon. The held projectile's muzzle is
-    /// 0.5 m ahead (see <see cref="UpdateChargedProjectile"/>), so a value BELOW 0.5 keeps the ring
-    /// behind the projectile and lets the bolt lead. Play-test knob if the circle reads too close to
-    /// or too far from the weapon.</summary>
-    private const float WeaponCastFrontOffset = 0.2f; // behind the 0.5 m projectile muzzle (flat, world-up)
+    /// <summary>1ka: authored forward offset for the casting halo, in metres — where along the aim
+    /// the ring floats, measured from the weapon. The held projectile's muzzle is 0.5 m ahead (see
+    /// <see cref="UpdateChargedProjectile"/>), so a value BELOW 0.5 keeps the ring behind the
+    /// projectile and lets the bolt lead. Play-test knob if the circle reads too close to or too far
+    /// from the weapon.</summary>
+    private const float WeaponCastFrontOffset = 0.2f; // behind the 0.5 m projectile muzzle, on the aim
 
     /// <summary>One-shot expansion ring at the magic weapon on cast release.</summary>
     private void BurstCastingCircle(float charge)
@@ -428,12 +444,14 @@ public partial class PlayerController
             // spell's own colour and size.
             var look = SpellLook.Resolve(spell);
             float r = spell.Radius * (0.6f + charge * 0.5f);
-            // 1ka: on the FLAT point the halo was charging on, not at the staff. Both call
-            // WeaponCastPoint so the release ring cannot land somewhere the charge circle was not —
-            // two derivations of one point is rule 8's second spelling, and the symptom would be a
-            // ring that appears in a different place than the circle that announced it.
-            Vector3 at = WeaponCastPoint(hand);
-            Casting().Burst(r, look.Core, Vector3.up, look.Scale, at);
+            // 1ka: on the point the halo was charging on, not at the staff. 1l6m: both the point AND
+            // the ring's facing come from CastHaloAim, so the release ring matches the charge circle
+            // in place and orientation — two derivations would be rule 8's second spelling, and the
+            // symptom would be a ring that appears elsewhere or facing another way than the circle
+            // that announced it.
+            Vector3 aim = CastHaloAim(hand);
+            Vector3 at = WeaponCastPoint(hand, aim);
+            Casting().Burst(r, look.Core, aim, look.Scale, at);
             HideCastingCircle();
             return;
         }

@@ -3,22 +3,22 @@ using UnityEngine;
 /// <summary>
 /// Halo-style casting circle shown while a spell is being aimed/charged (driven by
 /// <see cref="PlayerController"/>). Two placements: the armed per-spell charge floats just ahead of
-/// the magic weapon at the weapon's own height with one fixed whole-assembly orientation
-/// (<see cref="FlatRotation"/>, a 90 deg Z spin — 1l6k), and the preview / ranged-draw variants wrap
-/// the held weapon and tilt with it like a halo. Either way it grows brighter and spins faster as the
-/// charge level (0..1) builds. Released on cast with a quick outward ring burst. Prefab-free, built
-/// from a translucent disc + LineRenderer rings. Pure visual: no colliders and nothing blocking
-/// gameplay.
+/// the magic weapon and faces the player's aim (its ring normal is the look direction, so it pitches
+/// and yaws with the view — 1l6m), and the preview / ranged-draw variants wrap the held weapon and
+/// tilt with it like a halo. Either way it grows brighter and spins faster as the charge level (0..1)
+/// builds. Released on cast with a quick outward ring burst. Prefab-free, built from a translucent
+/// disc + LineRenderer rings. Pure visual: no colliders and nothing blocking gameplay.
 ///
 /// <para><b>1ka: the armed per-spell charge sits in front of the weapon, placed by the caller.</b>
-/// It is positioned through <see cref="ShowFlat(Vector3, float, in SpellLook)"/> at a refreshed world
-/// point just ahead of the magic hand, behind where the held projectile floats (see
-/// <c>PlayerController.WeaponCastPoint</c>). <b>1l6k: the whole assembly is one fixed orientation
-/// (<see cref="FlatRotation"/>), not world-up.</b> The disc and the rings share that single plane:
-/// <c>CastingCircleModelBuilder.Build</c> no longer gives the disc its own 90 deg tilt, which used to
-/// stand the disc in a different plane from the rings, and the old <c>Update</c> aim-matching
-/// LookRotation was dead anyway (flat mode keeps <c>_anchor == null</c>, so its forward was always
-/// zero and every frame fell through to identity).</para>
+/// It is positioned through <see cref="ShowFlat(Vector3, Vector3, float, in SpellLook)"/> at a
+/// refreshed world point just ahead of the magic hand, behind where the held projectile floats (see
+/// <c>PlayerController.WeaponCastPoint</c>). <b>1l6m: the whole assembly faces the aim direction the
+/// caller passes</b> — the host rotation is built so the ring normal (local +Y) points along that
+/// direction, so the circle tracks the player's look up/down and left/right. 1l6k had pinned the
+/// assembly to a constant <c>Euler(0, 0, 90)</c>, which faced a FIXED world axis and therefore never
+/// followed the view — the "casting circle does not rotate with the player" report this fixes. The
+/// disc and the rings still share one plane: <c>CastingCircleModelBuilder.Build</c> gives the disc no
+/// tilt of its own, and the whole assembly takes the single host rotation set here.</para>
 ///
 /// <para><b>1if: the halo family is per-spell.</b> There are seven <see cref="SpellCastStyle"/>
 /// families and this component draws all of them. They are built ONCE in <see cref="Build"/> and
@@ -51,15 +51,6 @@ public sealed class CastingCircle : MonoBehaviour
     private const int RuneTicks = 8;
     private const float BaseRadius = 0.35f;
     private const float FullRadius = 0.75f;
-
-    // 1l6k: the flat charge halo's whole-assembly orientation. Both ShowFlat and Update used two
-    // different spellings of it (Identity in ShowFlat, a Look-at-aim result in Update), and Update's
-    // aim branch never fired anyway — _anchor is null in flat mode, so its fwd was always zero and
-    // the halo fell through to Identity. One named constant now drives both readers (rule 10: a
-    // metric two code paths must agree on is one constant), and the disc no longer counter-tilts
-    // against it (CastingCircleModelBuilder.Build dropped the disc's own 90 deg X rotation), so the
-    // disc and the rings share this single plane.
-    private static readonly Quaternion FlatRotation = Quaternion.Euler(0f, 0f, 90f);
 
     private Transform _disc;
     private Renderer _discRenderer;
@@ -99,9 +90,10 @@ public sealed class CastingCircle : MonoBehaviour
     // ---------------------------------------------------------------- 1ka: flat weapon-front mode
     //
     // (1jt anchored the per-spell charge on the ground at the player's feet or CastFrontOffset ahead
-    // of them. 1ka moves that same charge circle to a flat world-up position just in front of the
+    // of them. 1ka moves that same charge circle to a position just in front of the
     // magic weapon, at the weapon's own height — "like the continuous fireball follow circle, but at
-    // the weapon" (testing.md task 4). The two `Show(Transform, ...)` overloads above still hang the
+    // the weapon" (testing.md task 4); 1l6m turns the whole assembly to face the caller's aim, so it is
+    // no longer a fixed world-up plane. The two `Show(Transform, ...)` overloads above still hang the
     // halo off the held magic WEAPON for their three callers (the cast preview, the ranged-draw
     // accent, and the no-spell-armed release), but the per-spell charge is now a caller-refreshed
     // world point instead of a weapon anchor.
@@ -118,10 +110,17 @@ public sealed class CastingCircle : MonoBehaviour
     /// <see cref="Show(Transform,float,Color)"/> and <see cref="Show(Transform,float,in SpellLook)"/>.</summary>
     private bool _flat;
 
-    /// <summary>1ka: the world point the halo floats at (a flat position in front of the magic
-    /// weapon, at the weapon's own height), refreshed by the caller each aim frame so it follows a
-    /// walking/turning player while a charge is held.</summary>
+    /// <summary>1ka: the world point the halo floats at (a position in front of the magic
+    /// weapon), refreshed by the caller each aim frame so it follows a walking/turning player while a
+    /// charge is held.</summary>
     private Vector3 _flatPos;
+
+    /// <summary>1l6m: the flat halo's whole-assembly orientation, set by the <see cref="ShowFlat"/>
+    /// overloads from the caller's aim direction (the ring normal, local +Y, is turned to face it) and
+    /// re-applied every frame in <see cref="Update"/>. Replaces 1l6k's fixed <c>Euler(0,0,90)</c>
+    /// constant, which faced a constant world axis and so never followed the player's look. Defaulted
+    /// to identity so a frame cannot read an unset quaternion.</summary>
+    private Quaternion _flatRot = Quaternion.identity;
 
     /// <summary>Ensure the singleton exists and returns it (builds on first access).</summary>
     public static CastingCircle Instance
@@ -188,13 +187,15 @@ public sealed class CastingCircle : MonoBehaviour
     }
 
     /// <summary>1ka: the plain-family flat halo — no spell behind it, so no identity to invent. Drawn
-    /// at the given world point with the whole-assembly orientation <see cref="FlatRotation"/>
-    /// (1l6k; not world-up — the disc and rings share this one plane).</summary>
-    public void ShowFlat(Vector3 flatPos, float charge, Color color)
+    /// at the given world point, with the whole assembly facing <paramref name="facing"/> (1l6m: the
+    /// ring normal, local +Y, is turned along this direction, so the caller's aim makes the circle
+    /// track the player's view instead of 1l6k's fixed world axis).</summary>
+    public void ShowFlat(Vector3 flatPos, Vector3 facing, float charge, Color color)
     {
         _active = true;
         _flat = true;
         _flatPos = flatPos;
+        _flatRot = FacingRotation(facing);
         _anchor = null;
         _charge = Mathf.Clamp01(charge);
         _color = color;
@@ -202,23 +203,24 @@ public sealed class CastingCircle : MonoBehaviour
         _scale = 1f;
         _tempo = 1f;
         transform.position = _flatPos;
-        transform.rotation = FlatRotation;
+        transform.rotation = _flatRot;
         gameObject.SetActive(true);
         Apply();
     }
 
     /// <summary>1ka: the per-spell flat halo — the charge circle for a real armed spell, placed by the
-    /// caller at a flat position just in front of the magic weapon at the weapon's own height
-    /// (testing.md task 4). Colour, family, size and tempo all come from the look, exactly as the
-    /// weapon-anchored overload takes them; only the placement differs.
-    /// <para>The caller re-sends <paramref name="flatPos"/> every aim frame while charging, so the
-    /// halo follows a walking/turning player and stays ahead of the weapon instead of being left
-    /// behind at the cast origin.</para></summary>
-    public void ShowFlat(Vector3 flatPos, float charge, in SpellLook look)
+    /// caller in front of the magic weapon (testing.md task 4) and faced along <paramref name="facing"/>
+    /// (1l6m). Colour, family, size and tempo all come from the look, exactly as the weapon-anchored
+    /// overload takes them; only the placement and orientation differ.
+    /// <para>The caller re-sends <paramref name="flatPos"/> and <paramref name="facing"/> every aim
+    /// frame while charging, so the halo follows a walking/turning/pitching player and stays ahead of
+    /// the weapon instead of being left behind at the cast origin.</para></summary>
+    public void ShowFlat(Vector3 flatPos, Vector3 facing, float charge, in SpellLook look)
     {
         _active = true;
         _flat = true;
         _flatPos = flatPos;
+        _flatRot = FacingRotation(facing);
         _anchor = null;
         _charge = Mathf.Clamp01(charge);
         _color = look.Core;
@@ -226,10 +228,19 @@ public sealed class CastingCircle : MonoBehaviour
         _scale = Mathf.Max(0.2f, look.Scale);
         _tempo = Mathf.Max(0.2f, look.Tempo);
         transform.position = _flatPos;
-        transform.rotation = FlatRotation;
+        transform.rotation = _flatRot;
         gameObject.SetActive(true);
         Apply();
     }
+
+    /// <summary>1l6m: the assembly orientation that makes the ring normal (the circles' local +Y — the
+    /// rings are placed in the host's XZ plane, the disc is a Y-axis cylinder) point along the aim
+    /// direction. The <paramref name="facing"/> guard is the same shape as <c>WeaponCastPoint</c>'s:
+    /// a zero direction cannot make a rotation, so identity (world flat) is the defined fallback.</summary>
+    private static Quaternion FacingRotation(Vector3 facing)
+        => facing.sqrMagnitude > 0.0001f
+            ? Quaternion.FromToRotation(Vector3.up, facing.normalized)
+            : Quaternion.identity;
 
     /// <summary>One-shot expanding ring at the current anchor, sized by the charge level.</summary>
     public void Burst(float radius, Color color, Vector3 upDir)
@@ -251,10 +262,10 @@ public sealed class CastingCircle : MonoBehaviour
     /// reading it out of state so the caller cannot accidentally burst at last frame's halo position
     /// if the player has moved since — the release ring belongs at the cast, not at wherever the
     /// circle drifted to.
-    /// <para><c>upDir</c> is passed separately from <paramref name="at"/> because the flat halo is
-    /// always world-up (see <see cref="ShowFlat(Vector3,float,in SpellLook)"/>), so the two are
-    /// independent facts and reading the normal out of state would make them look coupled when they
-    /// are not.</para></summary>
+    /// <para><c>upDir</c> is passed separately from <paramref name="at"/> because the flat halo's
+    /// facing is the caller's aim (1l6m — see <see cref="ShowFlat(Vector3,Vector3,float,in SpellLook)"/>),
+    /// not a value this component can re-derive from position, so the two are independent facts and
+    /// the release ring must be told the same aim the charge circle faced.</para></summary>
     public void Burst(float radius, Color color, Vector3 upDir, float scaleMul, Vector3 at)
     {
         SkillFx.RingFlash(at, upDir, color, Mathf.Max(radius, 0.4f), 0.35f, scaleMul);
@@ -276,10 +287,11 @@ public sealed class CastingCircle : MonoBehaviour
         if (!_flat && _anchor == null) { Hide(); return; }
         if (_flat)
         {
-            // 1l6k: one fixed whole-assembly orientation (see FlatRotation). The old aim-matching
-            // LookRotation never ran here — _anchor is null in flat mode, so fwd was always zero and
-            // the else-branch (Identity) is what every frame actually used.
-            transform.rotation = FlatRotation;
+            // 1l6m: the whole assembly faces the caller's aim (_flatRot, built in ShowFlat from the
+            // direction it was handed). 1l6k had pinned this to a constant Euler(0,0,90) world axis,
+            // so the circle never followed the player's look; the rotation is now state, refreshed
+            // each aim frame.
+            transform.rotation = _flatRot;
             transform.position = _flatPos;
         }
         else
@@ -417,8 +429,8 @@ public sealed class CastingCircle : MonoBehaviour
         }
         // 1l6k: the disc carries no rotation of its own and is not spun. 1l6c gave it a per-frame
         // Quaternion.Euler(0f, 0f, _spin) and 1l6d dropped that again; the whole assembly now takes
-        // one fixed orientation (FlatRotation on the host in flat mode), so a disc-local spin would
-        // be a second, drifting plane inside the one the rings use.
+        // one orientation (the aim-facing _flatRot in flat mode), so a disc-local spin would be a
+        // second, drifting plane inside the one the rings use.
         if (_innerMat != null && wantInner)
             _innerMat.color = new Color(_color.r, _color.g, _color.b, a * 0.8f);
 

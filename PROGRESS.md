@@ -1,3 +1,50 @@
+## 1l6m. Casting circle: face the player's aim (pitch up/down, yaw left/right)
+
+User: "the casting circle does not rotate along with player either up/down or left/right, fix that."
+
+1l6k had pinned the whole halo to the constant `Euler(0, 0, 90)` (`FlatRotation`), which faces a
+FIXED world axis, so the circle never followed the view at all. This makes the assembly face the live
+aim direction.
+
+- **Root cause of the "up/down doesn't work" half:** the magic hand's `forward` is **yaw-only** — the
+  body rig is rotated `Euler(0, _yaw, 0)` by `PlayerController.Camera.HandleMouseLook` and pitch lives
+  on `PlayerCameraPivot`. So the old weapon-forward basis could never aim up or down. The halo now reads
+  `SpellCaster.StraightFlightDirection(MainCam, PlayerCameraPivot, hand.transform.forward)` — the look
+  pivot's **direction** (carries pitch + yaw, current-frame), the SAME direction the held projectile
+  and the pre-cast preview fly.
+- `PlayerController.Combat.cs`: new `CastHaloAim(GameObject hand)` returns that direction;
+  `WeaponCastPoint(hand, aim)` now offsets along the full `aim` (removed the `fwd.y = 0` flatten) so the
+  point sits on the bolt's own axis; `UpdateCastingCircle` derives `aim` once and calls
+  `ShowFlat(WeaponCastPoint(hand, aim), aim, charge, look)`; `BurstCastingCircle` passes the same `aim`
+  (was `Vector3.up`) as the release ring's facing. Point and facing come from ONE direction (rule 8).
+- `CastingCircle.cs`: dropped the `FlatRotation` constant; new `_flatRot` state; both `ShowFlat`
+  overloads take `Vector3 facing` and set `_flatRot = FacingRotation(facing)`; new
+  `FacingRotation(Vector3)` = `Quaternion.FromToRotation(Vector3.up, facing.normalized)` with an
+  identity guard for a zero direction (the ring normal is local +Y — rings are drawn in the host's XZ
+  plane, the disc is a Y-axis cylinder — so facing `d` is "turn +Y onto `d`"). Flat `Update` writes
+  `transform.rotation = _flatRot`. `Burst` docs note the release ring is told the same aim the charge
+  circle faced (it cannot re-derive facing from position).
+- `CastingCircleModelBuilder.cs`: doc comment updated (host rotation is now aim-facing; the disc still
+  carries no tilt of its own and shares the host plane).
+- No `.asset`/serialized data changed; no other callers of `ShowFlat`/`WeaponCastPoint` (grep confirmed
+  only `PlayerController.Combat.cs`).
+
+### 1l6m-status
+- [x] `CastHaloAim` + `WeaponCastPoint(hand, aim)` in `PlayerController.Combat.cs`; halo + burst use one
+  aim.
+- [x] `CastingCircle` faces the passed direction (`_flatRot` + `FacingRotation`); `FlatRotation` gone.
+- [x] Class/`ShowFlat`/`Burst`/`Update` docs, `CastingCircleModelBuilder` doc, `SpellLook.CastAnchor`
+  doc + tooltip, and `game-design.md` § Charging & Casting Circle + `CastAnchor` note rewritten.
+- [x] Verified by grep + reread (no build, rule 3): `FlatRotation`/old `ShowFlat` signatures gone;
+  `MainCam`/`PlayerCameraPivot`/`StraightFlightDirection` all resolve (existing uses).
+  `tools\StaticChecks.ps1` run (CastingCircleModelBuilder.cs is a `$files` entry) -> 0 candidates.
+- [x] `skills: none applied` — a C# aim/rotation fix reviewed by a human (rule 3); no installed skill
+  governs it (rule 15).
+- [x] Docs kept in sync in the same pass: this entry + `THINKING.md` §1l6m.
+- [ ] **PLAY-TEST (user, Unity):** aim the armed magic up/down and left/right — the charge circle should
+  pitch and yaw with the view and stay on the held projectile's axis; on release the expanding ring
+  should appear at the same point and facing the circle had. Confirm the ring stays behind the bolt.
+
 ## 1l6l. QA lane: shrink the streamed chunk area (fast world loads for non-terrain testing)
 
 User: "reduce the map rendering area temporary too so it would load faster for me to test other thing."
