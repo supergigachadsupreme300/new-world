@@ -2507,21 +2507,23 @@ swirl IS the wind that drags foes in. Conflagration gained a profile carrying on
 authored count 25 → **26**.
 
 **Body:** `SpellZoneModelBuilder.BuildConflagration(transform, Radius, core, HotCore(core))` — a thin
-ground disc in the spell's Core colour, then ember cubes in the hot colour, each rising straight up at the
-ring edge (1l6t). **1l3** (testing.md task 7, "only create one ember ray on the circle edge, i want
-more"): the embers used to ride one shared helix, so they traced a *single* spiral strand — they are now
-dealt into parallel strands by a per-ember angular offset. **1l6t** ("stop being sucked into the centre …
-double the particles … make them appear from below, not all at once"): the tongues rise at a **constant
-radius** (the old helix converged to the apex as it climbed — `orbit = radius·(1 − 0.80·cyc²)` — the
-"sucked into the centre" read), the count **doubled to 96** (**12 strands × 8**), and each ember now
-**starts at the ground and climbs** — an age-gated rise after a per-tier `startDelay` (the curtain fills
-bottom-first over 0.7 s) plus a bottom/top scale envelope, so nothing pops in mid-air. The apex stays
-`max(3.2, 2.2·radius)` (0.45 rises/s, 1.8 turns per rise), so the whole thing is a rising cylindrical
-curtain of flame with a gentle whirl, not a narrowing spiral. The per-frame rise is owned by a
-builder-attached `VortexRiser` component — rule 19: the shape
-factory builds, the component that runs while the pieces *move* animates, the same split `BoltFader`
-uses for the storm bars. The disc takes the Core and the flames the hot end, the identical hot-end choice
-SpellBeam's funnel makes (Edge desaturates Fire toward peach and cannot supply the yellow).
+ground disc in the spell's Core colour, plus a `ConflagrationEmitter` on the zone root that **spawns a
+fresh horizontal ring of 20 ember cubes** (hot colour) every 0.33 s. Each ring (a `RisingRing`) lives
+2.2 s: it rises as a unit to the apex (`max(3.2, 2.2·radius)`) while **spinning** about the vertical axis
+(1.4 rad/s on top of the zone root's own 240 deg/s pull-spin), fading in low / out high so the column
+reads continuous, then destroys itself — the emitter keeps replacing it (**1l6u**). Rings are slightly
+irregular (jittered radius / angle / size / tilt) so the *spin* is visible: a perfectly even ring of
+identical cubes is rotationally symmetric and looks static at whatever speed it turns. Because the emitter
+lives on the zone root, rings keep spawning until the zone is destroyed — i.e. **until the spell ends**.
+Rule 19's factory/component split still holds: the factory builds the disc, and the spawner + its
+`RisingRing` own the motion (a *stream* belongs on a spawner, not on a per-piece component). The disc
+takes the Core and the flames the hot end, the identical hot-end choice SpellBeam's funnel makes (Edge
+desaturates Fire toward peach and cannot supply the yellow).
+**History:** **1l3** ("only create one ember ray on the circle edge, i want more") dealt the embers into
+parallel strands so the rim carried several tongues of flame instead of one shared helix. **1l6t** ("stop
+being sucked into the centre … double the particles … appear from below") made them rise straight up at
+the ring radius (the old convergent helix was `orbit = radius·(1 − 0.80·cyc²)`), doubled the count, and
+started each ember at the ground. **1l6u** replaced the pre-placed strands with the ring emitter above.
 
 **The F4 audit gained the axis's 2 bits at 38 and the ratchet stays one-way.** Because determinism
 resolves the axis to `Funnel` for every non-authored spell, every existing key is byte-identical and
@@ -3330,7 +3332,7 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   | Builder | Moved out of | What stayed behind |
   |---|---|---|
   | `SpellBeamModelBuilder` | `SpellBeam` | the debris orbit — the body scale HOLDS since 1kb (no funnel flare) |
-  | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime; the 1kc conflagration body springs its own `VortexRiser` helix |
+  | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime; the 1kc conflagration body is a `ConflagrationEmitter` that spawns its own `RisingRing`s (1l6u) |
   | `SpellStormModelBuilder` | `SpellStorm` | strike scheduling |
   | `SummonModelBuilder` | `SpellSummon` | the pulse |
   | `SkillFxModelBuilder` | `SkillFx` | nothing — slash/ring are one-shot |

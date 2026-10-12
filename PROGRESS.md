@@ -1,3 +1,50 @@
+## 1l6u. Conflagration: spinning ember rings spawn continuously from the ground (replaces the fixed vertical strands)
+
+User: "currently the conflagration is creating particle ray, with waves, i want it to create particle
+circles spinning when they were created, and spawn continuously till spell end."
+
+- **Clarified (rule 7):** asked how each ring should behave → "Rise & spin to the top"; and how the spin
+  should read → "Slightly irregular ring". Implemented exactly that.
+- **What changed (`SpellZoneModelBuilder.cs`).** The 96 pre-placed embers that rode 12 vertical helical
+  strands (the "particle ray, with waves") are gone. `BuildConflagration` now builds the ground disc and
+  attaches a **`ConflagrationEmitter`** to the zone root; the emitter spawns a fresh **horizontal ring**
+  of embers every `SpawnInterval` (0.33 s), each ring driven by a **`RisingRing`** component:
+  - **Rise.** `localPosition.y` climbs to the apex (`max(3.2, 2.2·radius)`) over `RiseDuration` (2.2 s).
+  - **Spin.** `localRotation` turns about the vertical axis at 1.4 rad/s, on top of the zone root's own
+    240 deg/s pull-spin.
+  - **Spawn continuously till spell end.** The emitter lives on the zone root, so it (and every live
+    ring) is destroyed with the zone — spawning stops exactly when the spell ends. A ring destroys
+    itself at the top of its climb, so a bounded ~6–7 rings (~133 embers) are alive at steady state.
+  - **Fade.** Each ring fades in low / out high by scaling each child ember (never the ring transform,
+    which would shrink the circle toward the centre) — `FadeFraction` 0.22.
+  - **Spin legibility.** Because a perfectly even ring of identical cubes is rotationally symmetric and
+    looks static at any speed, each ember's radius / angle / size / tilt is jittered at spawn; the
+    irregular crown rides with the ring, so the spin is visible.
+- **Also renamed:** the old `VortexRiser` per-ember component is replaced by `ConflagrationEmitter` +
+  `RisingRing`; grep shows no live reference to `VortexRiser` remains (only the historical 1kc/1l3/1l6t
+  task logs, left as-is). QQ bench mounts the same builder, so the pedestal shows the same look.
+- **Doc-corrections (rule 8 / rule 17):** `SpellZoneModelBuilder` class doc + `BuildConflagration` doc;
+  `game-design.md` §3.8.5 body + the `SpellZoneModelBuilder` builder-table row; `magic-skills.md` Vortex +
+  Conflagration rows; `Assets/Scripts/Magic/README.md`; the bench comment in `NewWorldTestGround.cs`.
+
+### 1l6u-status
+- [x] `SpellZoneModelBuilder.cs`: `BuildConflagration` (disc + emitter) + `ConflagrationEmitter` +
+  `RisingRing` (replacing `VortexRiser`).
+- [x] Docs: `game-design.md` §3.8.5 + builder table, `magic-skills.md`, `Magic/README.md`,
+  `NewWorldTestGround.cs` comment, this entry + `THINKING.md` §1l6u.
+- [x] Verified by grep + reread (no build, rule 3): `RisingRing.Init` captures child base scales after the
+  embers are parented; `BuildConflagration` guards against a duplicate emitter on one root; no `VortexRiser`
+  reference survives in code; the only `VortexCircle` author is Conflagration. `tools\StaticChecks.ps1` →
+  0 candidates.
+- [x] `skills: none applied` — a procedural C# model edit; no installed skill governs the artifact (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** cast Conflagration — instead of vertical rays you should see **rings of
+  embers spawning at the ground and rising while spinning** (visibly rotating thanks to the irregularity),
+  continuously for the 3 s the zone lives, then stopping; the zone still drags foes in and ticks Burn.
+  QA bench (Conflagration pedestal) shows the same. Regressions: other Vortex spells and Firestorm still
+  draw their funnels untouched.
+
+
+
 ## 1l6t. Conflagration: ember curtain rises straight up (no centre pull), 96 particles, emerging from the ground
 
 User: "change conflagration spell effect to stop being sucked into the center as they're going up, and
@@ -4278,7 +4325,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-12 (1l6t). Read this first in a new session; then continue with the
+Last updated: 2026-10-12 (1l6u). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

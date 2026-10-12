@@ -1,3 +1,52 @@
+## 1l6u. Conflagration: spinning rings spawned continuously, replacing the vertical strands (SHIPPED, play-test pending)
+
+User: "currently the conflagration is creating particle ray, with waves, i want it to create particle
+circles spinning when they were created, and spawn continuously till spell end."
+
+**The report names two current defects and one new behaviour.** "particle ray, with waves" = the 1l6t
+body (12 vertical helical strands of embers climbing in unison). "particle circles spinning when they
+were created" = rings, spinning from birth. "spawn continuously till spell end" = not a fixed pre-placed
+set — a live emitter bounded by the spell's lifetime.
+
+**Ambiguity (rule 7), resolved by asking.** "circles spinning" has three plausible motions (rise+spin,
+spin in place at the base, spin in place at stepped heights) and, more subtly, a perfectly even ring of
+identical cubes is **rotationally symmetric** — rotating it is a visual no-op, so "spinning" could ship
+as an invisible lie. Asked both: user chose **rise & spin to the top** and **slightly irregular ring**.
+
+**H1 — a stream needs a spawner, not a per-piece component. [CONFIRMED]**
+Rule 19 says a per-frame effect belongs in the loop that runs while it moves, and the 1kc/1l6t body put
+that loop on each ember (`VortexRiser`). But "spawn continuously" is a *rate*, not a per-piece motion:
+there is no fixed ember to attach a component to, because the embers do not exist yet. So the right home
+is a single `ConflagrationEmitter` on the zone root that spawns rings on a timer; each spawned ring gets
+a `RisingRing` for its own rise/spin/fade. Rule 19's split survives (factory builds the disc; components
+that run while pieces move own the motion) — the motion just moved one level up, to a spawner.
+
+**H2 — "till spell end" comes free from the zone's lifetime. [CONFIRMED]**
+`SpellZone` destroys its whole GameObject at `_age >= Lifetime`. The emitter and its rings are children
+of that root, so they die with it; spawning stops exactly at spell end with no extra bookkeeping. This is
+why the emitter lives on the root rather than on a free-standing object with its own countdown.
+
+**H3 — a symmetric ring's spin is invisible. [CONFIRMED, mitigated]**
+Evenly-spaced identical cubes map onto themselves under any rotation about the axis, so `localRotation`
+alone would show nothing. Mitigation: jitter each ember's radius / angle / size / tilt at spawn; the
+irregular crown is not rotationally symmetric, so its spin is legible. (Rejected alternative: a "spin"
+that is really particles orbiting in place while the ring does not turn — but the user asked for the
+circle to spin, and orbiting particles at fixed heights is the "spin in place" option they did not pick.)
+
+**H4 — fade by scaling the CHILDREN, not the ring. [CONFIRMED]**
+The 1l6t envelope scaled each ember. If `RisingRing` faded by scaling its own transform, the ring's local
+offset to each child would also scale — the circle would shrink toward the centre while fading, a
+"convergence" the user already rejected in 1l6t. So `RisingRing` captures each child's base scale at Init
+and re-applies `base * env` per frame; the ring transform is used only for position (rise) and rotation
+(spin), never scale. Radius therefore stays constant through the fade.
+
+**Verdict.** Straight substitution of the body's mechanism inside one builder; no delivery, colour or
+identity change (rule 13 untouched). Counts chosen to stay as dense as the old 96: 20/ring × ~6–7 live
+rings (2.2 s life / 0.33 s interval) ≈ 130–140 embers. `skills: none applied` (rule 15).
+
+**Honest caveat:** code-reasoned, not measured (rule 7). The spin rate (1.4 rad/s + the root's spin),
+the density, and whether the rings read as distinct circles rather than a blur all need the play-test.
+
 ## 1l6t. Conflagration ember curtain: no centre pull, doubled, emerging from the ground (SHIPPED, play-test pending)
 
 User (one report, three asks): "stop being sucked into the center as they're going up … not enough

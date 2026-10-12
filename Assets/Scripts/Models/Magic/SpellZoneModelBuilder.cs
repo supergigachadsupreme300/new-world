@@ -6,8 +6,9 @@ using UnityEngine;
 /// nothing under <c>Models/</c> while the model shipped. Shapes, names, counts and the shared
 /// <see cref="SkillFx.SharedSpriteMaterial"/> all unchanged.
 /// <para><b>1kc adds <see cref="BuildConflagration"/></b> — the Firestorm/Conflagration look (ground
-///   circle + edge particles rising in a vortex), authored on Conflagration alone through
-///   <c>ZoneBody.VortexCircle</c>.</para></para>
+///   circle + ember rings rising in a vortex), authored on Conflagration alone through
+///   <c>ZoneBody.VortexCircle</c> (1l6u: the rings are spawned continuously by
+///   <c>ConflagrationEmitter</c>).</para></para>
 /// </summary>
 public static class SpellZoneModelBuilder
 {
@@ -72,22 +73,26 @@ public static class SpellZoneModelBuilder
         ApplyShared(halo, sharedMat);
     }
 
-    /// <summary>The 1kc Conflagration body: a flat ground circle with a rising curtain of ember
-    /// tongues. Authored on Conflagration alone (<c>ZoneBody.VortexCircle</c>). (1kf: Firestorm
-    /// draws <see cref="BuildFunnel"/> instead.) Two colours, both through the
-    /// colour-keyed shared cache: the circle takes the spell's Core, the rising flames the hot end
+    /// <summary>The 1kc Conflagration body: a flat ground circle with a rising curtain of spinning
+    /// ember rings. Authored on Conflagration alone (<c>ZoneBody.VortexCircle</c>). (1kf: Firestorm
+    /// draws <see cref="BuildFunnel"/> instead.) Two colours, both through the colour-keyed shared
+    /// cache: the circle takes the spell's Core, the rising rings the hot end
     /// (<see cref="SpellLook.HotCore"/>) — the same hot-end choice SpellBeam's funnel makes.
-    /// <para><b>1l3</b> ("only create one ember ray on the circle edge, i want more"): every ember
-    /// used to ride the SAME helix, so evenly-phased cubes traced ONE spiral strand. They are now
-    /// dealt into <c>rays</c> PARALLEL strands (a per-ember angular offset, <c>angOffset</c>), so the
-    /// rim carries several distinct tongues of flame.</para>
-    /// <para><b>1l6t</b> ("stop being sucked into the centre … double the particles … make them
-    /// appear from below, not all at once"): the tongues now rise <b>straight up at the ring
-    /// radius</b> — the old convergent helix (<c>orbit = radius·(1 − 0.80·cyc²)</c>) pulled every
-    /// ember to the centre as it climbed; the count doubled (48 → 96 = 12 strands of 8); and each
-    /// ember now <b>starts at the ground and climbs</b>, its own age-gated rise plus a bottom/top
-    /// scale envelope, so the curtain builds up from the ground instead of every ember popping into
-    /// place at once. The apex stays <c>max(3.2, radius·2.2)</c> with 1.8 turns per rise.</para></summary>
+    /// <para><b>1l3</b> ("only create one ember ray on the circle edge, i want more"): the embers were
+    /// dealt into parallel strands by a per-ember angular offset, so the rim carried several distinct
+    /// tongues of flame instead of one shared helix.</para>
+    /// <para><b>1l6t</b> ("stop being sucked into the centre … double the particles … appear from
+    /// below"): the tongues rose <b>straight up at the ring radius</b> (the old convergent helix
+    /// pulled them to the centre), the count doubled, and each ember started at the ground behind a
+    /// bottom/top scale envelope.</para>
+    /// <para><b>1l6u</b> ("stop creating particle rays with waves … create particle circles spinning
+    /// when they were created, and spawn continuously till spell end"): the pre-placed vertical strands
+    /// are gone. A <see cref="ConflagrationEmitter"/> on the zone root now spawns a fresh horizontal
+    /// <b>ring</b> of embers every <c>SpawnInterval</c>; each ring (<see cref="RisingRing"/>) rises as
+    /// one unit and <b>spins</b> about the vertical axis, and is slightly irregular (jittered
+    /// radius/angle/size) so the spin is visible rather than hidden by rotational symmetry. The emitter
+    /// lives on the zone root, so rings keep spawning until the zone is destroyed — i.e. until the
+    /// spell ends.</para></summary>
     public static void BuildConflagration(Transform parent, float radius, Color core, Color hot)
     {
         Material coreMat = SkillFx.SharedSpriteMaterial(core);
@@ -100,90 +105,124 @@ public static class SpellZoneModelBuilder
         disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
         ApplyShared(disc, coreMat);
 
-        const int rays = 12;                   // 1l6t: parallel flame strands around the ring (was 6)
-        const int perRay = 8;                  // 8 tongues spread along each strand's climb
-        const int embers = rays * perRay;      // 96 total (doubled from 48)
-        const float risesPerSecond = 0.45f;
-        const float turnsPerRise = 1.8f;
-        const float buildSeconds = 0.7f;       // the curtain fills from the ground over this window
-        float height = Mathf.Max(3.2f, radius * 2.2f);
-        for (int i = 0; i < embers; i++)
+        // 1l6u: the ember curtain is an emitter, not a fixed set of cubes. Guarded so a second call on
+        // the same root (the QA bench builds a fresh modelRoot per spell; a defensively re-built zone
+        // should not stack two spawners) re-points the existing emitter instead of adding another.
+        var emitter = parent.GetComponent<ConflagrationEmitter>();
+        if (emitter == null) emitter = parent.gameObject.AddComponent<ConflagrationEmitter>();
+        emitter.Init(radius, Mathf.Max(3.2f, radius * 2.2f), hotMat);
+    }
+
+    /// <summary>1l6u: spawns the conflagration's ember rings continuously. Rule 19: the shape factory
+    /// builds the static disc, and the component that runs while the pieces MOVE owns the motion — but
+    /// this motion is a <i>stream</i>, so its home is a spawner on the zone root rather than a
+    /// per-piece component. It spawns one ring every <c>SpawnInterval</c> seconds; each ring rises +
+    /// spins and then destroys itself (<see cref="RisingRing"/>), so a bounded handful are alive at
+    /// steady state. The spawner dies with the zone root, which is exactly "spawn continuously till
+    /// spell end".</summary>
+    private sealed class ConflagrationEmitter : MonoBehaviour
+    {
+        private const int PerRing = 20;          // embers around one ring
+        private const float SpawnInterval = 0.33f;
+        private const float RiseDuration = 2.2f; // how long one ring takes to reach the apex, then die
+        private const float EmberSize = 0.16f;
+
+        private float _radius;
+        private float _height;
+        private Material _hotMat;
+        private float _spawnTimer;
+        private int _ringIndex;
+
+        public void Init(float radius, float height, Material hotMat)
         {
-            int ray = i % rays;
-            int along = i / rays;
-            float angOffset = ray * (2f * Mathf.PI / rays);              // separate the strands
-            float startDelay = along / (float)(perRay - 1) * buildSeconds; // tiers emerge bottom-first
-            var ember = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            ember.name = "SpellEmber_" + i;
-            DestroyCollider(ember);
-            ember.transform.SetParent(parent, false);
-            ember.transform.localScale = Vector3.one * 0.16f;
-            ember.transform.localRotation = Quaternion.Euler(0f, angOffset * Mathf.Rad2Deg, 0f);
-            ApplyShared(ember, hotMat);
-            ember.AddComponent<VortexRiser>().Init(angOffset, startDelay, risesPerSecond, turnsPerRise, radius, height, i);
+            _radius = radius;
+            _height = height;
+            _hotMat = hotMat;
+        }
+
+        private void Update()
+        {
+            _spawnTimer -= Time.deltaTime;
+            if (_spawnTimer > 0f) return;
+            _spawnTimer = SpawnInterval;
+            SpawnRing();
+        }
+
+        private void SpawnRing()
+        {
+            var ring = new GameObject("SpellRing_" + _ringIndex++);
+            ring.transform.SetParent(transform, false);
+            for (int i = 0; i < PerRing; i++)
+            {
+                // Slight irregularity (radius / angle / size / tilt) so the ring is NOT rotationally
+                // symmetric — a perfectly even ring of identical cubes looks static however fast it
+                // spins. The jitter is baked at spawn and rides with the ring, so the spin is legible.
+                float ang = (i / (float)PerRing) * Mathf.PI * 2f + Random.Range(-0.08f, 0.08f);
+                float r = _radius * Random.Range(0.9f, 1.1f);
+                var ember = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                ember.name = "SpellEmber_" + i;
+                DestroyCollider(ember);
+                ember.transform.SetParent(ring.transform, false);
+                ember.transform.localPosition = new Vector3(
+                    Mathf.Cos(ang) * r,
+                    Random.Range(-0.05f, 0.05f),
+                    Mathf.Sin(ang) * r);
+                ember.transform.localRotation = Quaternion.Euler(
+                    Random.Range(-12f, 12f), ang * Mathf.Rad2Deg, Random.Range(-12f, 12f));
+                ember.transform.localScale = Vector3.one * EmberSize * Random.Range(0.7f, 1.3f);
+                ApplyShared(ember, _hotMat);
+            }
+            ring.AddComponent<RisingRing>().Init(_height, RiseDuration);
         }
     }
 
-    /// <summary>Moves one ember of the conflagration body (rule 19: the shape factory builds, the
-    /// component that runs while the pieces MOVE animates — the same split <c>BoltFader</c> uses for
-    /// the storm bars). 1l6t: the ember climbs the ring radius <b>straight up</b> — the old helix
-    /// pulled it toward the centre as it rose, the "sucked into the centre" report — starting from
-    /// the ground after its own <c>startDelay</c> so the curtain builds bottom-first, and fading in
-    /// low / out high so it reads as a tongue of flame that <b>appears from below and rises</b>. The
-    /// zone root's own pull-spin adds to the whirl. Dies with the zone (it is a child of the zone
-    /// root — nothing detaches it).</summary>
-    private sealed class VortexRiser : MonoBehaviour
+    /// <summary>1l6u: one spawned ember ring. Climbs as a unit to the apex while spinning about the
+    /// vertical axis (on top of the zone root's own 240 deg/s pull-spin), fading in low / out high so
+    /// the column reads continuous rather than as discrete pops. Destroys itself at the end of its
+    /// climb — the emitter keeps replacing it. It fades by scaling each child EMBER, never the ring
+    /// transform, so the circle's radius stays constant while it fades (scaling the ring would shrink
+    /// the circle toward its centre).</summary>
+    private sealed class RisingRing : MonoBehaviour
     {
-        // Fraction of the climb spent fading in at the ground and out at the top, so the ends of
-        // the curtain melt in/out rather than every ember snapping to full size.
         private const float FadeFraction = 0.22f;
+        private const float SpinSpeed = 1.4f;   // rad/s, added to the zone root's pull-spin
 
-        private float _angOffset;
-        private float _startDelay;
-        private float _speed;
-        private float _turns;
-        private float _radius;
         private float _height;
-        private float _seed;
-        private Vector3 _baseScale;
+        private float _duration;
         private float _age;
+        private Transform[] _embers;
+        private Vector3[] _baseScales;
 
-        public void Init(float angOffset, float startDelay, float speed, float turns,
-            float radius, float height, float seed)
+        public void Init(float height, float duration)
         {
-            _angOffset = angOffset;
-            _startDelay = startDelay;
-            _speed = speed;
-            _turns = turns;
-            _radius = radius;
             _height = height;
-            _seed = seed;
-            _baseScale = transform.localScale;
-            // Parked at zero until its turn, so nothing shows above the ground before its tier's
-            // delay elapses — this is what makes the curtain build from the ground up.
-            transform.localScale = Vector3.zero;
+            _duration = duration;
+            int n = transform.childCount;
+            _embers = new Transform[n];
+            _baseScales = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                _embers[i] = transform.GetChild(i);
+                _baseScales[i] = _embers[i].localScale;
+            }
         }
 
         private void Update()
         {
             _age += Time.deltaTime;
-            float t = _age - _startDelay;
-            if (t < 0f) return;   // still waiting below the ground — stays at zero scale
+            float cyc = _age / _duration;
+            if (cyc >= 1f)
+            {
+                Destroy(gameObject);
+                return;
+            }
 
-            float cyc = Mathf.Repeat(t * _speed, 1f);
-            float ang = _angOffset + cyc * _turns * Mathf.PI * 2f;
-            // 1l6t: constant radius — rise straight up at the ring edge, no inward convergence.
-            transform.localPosition = new Vector3(
-                Mathf.Cos(ang) * _radius,
-                cyc * _height,
-                Mathf.Sin(ang) * _radius);
-            // Appears low, vanishes high, so the eye reads a stream rising from the ground rather
-            // than a set of cubes that all pop into place at once.
+            transform.localPosition = new Vector3(0f, cyc * _height, 0f);
+            transform.localRotation = Quaternion.Euler(0f, _age * SpinSpeed * Mathf.Rad2Deg, 0f);
+
             float env = Mathf.Clamp01(cyc / FadeFraction) * Mathf.Clamp01((1f - cyc) / FadeFraction);
-            // Gentle shimmer so each tongue of flame reads alive — small and slow compared to the
-            // beam's 23/41 Hz flutter (1jz/1kb), never a body-size "breathe".
-            float shimmer = 1f + 0.15f * Mathf.Sin(ang * 5f + _seed * 7f);
-            transform.localScale = _baseScale * (env * shimmer);
+            for (int i = 0; i < _embers.Length; i++)
+                _embers[i].localScale = _baseScales[i] * env;
         }
     }
 

@@ -1952,8 +1952,8 @@ private static string Describe(in SpellLook look)
             }
             // 1kc: Conflagration's own body — mounts the SAME builder the runtime SpellZone runs,
             // for the same rule-13 reason as the beam branch below: a visual that exists only inside
-            // a live cast has no acceptance readout. The VortexRiser embers animate on the pedestal,
-            // so the rising vortex reads as well as it does in a live cast.
+            // a live cast has no acceptance readout. The emitter spawns its rings on the pedestal
+            // (1l6u), so the rising spin reads as well as it does in a live cast.
             else if (SpellLook.Resolve(spell).ZoneModel == ZoneBody.VortexCircle)
             {
                 var cl = SpellLook.Resolve(spell);
