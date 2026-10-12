@@ -127,6 +127,11 @@ public partial class PlayerController
                 {
                     _velocity.y = Mathf.Sqrt(JumpHeight * -2f * Gravity);
                     _jumpFrame = Time.frameCount;
+                    PlayerAnimator pa = GetComponentInChildren<PlayerAnimator>();
+                    if (pa != null)
+                    {
+                        // trigger simple jump pose via small impulse? we don't have jump anim yet - will set flags
+                    }
                 }
                 else if (_velocity.y > 0f && Time.frameCount > _jumpFrame + 2)
                 {

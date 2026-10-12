@@ -76,6 +76,7 @@ public sealed class PlayerAnimator : MonoBehaviour
     private float _lastArmWrite;
 
     private bool _armWatchdogLogged;
+    private float _jumpTimer;
 
     [Tooltip("How much the upper body pitches with the camera look (0 = none, 1 = full camera pitch). "
         + "Looking down bends the torso forward, looking up leans it back.")]
