@@ -135,6 +135,9 @@ public class SpellEffect : MonoBehaviour
 
     private void Update()
     {
+        // Spin around Z (forward) axis - always
+        float spinRate = _wave ? 150f : 600f;
+        transform.Rotate(0f, 0f, spinRate * Time.deltaTime);
         if (!_launched) return;
 
         // Keep the chunk we're flying over collider-enabled (1dq). Only track the single current
@@ -248,17 +251,7 @@ public class SpellEffect : MonoBehaviour
             else _trail.Push(transform.position);
         }
 
-        // 1l6: add a subtle spinning animation for flying projectiles (e.g. fireball)
-        if (!_wave && !_homing)
-        {
-            // spin around forward axis at ~600 deg/s
-            transform.Rotate(0f, 600f * Time.deltaTime, 0f);
-        }
-        else if (_wave)
-        {
-            // wave stays flat - minimal roll
-            transform.Rotate(0f, 150f * Time.deltaTime, 0f);
-        }
+        // Spin already applied at start of Update
     }
 
     /// <summary>

@@ -90,8 +90,11 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
         }
 
         Vector3 d = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.forward;
-        _body.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(d));
-        _body.transform.localScale = Vector3.one * Mathf.Max(0.05f, chargeScale);
+        float s = Mathf.Max(0.05f, chargeScale);
+        // Push forward slightly so larger preview doesn't engulf player
+        float push = Mathf.Clamp(0.25f * (s - 1f), 0f, 0.5f);
+        _body.transform.SetPositionAndRotation(pos + d * push, Quaternion.LookRotation(d));
+        _body.transform.localScale = Vector3.one * s;
         _body.SetActive(true);
         _active = true;
     }
