@@ -2306,6 +2306,11 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   charged body would otherwise sink into the player's torso/arms. The launch keeps the fixed 0.5 m
   muzzle (it must not push into a wall the caster is standing against), so a released bolt appears
   slightly behind the hold's center — invisible at flight speed.
+  **1l71: the held body spins about its aim axis exactly like the launched bolt** — the same
+  `SpellEffect.SpinRate` (600 deg/s, or 150 for a ground wave; one shared source, rule 13), applied as a
+  spin phase kept in `ChargedProjectilePreview.Update` and composed into the per-frame `LookRotation`, so
+  "not launched" reads as the shot rather than a static prop. The phase resets on each hold so it starts
+  aligned to a fresh launch.
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
   tinted by the spell's resolved core colour (1ij), matching the projectile **ray** colour (1iq turned
   that shared charge readout from a cone into a ray) so a charge reads in one colour from aim to release.

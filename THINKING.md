@@ -1,3 +1,34 @@
+## 1l71. Held projectile body spins like the launched bolt (SHIPPED, play-test pending)
+
+User: "projectile have an spinning animation when launch, i want it to spin while not launched as well."
+
+**Which "not launched" projectile?** `SpellEffect` already spins before its `if (!_launched) return;`, but
+there is no gameplay frame where a `SpellEffect` exists unlaunched — `FireProjectile` calls `Launch`
+immediately. So the only projectile body that is *drawn but not flying* is the held one:
+`ChargedProjectilePreview`, shown by `PlayerController.UpdateChargedProjectile` for every
+Projectile-delivery spell while aiming (1l1). That is what reads as "not spinning".
+
+**Why it didn't spin.** `ChargedProjectilePreview.Show` runs every aimed frame and sets
+`SetPositionAndRotation(pos, LookRotation(dir))`, i.e. it REWRITES the rotation from the aim each frame,
+discarding any spin. So the spin must be kept as a PHASE in the component and composed into that
+per-frame rotation — rotating the child in `Update` alone would be overwritten by the next `Show`.
+
+**One source for the rate (rule 13, small scale).** The rate was an inline `_wave ? 150f : 600f` in
+`SpellEffect.Update`. The held body is a second consumer of the same number, so it was lifted to
+`SpellEffect.SpinRate(bool)` and both read it. A re-spelled `600f` in the preview is rule 13's "second
+drifting table", just smaller.
+
+**The spin axis.** `Show` uses `Quaternion.LookRotation(dir)`, which maps local +Z to the aim — the same
+orientation `FireProjectile` spawns the bolt at. The bolt spins with `transform.Rotate(0, 0, …)` = local-Z
+space, so the preview composes `LookRotation(dir) * AngleAxis(phase, Vector3.forward)` — right-multiply is
+local space, matching `Rotate`'s default `Space.Self`: identical axis, sign and rate.
+
+**Deliberate under-report (rule 8).** Each hold starts its phase at 0 (reset on rebuild and on `Hide`),
+matching a fresh launch's phase 0; a hold mid-spin does not hand its phase to the bolt, so there can be a
+sub-revolution snap at release. Not worth carrying state across two objects for a bolt leaving at 20+ m/s.
+
+`skills: none applied` (rule 15). Per-frame work stays in the preview component, not the builder (rule 19).
+
 ## 1l70. Ice spell rework — seven redundant spells, seven distinct mechanics (SHIPPED, play-test pending)
 
 User (testing.md #4): all seven flagged spells were statistical duplicates of siblings (three Lance

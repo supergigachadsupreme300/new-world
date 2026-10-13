@@ -1,3 +1,35 @@
+## 1l71. Held projectile body spins like the launched bolt
+
+User: "projectile have an spinning animation when launch, i want it to spin while not launched as well."
+
+- A fired projectile already spun about its travel axis in `SpellEffect.Update` (`transform.Rotate(0, 0,
+  rate*dt)`, 600 deg/s; 150 for a ground wave), but the body the player HOLDS while aiming a
+  Projectile-delivery spell — `ChargedProjectilePreview`, built from the same `MagicProjectileModelBuilder`
+  and placed at the muzzle — was static: `Show` rewrote its rotation from `Quaternion.LookRotation(dir)`
+  every frame, so no spin could survive.
+- **`SpellEffect.SpinRate(bool wave)`** is the new single source for the rate (600 / 150), read by both
+  the flying bolt and the held body (rule 13), so the two cannot drift.
+- **`ChargedProjectilePreview`** now accumulates `_spin` in its own `Update` (only while a body is shown)
+  and applies it as `LookRotation(dir) * AngleAxis(_spin, Vector3.forward)` — a local +Z spin, exactly the
+  bolt's `transform.Rotate(0, 0, …)`, since `LookRotation` already makes +Z the travel axis. The rate and
+  `_spin` reset when a new body is built and on `Hide`, so each hold starts aligned to a fresh launch (the
+  released bolt also starts at phase 0).
+- Per-frame work stays in the preview component (a transform write), never in the shared builder — rule
+  19's "the builder owns shape, not time".
+- **Docs:** `game-design.md` §3.8. Touches `SpellEffect` / `ChargedProjectilePreview` only.
+
+### 1l71-status
+- [x] `SpellEffect.cs`: extracted `SpinRate(bool)`; `Update` reads it.
+- [x] `ChargedProjectilePreview.cs`: `_spinRate`/`_spin` fields, `Update`, spin applied in `Show`, reset in
+  build/Hide.
+- [x] Docs: `game-design.md` §3.8, this entry + `THINKING.md` §1l71.
+- [x] Verified by grep + reread (no build, rule 3): 1 `SpinRate` definition + 2 uses; the local-Z spin
+  matches the bolt's. (`StaticChecks.ps1` covers neither file; run anyway → 0 candidates.)
+- [x] `skills: none applied` (rule 15) — procedural C# behaviour.
+- [ ] **PLAY-TEST (user, Unity):** hold a projectile spell (fireball etc.) while aiming — the body in
+  front of the magic hand should now spin about its aim axis, matching the released bolt; check a
+  ground-wave spell spins slower and the hold→launch transition reads smoothly.
+
 ## 1l70. Ice spell rework — the seven redundant spells each get a distinct mechanic (task 4)
 
 User (testing.md #4): "we already have chill touch so frozen touch is just useless, change it into
