@@ -2508,12 +2508,14 @@ authored count 25 → **26**.
 
 **Body:** `SpellZoneModelBuilder.BuildConflagration(transform, Radius, core, HotCore(core))` — a thin
 ground disc in the spell's Core colour, plus a `ConflagrationEmitter` on the zone root that **spawns a
-fresh horizontal ring of 20 ember cubes** (hot colour) every 0.33 s. Each ring (a `RisingRing`) lives
-2.2 s: it rises as a unit to the apex (`max(3.2, 2.2·radius)`) while **spinning** about the vertical axis
-(1.4 rad/s on top of the zone root's own 240 deg/s pull-spin), fading in low / out high so the column
-reads continuous, then destroys itself — the emitter keeps replacing it (**1l6u**). Rings are slightly
-irregular (jittered radius / angle / size / tilt) so the *spin* is visible: a perfectly even ring of
-identical cubes is rotationally symmetric and looks static at whatever speed it turns. Because the emitter
+fresh horizontal ring of 20 ember cubes** (hot colour) every 0.14 s (**1l6v**, was 0.33 s). Each ring (a
+`RisingRing`) lives 1.3 s (**1l6v**, was 2.2 s): it rises as a unit to the apex (`max(3.2, 2.2·radius)`)
+while **spinning** about the vertical axis (1.4 rad/s on top of the zone root's own 240 deg/s pull-spin),
+fading in low / out high so the column reads continuous, then destroys itself — the emitter keeps
+replacing it (**1l6u**). Rings are slightly irregular (jittered radius / angle / tilt) so the *spin* is
+visible: a perfectly even ring of identical cubes is rotationally symmetric and looks static at whatever
+speed it turns. Every ember is the **same size** (**1l6v** — size jitter removed; radius/angle/tilt alone
+keep the spin readable). Because the emitter
 lives on the zone root, rings keep spawning until the zone is destroyed — i.e. **until the spell ends**.
 Rule 19's factory/component split still holds: the factory builds the disc, and the spawner + its
 `RisingRing` own the motion (a *stream* belongs on a spawner, not on a per-piece component). The disc
@@ -2524,6 +2526,7 @@ parallel strands so the rim carried several tongues of flame instead of one shar
 being sucked into the centre … double the particles … appear from below") made them rise straight up at
 the ring radius (the old convergent helix was `orbit = radius·(1 − 0.80·cyc²)`), doubled the count, and
 started each ember at the ground. **1l6u** replaced the pre-placed strands with the ring emitter above.
+**1l6v** sped the rings up (spawn 0.33 → 0.14 s, life 2.2 → 1.3 s) and made all embers one size.
 
 **The F4 audit gained the axis's 2 bits at 38 and the ratchet stays one-way.** Because determinism
 resolves the axis to `Funnel` for every non-authored spell, every existing key is byte-identical and

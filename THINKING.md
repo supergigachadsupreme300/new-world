@@ -1,3 +1,28 @@
+## 1l6v. Conflagration: faster ring spawn + rise, uniform particle size (SHIPPED, play-test pending)
+
+User: "ok now it need to create ring way faster and make it rise faster, and ensure the particle size
+are equal."
+
+**Three knobs, one builder.** All three live in `ConflagrationEmitter` / its `SpawnRing`:
+- **Spawn faster.** `SpawnInterval` 0.33 → 0.14 s. Reads as a continuous stream instead of distinct rings.
+- **Rise faster.** `RiseDuration` 2.2 → 1.3 s (`height / duration`; ~4.4 m/s for Conflagration's ~5.7 m
+  apex). The fade envelope is a *fraction* of the climb (`FadeFraction`), so it tracks the shorter climb
+  for free — no second constant to update.
+- **Equal size.** Dropped the `* Random.Range(0.7f, 1.3f)` on `localScale`. **H3 from 1l6u survives:**
+  the spin stays readable because the ring is still irregular in RADIUS / ANGLE / TILT — size jitter was
+  never the thing doing the work (radius alone breaks rotational symmetry). So removing it costs no
+  legibility, which is why this is safe rather than a re-introduction of the invisible-spin problem.
+
+**Why density did not change much.** Alive rings ≈ `RiseDuration / SpawnInterval` ≈ 1.3 / 0.14 ≈ 9.3
+(~180 embers), close to 1l6u's ~6–7. Both timings were scaled up together *because the ask was speed*
+("ring way faster", "rise faster"), not density — so the column looks the same but livelier. Had only
+one been sped up, the other would have drifted (faster spawn alone = pile-up at the base; faster rise
+alone = a sparse, gap-riddled column).
+
+**Noted for the play-test:** faster spawning raises the create/destroy churn (~20 cubes per 0.14 s for
+the zone's life). If that hitches, the fix is fewer `PerRing` or pooling the embers — not slowing the
+look back down. `skills: none applied` (rule 15).
+
 ## 1l6u. Conflagration: spinning rings spawned continuously, replacing the vertical strands (SHIPPED, play-test pending)
 
 User: "currently the conflagration is creating particle ray, with waves, i want it to create particle

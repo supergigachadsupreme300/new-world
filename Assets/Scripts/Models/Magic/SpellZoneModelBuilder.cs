@@ -90,9 +90,13 @@ public static class SpellZoneModelBuilder
     /// are gone. A <see cref="ConflagrationEmitter"/> on the zone root now spawns a fresh horizontal
     /// <b>ring</b> of embers every <c>SpawnInterval</c>; each ring (<see cref="RisingRing"/>) rises as
     /// one unit and <b>spins</b> about the vertical axis, and is slightly irregular (jittered
-    /// radius/angle/size) so the spin is visible rather than hidden by rotational symmetry. The emitter
+    /// radius/angle) so the spin is visible rather than hidden by rotational symmetry. The emitter
     /// lives on the zone root, so rings keep spawning until the zone is destroyed — i.e. until the
-    /// spell ends.</para></summary>
+    /// spell ends.</para>
+    /// <para><b>1l6v</b> ("create ring way faster and make it rise faster, and ensure the particle size
+    /// are equal"): <c>SpawnInterval</c> dropped 0.33 → 0.14 s and <c>RiseDuration</c> 2.2 → 1.3 s, and
+    /// the per-ember size jitter is gone — every ember is the same size (the radius/angle/tilt jitter
+    /// alone keeps the spin readable).</para></summary>
     public static void BuildConflagration(Transform parent, float radius, Color core, Color hot)
     {
         Material coreMat = SkillFx.SharedSpriteMaterial(core);
@@ -123,8 +127,8 @@ public static class SpellZoneModelBuilder
     private sealed class ConflagrationEmitter : MonoBehaviour
     {
         private const int PerRing = 20;          // embers around one ring
-        private const float SpawnInterval = 0.33f;
-        private const float RiseDuration = 2.2f; // how long one ring takes to reach the apex, then die
+        private const float SpawnInterval = 0.14f; // 1l6v: rings spawn "way faster" (was 0.33)
+        private const float RiseDuration = 1.3f;   // 1l6v: rings rise "faster" (was 2.2) — ~4.4 m/s
         private const float EmberSize = 0.16f;
 
         private float _radius;
@@ -154,9 +158,11 @@ public static class SpellZoneModelBuilder
             ring.transform.SetParent(transform, false);
             for (int i = 0; i < PerRing; i++)
             {
-                // Slight irregularity (radius / angle / size / tilt) so the ring is NOT rotationally
+                // Slight irregularity (radius / angle / tilt) so the ring is NOT rotationally
                 // symmetric — a perfectly even ring of identical cubes looks static however fast it
                 // spins. The jitter is baked at spawn and rides with the ring, so the spin is legible.
+                // 1l6v: size is NO LONGER jittered — every ember is the same size; the radius/angle/
+                // tilt jitter is enough to keep the spin readable.
                 float ang = (i / (float)PerRing) * Mathf.PI * 2f + Random.Range(-0.08f, 0.08f);
                 float r = _radius * Random.Range(0.9f, 1.1f);
                 var ember = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -169,7 +175,7 @@ public static class SpellZoneModelBuilder
                     Mathf.Sin(ang) * r);
                 ember.transform.localRotation = Quaternion.Euler(
                     Random.Range(-12f, 12f), ang * Mathf.Rad2Deg, Random.Range(-12f, 12f));
-                ember.transform.localScale = Vector3.one * EmberSize * Random.Range(0.7f, 1.3f);
+                ember.transform.localScale = Vector3.one * EmberSize;   // 1l6v: uniform size
                 ApplyShared(ember, _hotMat);
             }
             ring.AddComponent<RisingRing>().Init(_height, RiseDuration);

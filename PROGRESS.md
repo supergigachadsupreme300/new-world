@@ -1,3 +1,31 @@
+## 1l6v. Conflagration: rings spawn + rise faster, and every ember is the same size
+
+User: "ok now it need to create ring way faster and make it rise faster, and ensure the particle size
+are equal."
+
+- **Tuning follow-up to 1l6u (same builder, `SpellZoneModelBuilder.ConflagrationEmitter`).**
+  - `SpawnInterval` 0.33 → **0.14 s** (rings spawn "way faster").
+  - `RiseDuration` 2.2 → **1.3 s** (rings rise "faster" — ~4.4 m/s for Conflagration's ~5.7 m apex).
+  - Removed the per-ember size jitter (`* Random.Range(0.7f, 1.3f)`) — every ember is now `EmberSize`
+    (equal size). The radius / angle / tilt jitter stays, which is what keeps the ring's spin visible
+    (a perfectly even ring of identical cubes is rotationally symmetric and looks static).
+  - Ring density is roughly unchanged (alive rings ≈ 1.3/0.14 ≈ 9, ~180 embers); both timings scaled
+    up together, the user asked for speed, not density.
+- **Docs:** `SpellZoneModelBuilder.BuildConflagration` doc (1l6v para + jitter wording), `game-design.md`
+  §3.8.5 body + history. (`magic-skills.md` states no numbers, so unchanged.)
+
+### 1l6v-status
+- [x] `SpellZoneModelBuilder.cs`: `SpawnInterval` 0.14, `RiseDuration` 1.3, uniform ember size.
+- [x] Docs: `game-design.md` §3.8.5, this entry + `THINKING.md` §1l6v.
+- [x] Verified by grep + reread (no build, rule 3): size jitter removed, radius/angle/tilt jitter retained;
+  `StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — procedural C# model tuning (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** cast Conflagration — rings should spawn and rise markedly faster, with
+  all embers the same size; spin still visible. Note: faster spawning raises the create/destroy churn
+  (~20 cubes per 0.14 s while the zone lives) — if it hitches, lower `PerRing` or pool the embers.
+
+
+
 ## 1l6u. Conflagration: spinning ember rings spawn continuously from the ground (replaces the fixed vertical strands)
 
 User: "currently the conflagration is creating particle ray, with waves, i want it to create particle
@@ -8,8 +36,8 @@ circles spinning when they were created, and spawn continuously till spell end."
 - **What changed (`SpellZoneModelBuilder.cs`).** The 96 pre-placed embers that rode 12 vertical helical
   strands (the "particle ray, with waves") are gone. `BuildConflagration` now builds the ground disc and
   attaches a **`ConflagrationEmitter`** to the zone root; the emitter spawns a fresh **horizontal ring**
-  of embers every `SpawnInterval` (0.33 s), each ring driven by a **`RisingRing`** component:
-  - **Rise.** `localPosition.y` climbs to the apex (`max(3.2, 2.2·radius)`) over `RiseDuration` (2.2 s).
+  of embers every `SpawnInterval` (0.33 s; 1l6v: 0.14 s), each ring driven by a **`RisingRing`** component:
+  - **Rise.** `localPosition.y` climbs to the apex (`max(3.2, 2.2·radius)`) over `RiseDuration` (2.2 s; 1l6v: 1.3 s).
   - **Spin.** `localRotation` turns about the vertical axis at 1.4 rad/s, on top of the zone root's own
     240 deg/s pull-spin.
   - **Spawn continuously till spell end.** The emitter lives on the zone root, so it (and every live
@@ -4325,7 +4353,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-12 (1l6u). Read this first in a new session; then continue with the
+Last updated: 2026-10-12 (1l6v). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
