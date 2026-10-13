@@ -133,11 +133,15 @@ public class SpellEffect : MonoBehaviour
         }
     }
 
+    /// <summary>1l6x: spin about the travel axis (deg/s) for a flying or held projectile. One source
+    /// (rule 13) shared with <c>ChargedProjectilePreview</c>, so the held body cannot drift from the
+    /// bolt that replaces it. A wave is slower so its sweep stays readable.</summary>
+    public static float SpinRate(bool wave) => wave ? 150f : 600f;
+
     private void Update()
     {
-        // Spin around Z (forward) axis - always
-        float spinRate = _wave ? 150f : 600f;
-        transform.Rotate(0f, 0f, spinRate * Time.deltaTime);
+        // Spin around Z (travel) axis - always, whether launched or still held
+        transform.Rotate(0f, 0f, SpinRate(_wave) * Time.deltaTime);
         if (!_launched) return;
 
         // Keep the chunk we're flying over collider-enabled (1dq). Only track the single current

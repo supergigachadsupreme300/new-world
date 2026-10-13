@@ -48,6 +48,12 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
     private SpellData _spell;   // the body currently built — rebuilt when the armed spell changes
     private bool _active;
 
+    // 1l6x: the held body spins about its travel axis exactly like the bolt it becomes. The rate is
+    // read from SpellEffect.SpinRate (rule 13 - one source), never re-spelled here; _spin is the
+    // accumulated angle (deg) applied by Show's rotation so the per-frame path stays a transform write.
+    private float _spinRate;
+    private float _spin;
+
     /// <summary>Ensure the singleton exists and return it (builds on first access).</summary>
     public static ChargedProjectilePreview Instance
     {
@@ -65,6 +71,12 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
 
     /// <summary>True while a held projectile body is currently visible.</summary>
     public bool IsActive => _active;
+
+    private void Update()
+    {
+        if (!_active || _body == null) return;
+        _spin = Mathf.Repeat(_spin + _spinRate * Time.deltaTime, 360f);
+    }
 
     private void Awake()
     {
@@ -95,6 +107,10 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
             MagicProjectileModelBuilder.AttachDefaultProjectileVisual(_body, SpellLook.Resolve(spell),
                 spell.SummonFallingRock);
             _spell = spell;
+            // Same rate the released bolt will spin at (rule 13), and start the hold aligned to a
+            // fresh launch (its bolt starts at phase 0).
+            _spinRate = SpellEffect.SpinRate(spell.Shape == ProjectileShape.Wave);
+            _spin = 0f;
         }
 
         Vector3 d = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.forward;
@@ -106,7 +122,11 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
         // cap bound before the body had cleared the player. Play-test knob: raise the 0.5 if a large
         // hold still overlaps, or the 1.0 cap to let extreme overcharges push further.
         float push = Mathf.Clamp(0.5f * (s - 1f), 0f, 1f);
-        _body.transform.SetPositionAndRotation(pos + d * push, Quaternion.LookRotation(d));
+        // LookRotation makes local +Z the travel axis; the trailing local-Z spin is exactly the
+        // launched bolt's `transform.Rotate(0, 0, rate*dt)`, so the hold and the flight agree.
+        Quaternion look = Quaternion.LookRotation(d);
+        _body.transform.SetPositionAndRotation(pos + d * push,
+            look * Quaternion.AngleAxis(_spin, Vector3.forward));
         _body.transform.localScale = Vector3.one * s;
         _body.SetActive(true);
         _active = true;
@@ -116,6 +136,7 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
     public void Hide()
     {
         _active = false;
+        _spin = 0f;   // a new hold starts aligned with a fresh launch
         if (_body != null) _body.SetActive(false);
     }
 }
