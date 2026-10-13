@@ -10,7 +10,11 @@ using UnityEngine;
 ///   <c>ZoneBody.VortexCircle</c> (1l6u: the rings are spawned continuously by
 ///   <c>ConflagrationEmitter</c>).</para>
 /// <para><b>1l6z adds <see cref="BuildFrozenField"/></b> — the Deep Freeze look (a frost disc ringed
-///   by a rosette of ice spikes), authored on Deep Freeze alone through <c>ZoneBody.FrozenField</c>.</para></para>
+///   by a rosette of ice spikes), first authored through <c>ZoneBody.FrozenField</c>. <b>1l70</b>:
+///   Deep Freeze moved from Zone to Storm delivery, so today the field is mounted as a STORM body
+///   (<c>StormBody.FrozenField</c>, built by <c>SpellStorm</c>) — one builder, two delivery gates —
+///   and the <c>ZoneBody.FrozenField</c> variant is dormant: nobody authors it, the same shape is
+///   drawn under the storm's strikes.</para></para>
 /// </summary>
 public static class SpellZoneModelBuilder
 {
@@ -79,8 +83,10 @@ public static class SpellZoneModelBuilder
     /// a rosette of translucent ice spikes (<c>Edge</c>) jutting straight up at varied heights, with a
     /// taller central spire, so the zone reads as ground frozen solid rather than the two stacked discs
     /// of <see cref="BuildGroundZone"/> (a ground disc plus a floating halo, which the user described as
-    /// "just two discs placing on top of each other"). Authored-only through <c>ZoneBody.FrozenField</c>;
-    /// every collider is destroyed, so this is body-only by construction.</summary>
+    /// "just two discs placing on top of each other"). Authored-only, first through
+    /// <c>ZoneBody.FrozenField</c> (1l6z) and since 1l70 through <c>StormBody.FrozenField</c>; the storm
+    /// gate is shown by <c>SpellStorm</c> sharing this exact builder. Every collider is destroyed, so
+    /// this is body-only by construction.</summary>
     public static void BuildFrozenField(Transform parent, float radius, Color core, Color edge)
     {
         Material coreMat = SkillFx.SharedSpriteMaterial(core);

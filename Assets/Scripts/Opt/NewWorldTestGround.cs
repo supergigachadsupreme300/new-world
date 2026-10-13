@@ -1980,6 +1980,14 @@ private static string Describe(in SpellLook look)
                 SpellZoneModelBuilder.BuildFunnel(modelRoot.transform, spell.Radius,
                     SkillFx.SharedSpriteMaterial(sl.Core));
             }
+            // 1l70: Deep Freeze's frozen-field storm body — the SAME builder SpellStorm runs (like the
+            // 1kf funnel branch), so the spike field reads on the pedestal without a live cast.
+            else if (SpellLook.Resolve(spell).StormBodyModel == StormBody.FrozenField)
+            {
+                var sl = SpellLook.Resolve(spell);
+                SpellZoneModelBuilder.BuildFrozenField(modelRoot.transform, spell.Radius,
+                    sl.Core, sl.Edge);
+            }
             // 1ir: the two deliveries that have NO projectile body at all. Without these two branches
             // a Beam and a Summon both fall through to CreateProjectileDisplay, which draws the generic
             // orb — so the bench would report "unchanged" for Flamethrower and Continuous Fireball

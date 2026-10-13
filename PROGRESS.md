@@ -1,3 +1,51 @@
+## 1l70. Ice spell rework — the seven redundant spells each get a distinct mechanic (task 4)
+
+User (testing.md #4): "we already have chill touch so frozen touch is just useless, change it into
+something else. same for frost pierce and glacial impale and ice lance, tundra and deep freeze and
+witching chill." All seven were stat duplicates of siblings. Plan approved per spell in the session.
+
+- **Frost Pierce** (`magic_frostbolt_icelance_pierce`): Projectile Lance → **`Instant`** hitscan lance,
+  Chill — "armor-piercing, strikes whatever you look at". Undodgeable, distinct from the travelling lance.
+- **Glacial Impale** (`magic_frostbolt_icelance_impale`): Projectile Lance → **`Instant`** heavy spike,
+  **Frost** (power 34→36) — single-target impale + freeze solid.
+- **Ice Lance** (root): left as the family's one travelling-spear projectile — no longer a dupe because
+  its two children stopped being projectiles.
+- **Frozen Touch** (`magic_frostbolt_freeze_touch`): Vortex+Chill (shadow of Chill Touch/Frost Curse) →
+  **`Wave`** projectile, knockback 1.5, Chill — a rolling ground-hugging frost wall (the 2nd Wave spell
+  in the game, after Fire Wave).
+- **Tundra** (`magic_frostbolt_freeze_tundra`) → **Snow Drift**: a **`CasterAnchored` Summon familiar**
+  — takes station behind you, pours chilling Comet shards down the aim line (dur 8 s, tick 0.5,
+  boltSplash 1.4). The first Ice follower. Display name/branch key: Tundra → Snow Drift (id unchanged).
+- **Deep Freeze** (`magic_frostbolt_freeze_deep`): Zone+Frost → **`Storm`** + Frost (power 34→36,
+  cd 6→8, radius 2.8). The 1l6z frozen field now mounts as a NEW **`StormBody.FrozenField = 3`**
+  (built by `SpellStorm.Initialize` through the SAME `BuildFrozenField`; no spin — it is not a wind).
+  `ZoneBody.FrozenField` stays as a dormant authored axis; Deep Freeze's profile swapped `zoneBody:`→
+  `stormBody:` so its zone bits fall back to Funnel (one spelling per delivery, rule 13).
+- **Witching Chill** (`magic_frostbolt_chill_hour`): Zone+Frost → **`Vortex`** + Frost (radius 2.6,
+  range 8) — an unnatural cold that drags in and freezes; distinct from Frost Curse's Chill vortex.
+- QA bench gained the `StormBody.FrozenField` branch (the runtime builder, rule-13 acceptance
+  readout); `LookKey` storm bits (40..41) already fit value 3, so no key change. F4 now reads
+  `storm bodies:` Funnel = 1, **FrozenField = 1**; `zone bodies:` back to Funnel + VortexCircle = 1;
+  `authored` stays 27. All keys unchanged, so the skill tree holds.
+- **Docs:** `game-design.md` §3.8.5 (+1l70 paragraph), `magic-skills.md` (Frost Bolt rows, Zone/Storm/
+  Summon-follower delivery rows), this entry + `THINKING.md` §1l70.
+
+### 1l70-status
+- [x] `SkillCatalog.Magic.cs`: 6 spell reworks (Frost Pierce, Glacial Impale, Frozen Touch,
+      Snow Drift/Tundra, Deep Freeze, Witching Chill) — data-only, keys unchanged.
+- [x] `SpellLook.cs`: `StormBody.FrozenField = 3` (+ enum docs).
+- [x] `SpellStorm.cs`: mounts `BuildFrozenField` for `FrozenField` (no spin).
+- [x] `NewWorldTestGround.cs`: `StormBody.FrozenField` bench branch (runtime builder).
+- [x] Docs: `game-design.md`, `magic-skills.md`, this entry + `THINKING.md` §1l70.
+- [x] Verified by grep + reread (no build, rule 3): every edited skill id still resolves where it
+      did; `StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — data-only skill-catalog + small model wiring edits (rule 15); the
+      DCC/Unity skills target a running editor and rule 3 runs no build here.
+- [ ] **PLAY-TEST (user, Unity):** cast each reworked skill — Frost Pierce/Glacial Impale (instant,
+      hitscan), Frozen Touch (rolling frost wave), Snow Drift (familiar trails you, sprays shards),
+      Deep Freeze (frost field appears, storm strikes keep freezing), Witching Chill (pulling Frost
+      vortex).
+
 ## 1l6z. Deep Freeze: a frozen-field zone body (new authored-only `ZoneBody.FrozenField`)
 
 User (testing.md #3): "the deep freeze model need a change, its basicly just two disc placing on top

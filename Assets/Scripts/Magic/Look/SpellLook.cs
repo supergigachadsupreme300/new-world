@@ -151,9 +151,10 @@ public enum ZoneBody
 /// Conflagration tornado on Firestorm WITHOUT moving it to <c>SpellDelivery.Vortex</c>, which would
 /// have changed resolution, added the pull and lost the per-strike flashes). <see cref="Inherit"/>
 /// resolves to <see cref="None"/> — storms draw only their spawn ring and per-strike flashes unless
-/// a profile says otherwise — and only an authored profile may grant <see cref="Funnel"/>;
-/// Firestorm alone does (1kf).
-/// <para><b>Read by <c>SpellStorm</c> (builds the funnel and spins its root the 240 deg/s the
+/// a profile says otherwise — and only an authored profile may grant <see cref="Funnel"/> or
+/// <see cref="FrozenField"/>; Firestorm authors <see cref="Funnel"/> (1kf), Deep Freeze authors
+/// <see cref="FrozenField"/> (1l70).
+/// <para><b>Read by <c>SpellStorm</c> (builds the body and spins its root the 240 deg/s the
 /// pre-1kc <c>SpellZone</c> pulled-vortex spin) and by the QA spell band's bench, so the axis has
 /// an acceptance readout.</b> Placement/sizing come from the storm's own charge-scaled Radius;
 /// this axis is drawn-only and never touches delivery.</para></summary>
@@ -162,12 +163,18 @@ public enum StormBody
     /// <summary>No authored opinion — <see cref="None"/> (the storm draws no persistent body).</summary>
     Inherit = 0,
     /// <summary>No body: only the spawn ring and the per-strike flashes — every Storm spell
-    /// resolves here unless a profile grants <see cref="Funnel"/> (other deliveries never read
-    /// this axis; their own body axis is <see cref="ZoneBody"/>).</summary>
+    /// resolves here unless a profile grants <see cref="Funnel"/> or <see cref="FrozenField"/>
+    /// (other deliveries never read this axis; their own body axis is <see cref="ZoneBody"/>).</summary>
     None = 1,
     /// <summary>The generic whirling pull funnel: 7 spinning rings + 6 orbiting debris blocks
-    /// (tornado/vortex) — the body Conflagration drew before 1kc, spinning with the storm root.</summary>
-    Funnel = 2
+    /// (tornado/vortex) — the body Conflagration drew before 1kc, spinning with the storm root.
+    /// Firestorm's body (1kf).</summary>
+    Funnel = 2,
+    /// <summary>The 1l6z Deep Freeze frozen-field look, mounted as a STORM body (1l70): a frost
+    /// disc ringed by a rosette of ice spikes, static under the storm's repeated freeze strikes.
+    /// The same builder the zone variant used — one implementation, two delivery gates — and Deep
+    /// Freeze is the only author (it left the Zone family in 1l70).</summary>
+    FrozenField = 3
 }
 
 /// <summary>

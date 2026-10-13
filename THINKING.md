@@ -1,3 +1,42 @@
+## 1l70. Ice spell rework — seven redundant spells, seven distinct mechanics (SHIPPED, play-test pending)
+
+User (testing.md #4): all seven flagged spells were statistical duplicates of siblings (three Lance
+projectiles, four overlapping lingering-cold/Zone areas, two touch-ish colds). "change it into
+something else" is a design directive, so each row got a distinct mechanic rather than a rebalance.
+
+**H1 (dupe map — confirmed by reading the catalog).** Lance projectiles: Ice Lance (root, 26),
+Frost Pierce (30), Glacial Impale (34) — same delivery, same shape, same text. Freeze fields:
+Freeze (root), Deep Freeze, Tundra, Witching Chill, Frozen Touch — two Zone-slow, two Zone-freeze,
+one Vortex-slow. The fix had to give each a mechanic NO sibling already had.
+
+**H2 (mechanic allocation — confirmed by the user, one mapping per spell).** Fredericks per row:
+Instant hitscan for the two lances (mirrors Flash Fire/Cold Snap's `Instant` signature); Wave for
+Frozen Touch (only Fire Wave uses the ground-wave; its EOF params are the proven template); the
+caster-anchored follower for Tundra→Snow Drift (Continuous Fireball's `casterAnchored` +
+`summonFiresForward` combo is the only local precedent); Vortex+Frost for Witching Chill (distinct
+status from Frost Curse's Chill vortex).
+
+**H3 (Deep Freeze — the one that collides with its own axis).** User picked Storm over sky-glacier.
+A Storm reads `StormBodyModel`, never `ZoneBody`, so the 1l6z `FrozenField` body would silently stop
+drawing live (and the bench would keep showing it — a rule-13 lie). Options were: add
+`StormBody.FrozenField` mounting the SAME builder (one implementation, two gates), or strand the body.
+Chose the former; no spin, because 240 deg/s is the wind of the funnel and a frozen field has none.
+`ZoneBody.FrozenField` stays a dormant authored axis: removing it is a deletion task (rule 14) and
+it keeps its bench acceptance readout.
+
+**H4 (key stability — the F4 contract).** StormBody sits at bits 40..41; `FrozenField = 3` fits, so
+no LookKey change. Deep Freeze stays authored (Pillar/Halo), so `authored` holds at 27; `zone
+bodies:` loses FrozenField (=Funnel fallback) and `storm bodies:` gains FrozenField = 1. Predicted,
+not measured — re-press F4 to confirm.
+
+**H5 (data-only reachability — rule 5).** Grep over all six edited ids showed only the catalog and
+magic-skills.md name them: no test matrix, no save key, no other Roster reads these spell keys, so an
+in-place signature change is safe. Skill-tree branching keys are the spell ids, which do not move.
+
+**Verdict:** ship. Play-test only (no build, rule 3): the instant hitscans, the wave roll, the
+familiar's spray, the storm-over-icefield and the pulling vortex are all Unity-visible; F4 confirms
+the storm-bodies line.
+
 ## 1l6z. Deep Freeze frozen-field zone body (SHIPPED, play-test pending)
 
 User (testing.md #3): "the deep freeze model need a change, its basicly just two disc placing on top

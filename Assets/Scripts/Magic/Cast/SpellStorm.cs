@@ -8,7 +8,8 @@ using UnityEngine;
 /// pipeline. Strikes land with a small random stagger so the storm reads as chaotic, not pinging.
 /// <para><b>1kf: a Storm may also mount a persistent body</b> — the resolved
 /// <see cref="SpellLook.StormBodyModel"/> gates it: only an authored profile grants
-/// <see cref="StormBody.Funnel"/> (Firestorm alone), and that funnel spins its root 240 deg/s,
+/// <see cref="StormBody.Funnel"/> (Firestorm alone) or <see cref="StormBody.FrozenField"/>
+/// (1l70: Deep Freeze), and that funnel spins its root 240 deg/s,
 /// the same spin the pre-1kc conflagration's <c>SpellZone</c> ran while it pulled. The other 13
 /// storms resolve <see cref="StormBody.None"/> and are byte-for-byte unchanged. Spin and build
 /// share ONE predicate — the body's presence — so they cannot drift apart.</para>
@@ -66,6 +67,13 @@ public class SpellStorm : MonoBehaviour
         // look resolves None, and Radius/_color are only real when spell != null anyway.
         if (_look.StormBodyModel == StormBody.Funnel)
             SpellZoneModelBuilder.BuildFunnel(transform, Radius, SkillFx.SharedSpriteMaterial(_color));
+
+        // 1l70: Deep Freeze's frozen-field storm body — a frost disc + ice spikes that sit under the
+        // storm's repeated freeze strikes. The SAME builder the 1l6z zone body used (one
+        // implementation, two delivery gates); it deliberately does NOT spin — 240 deg/s is a wind,
+        // and a frozen field has none.
+        if (_look.StormBodyModel == StormBody.FrozenField)
+            SpellZoneModelBuilder.BuildFrozenField(transform, Radius, _color, _look.Edge);
 
         SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius, 0.5f, _look.Scale);
     }

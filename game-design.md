@@ -2446,7 +2446,10 @@ must not move after 1ka either — any movement would be a real change, not the 
 `Funnel` for every non-authored zone, so only Conflagration's own key flips (to `VortexCircle`) —
 with `M == N` already, `M`/`C` hold by construction (see §3.8.5). 1l6z adds a second authored body
 (`FrozenField` on Deep Freeze) that flips one more key but likewise resolves to `Funnel` for
-everyone else.
+everyone else. **1l70 moves Deep Freeze from Zone to Storm delivery**, so its zone bits revert to
+`Funnel` and the field rides the storm axis instead (`StormBody.FrozenField`; see §3.8.5) — exactly
+this §3.8.3 family of resolved-axes is why a delivery move had to re-mount the body rather than
+strand it.
 
 **Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
 main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render
@@ -2566,6 +2569,22 @@ F4 readout becomes `zone bodies:` Funnel = every zone spell but Conflagration an
 VortexCircle = 1; FrozenField = 1 — and `authored = 27` (was 26). This is a **drawn** change only:
 Deep Freeze stays a `SpellDelivery.Zone` with the same radius, duration and Frost status, and every
 collider in the field is destroyed, so it is body-only by construction.
+
+**1l70 moved Deep Freeze out of the Zone family, and `FrozenField` rides to the storm axis with it.**
+Task 4 reworked the redundant ice spells (the Lance trio, the overlapping freeze fields, Witching
+Chill); Deep Freeze became a `SpellDelivery.Storm` (power 36, cd 8 s, radius 2.8, Frost — "a storm
+that deep-freezes the area, striking again and again"). The frozen-field body therefore mounts through
+the storm axis now: `StormBody.FrozenField` (1l70), built by `SpellStorm.Initialize` via the **same**
+`SpellZoneModelBuilder.BuildFrozenField` — one implementation, two delivery gates — and deliberately
+given **no** spin (240 deg/s is a wind; a frozen field has none). `ZoneBody.FrozenField` stays a
+dormant authored axis (the acceptance readout remains on the bench), but nobody authors it today:
+Deep Freeze's profile swapped `zoneBody:` for `stormBody:`, so its zone bits fall back to `Funnel`.
+F4 impact: `storm bodies:` reads Funnel = 1 (Firestorm) and **FrozenField = 1** (Deep Freeze);
+`zone bodies:` returns to Funnel-singleton + VortexCircle = 1; `authored` stays **27** (Deep Freeze
+kept its Pillar/Halo profile). The same data-driven pass also gave Frost Pierce and Glacial Impale
+**Instant** delivery, Frozen Touch a **Wave** projectile, Tundra a new identity as the **Snow Drift**
+caster-anchored familiar, and Witching Chill a **Frost vortex** — see magic-skills.md; keys are
+unchanged, so the skill tree holds.
 
 #### Spell Sources
 
