@@ -105,7 +105,12 @@ public enum ProjectileShape
     /// behaviour — it is a body and nothing else. Like them it must never appear in a <c>Shape_*</c>
     /// family: the deterministic pick may only hand out school bodies, so an authored
     /// <c>SpellLookProfile.DisplayShape</c> is the one thing that grants it.</summary>
-    Soul = 13
+    Soul = 13,
+
+    /// <summary>1l6y: a spectral reaching hand — fingers leading (+Z) on a flat translucent palm
+    /// (Chill Touch's drawn body). <b>Display-only</b> like <see cref="Soul"/>: no behaviour rides on
+    /// it, and it is authored-only — never in a <c>Shape_*</c> family.</summary>
+    Hand = 14
 }
 
 /// <summary>

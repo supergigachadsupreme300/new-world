@@ -1,3 +1,27 @@
+## 1l6y. Chill Touch hand body (SHIPPED, play-test pending)
+
+User (testing.md #2): "create a new model for chill touch as a hand."
+
+**What it drew before.** Chill Touch (`magic_frostbolt_chill`, `SkillCatalog.Magic.cs:52`) is a
+Projectile with no `projectileShape`, so `SpellLook.Resolve` picks the Ice family default `Shard` → the
+generic frost-chip body. Nothing about "touch" or "hand" reached the model.
+
+**H1 (confirmed): same pattern as 1l6x — a display-only shape, authored only here.** `Hand` follows
+`Soul` exactly: a `ProjectileShape` member with no behaviour, kept out of every `Shape_*` family, granted
+only by `SpellLookProfile.DisplayShape`. Chosen over giving Chill Touch a new delivery (it stays a
+Projectile — the user asked for a *model*) and over reusing a generic shape (the whole point is a hand).
+
+**H2 (geometry): voxel hand, fingers leading +Z.** The projectile root rotates to the aim and local +Z
+is the travel direction (Bolt/Wave comments), so the fingers point +Z and the palm lies in the XY plane
+(thin in Y). Palm 0.30×0.07×0.22; four fingers 0.05×0.05×0.17 at x −0.105..+0.105, splayed ±9° about Y
+(a +θ about Y tips a +Z finger toward +X, so the left finger gets −θ to angle outward); thumb
+0.06×0.055×0.13 at x +0.17 rotated −32°; a near-white core in the palm; two trailing flecks via
+`AddTrailingFlecks`. Translucent (alpha 0.5–0.55) like the Shard body, which already proves
+"Sprites/Default" honours `color.a`.
+
+**Verdict:** ship. Play-test only (no build, rule 3): the translucent hand's in-flight read and the aim
+orientation are Unity-visible; the bench pedestal shows the body without firing.
+
 ## 1l6x. Chill Soul soul-wisp body (SHIPPED, play-test pending)
 
 User (testing.md #1): "the model of chill soul create a projectile with 3 different object but nothing

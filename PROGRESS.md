@@ -1,3 +1,36 @@
+## 1l6y. Chill Touch: a spectral reaching-hand projectile body (new display-only `ProjectileShape.Hand`)
+
+User (testing.md #2): "create a new model for chill touch as a hand."
+
+- **Model change.** Chill Touch (`magic_frostbolt_chill`) is a `SpellDelivery.Projectile` with no
+  explicit `projectileShape`, so it resolved `Auto` → the Ice default `Shard` and drew the generic
+  frost chip. It now wears a dedicated spectral hand.
+- New **`ProjectileShape.Hand = 14`** (`SpellData.cs`) — display-only and authored-only, exactly like
+  1l6x's `Soul` (no behaviour; never in a `Shape_*` family).
+- **`MagicProjectileModelBuilder.Hand(name, shader, color)`** — a flat translucent palm (alpha 0.5)
+  with four splayed fingers leading +Z, a thumb to one side, a bright cold core in the palm and two
+  trailing flecks. New `case ProjectileShape.Hand` in `BuildProjectileBody`; header body list updated.
+- **Authored look** on the Chill Touch def (`SkillCatalog.Magic.cs:52`):
+  `look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, shape: ProjectileShape.Hand)`.
+  Delivery, damage, cooldown and the Chill status are untouched — the body axis only.
+- QA bench + `LookKey` see it the same way as 1l6x (`DisplayShape` packed at bits 26..29; Hand = 14 fits).
+- **Docs:** `game-design.md` §3.8 shape table (Shard row dropped Chill Touch; new **Hand** row),
+  `magic-skills.md` shape table + Chill Touch row (`body:Hand`), `SpellData.cs` enum doc,
+  `MagicProjectileModelBuilder` header list.
+
+### 1l6y-status
+- [x] `SpellData.cs`: `ProjectileShape.Hand = 14` (+ doc comment; display-only, authored-only).
+- [x] `MagicProjectileModelBuilder.cs`: `Hand(...)` body + dispatch case + header list.
+- [x] `SkillCatalog.Magic.cs`: Chill Touch authored `DisplayShape = Hand`.
+- [x] Docs: `game-design.md` §3.8, `magic-skills.md`, this entry + `THINKING.md` §1l6y.
+- [x] Verified by grep + reread (no build, rule 3): only Chill Touch uses `Hand`; the Shard row no
+      longer names it; `StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — procedural C# model edit (rule 15); the DCC/Unity skills target a
+      running editor and rule 3 runs no build here.
+- [ ] **PLAY-TEST (user, Unity):** cast Chill Touch — the shot should read as a spectral hand reaching
+      out (translucent palm, four fingers leading), still applying Chill. On the QA bench Chill Touch's
+      pedestal shows the hand.
+
 ## 1l6x. Chill Soul: a spectral soul-wisp body (new display-only `ProjectileShape.Soul`)
 
 User (testing.md #1): "the model of chill soul create a projectile with 3 different object but nothing

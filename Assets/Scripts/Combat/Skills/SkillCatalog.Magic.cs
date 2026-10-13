@@ -49,7 +49,7 @@ public static partial class SkillCatalog
             S("magic_frostbolt_freeze", "Freeze", Spell("magic_frostbolt_freeze_spell", "Freeze", DamageType.Ice, 28f, 18f, SpellDelivery.Zone, 5f, deliveryRadius: 2.4f, duration: 3f, statusEffect: StatusEffectType.Frost), "A wave of freezing air that clings, leaving a field of frost.", Focus(18f), DamageType.Ice, true),
             S("magic_frostbolt_crystal", "Crystal Mind", Perk(PassivePerkType.CooldownReductionPercent, 3f), "A cold clarity lowers casting cooldowns by 3%.", passive: true),
             S("magic_frostbolt_glacier", "Glacier", Spell("magic_frostbolt_glacier_spell", "Glacier", DamageType.Ice, 30f, 20f, SpellDelivery.Zone, 6f, deliveryRadius: 2.6f, knockback: 2f), "A massive wall of glacial ice that crushes and shoves foes.", Focus(20f), DamageType.Ice, true),
-            S("magic_frostbolt_chill", "Chill Touch", Spell("magic_frostbolt_chill_spell", "Chill Touch", DamageType.Ice, 24f, 14f, SpellDelivery.Projectile, 3f, statusEffect: StatusEffectType.Chill), "A numbing cold that slows the foe.", Focus(14f), DamageType.Ice, true),
+            S("magic_frostbolt_chill", "Chill Touch", Spell("magic_frostbolt_chill_spell", "Chill Touch", DamageType.Ice, 24f, 14f, SpellDelivery.Projectile, 3f, statusEffect: StatusEffectType.Chill, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, shape: ProjectileShape.Hand)), "A numbing cold that slows the foe.", Focus(14f), DamageType.Ice, true),
         };
 
         // Root: magic_dark (active, Focus 14, projectile dark)
