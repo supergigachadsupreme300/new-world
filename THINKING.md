@@ -77,6 +77,39 @@ sub-revolution snap at release. Not worth carrying state across two objects for 
 
 `skills: none applied` (rule 15). Per-frame work stays in the preview component, not the builder (rule 19).
 
+## 1l71. "Rename the fireball model from shard to ball, make a real shard" (SHIPPED, play-test pending)
+
+User's exact words: "current fireball model is called shard, rename it to ball and create a new shard
+projectile type which shaped like a thin long triangle like shape."
+
+**H1 — what does the fireball actually wear?** The Fireball spell is `magic_fireball_spell`,
+`Shape = Auto`, Fire family `{Sphere, Comet, Shard}`. I re-derived SpellLook's own pick on paper
+(FNV-1a over the id, murmur3 fmix, rE → `(int)(rE*3)`): computed `h=0x27975DFD`, `mix=0x1E0FD714`,
+`rE=0.1174` → index 0 → **Sphere**. So the live Fireball already renders the round orb cluster, and
+the "fireball model called shard" the user means is the enum member `Shard` itself — the diamond it
+draws — which is a real shape many Fire Auto spells could pick. The first PowerShell attempt failed
+with UInt32 casts mid-loop (rule 7's uncalibrated-instrument trap); reran in masked UInt64 and only
+then believed it.
+
+**H2 — rename vs rebuild.** "Rename it to ball" alone would leave a diamond named Ball, which is a
+lie. Rebuilt `Ball` as the proven `Cluster("Orb",…)` (5-cube round orb) so the name and the mesh
+agree.
+
+**H3 — who wears the new triangle Shard.** Old Shard sat in 8 families (Fire + 7). Since a plain
+chip carries no behaviour, it belongs in the deterministic pools (unlike Soul/Hand which are
+authored-only). User chose "all 7 chip families": Fire keeps Ball (a fireball must read as a ball),
+Ice/Lightning/Holy/Dark/Earth/Water/Arcane now pick the flat triangle from the diamond's old slot.
+F4: shapes is a split-only axis, so the distinct count goes up exactly where an Auto pick lands on a
+chip — no signature collision possible.
+
+**H4 — blast radius.** Grep: no authored `projectileShape: ProjectileShape.Shard` and no
+`spell.Shape == ProjectileShape.Shard` reader anywhere; the only consumers were the family arrays and
+the model builder's switch. So the rename is contained: same value 3 (LookKey unchanged in size),
+only the 3D form and the family contents move.
+
+**Verdict:** ship. Play-test only (rule 3): cast a Fireball (must stay a ball), any Ice chip spell
+(must now be a flat triangle), and confirm the QA bench draws both Ball and Shard bodies.
+
 ## 1l70. Ice spell rework — seven redundant spells, seven distinct mechanics (SHIPPED, play-test pending)
 
 User (testing.md #4): all seven flagged spells were statistical duplicates of siblings (three Lance

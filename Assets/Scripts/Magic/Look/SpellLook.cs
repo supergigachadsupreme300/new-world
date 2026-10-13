@@ -550,7 +550,11 @@ public readonly struct SpellLook
     private static readonly SpellCastStyle[] Cast_Arcane = { SpellCastStyle.HexRing, SpellCastStyle.Rune, SpellCastStyle.Circle, SpellCastStyle.Arc };
 
     private static readonly ProjectileShape[] Shape_Physical = { ProjectileShape.Dart, ProjectileShape.Lance, ProjectileShape.Bolt };
-    private static readonly ProjectileShape[] Shape_Fire = { ProjectileShape.Sphere, ProjectileShape.Comet, ProjectileShape.Shard };
+    // 1l71: the old diamond (`Shard`, now `Ball`) was the fireball body the user wanted gone, so Fire's
+    // family keeps the renamed Ball where the diamond sat; the NEW thin-triangle Shard is a chip body
+    // (no behaviour), so it takes the diamond's slot in the seven chip families below — Ice, Lightning,
+    // Holy, Dark, Earth, Water, Arcane.
+    private static readonly ProjectileShape[] Shape_Fire = { ProjectileShape.Sphere, ProjectileShape.Comet, ProjectileShape.Ball };
     private static readonly ProjectileShape[] Shape_Ice = { ProjectileShape.Shard, ProjectileShape.Lance, ProjectileShape.Sphere };
     private static readonly ProjectileShape[] Shape_Lightning = { ProjectileShape.Bolt, ProjectileShape.Dart, ProjectileShape.Shard };
     private static readonly ProjectileShape[] Shape_Holy = { ProjectileShape.Sphere, ProjectileShape.Shard, ProjectileShape.Dart };

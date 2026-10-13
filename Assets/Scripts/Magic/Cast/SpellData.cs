@@ -49,7 +49,8 @@ public enum TerrainShape
 /// </summary>
 public enum ProjectileShape
 {
-    Auto = 0,     // element default (Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, ...)
+    Auto = 0,     // element default (Fire→Sphere, Ice→Shard, Lightning→Bolt, Wind→Blade, ...), picked
+                  // deterministically from the school's shape family in SpellLook (1l71)
 
     /// <summary>Jagged segmented streak built like the thunder-storm lightning bolt
     /// (RandomEventManager.SpawnJaggedBolt), colored by the element.</summary>
@@ -58,8 +59,10 @@ public enum ProjectileShape
     /// <summary>Round orb (classic fireballs, plain magic balls).</summary>
     Sphere = 2,
 
-    /// <summary>Diamond crystal that tumbles/drills (stone &amp; frost chips).</summary>
-    Shard = 3,
+    /// <summary>Round orb (classic fireballs, plain magic balls). <b>1l71: renamed from <see cref="Shard"/></b> —
+    /// the diamond crystal it used to draw was the fireball body the user wanted gone; the thin-triangle
+    /// chip identity moved to the new <see cref="Shard"/>.</summary>
+    Ball = 3,
 
     /// <summary>Long straight pointed ice spike.</summary>
     Lance = 4,
@@ -110,7 +113,15 @@ public enum ProjectileShape
     /// <summary>1l6y: a spectral reaching hand — fingers leading (+Z) on a flat translucent palm
     /// (Chill Touch's drawn body). <b>Display-only</b> like <see cref="Soul"/>: no behaviour rides on
     /// it, and it is authored-only — never in a <c>Shape_*</c> family.</summary>
-    Hand = 14
+    Hand = 14,
+
+    /// <summary>1l71: a thin long flat triangle — the "frost &amp; stone chip" look that the old
+    /// diamond (renamed <see cref="Ball"/>) carried, rebuilt as a sliver that tapers to a point along
+    /// the flight line. A plain chip body with NO behaviour (not homing like <see cref="Missile"/>, not a
+    /// sweep like <see cref="Wave"/>), so unlike Soul/Hand it MAY sit in the school <c>Shape_*</c> families —
+    /// 1l71 swapped it into the seven families where the diamond used to sit; Fire keeps
+    /// <see cref="Ball"/> so the fireball reads as a ball.</summary>
+    Shard = 15
 }
 
 /// <summary>

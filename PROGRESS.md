@@ -68,6 +68,42 @@ User: "projectile have an spinning animation when launch, i want it to spin whil
   front of the magic hand should now spin about its aim axis, matching the released bolt; check a
   ground-wave spell spins slower and the hold→launch transition reads smoothly.
 
+## 1l71. The fireball's body is a ball, not a "shard" — and a new thin-triangle Shard takes the chips
+
+User: "current fireball model is called shard, rename it to ball and create a new shard projectile
+type which shaped like a thin long triangle like shape." The old `ProjectileShape.Shard` (value 3)
+was a translucent 45° diamond crystal — the fireball's drawn body wherever a pick landed on it.
+`Shard` carries NO gameplay behaviour (not homing like Missile, not a sweep like Wave), so renaming
+and re-homing it is display-only.
+
+- **Rename `Shard = 3` → `Ball = 3` (`SpellData.cs`).** The body is now a round hot voxel orb — the
+  same proven `Cluster("Orb",…)` you get from Sphere, so the fireball reads as a ball, never a chip.
+- **New `Shard = 15` — the thin long triangle.** A 5-cube flat sliver in the flight plane tapering to
+  a near-point at +Z (width 0.30→0.04, depth 0.18→0.08, height ~0.05 edge-on), tip brightened, two
+  trailing flecks. No behaviour → safe in the school families.
+- **Families (`SpellLook.cs`):** Fire keeps Ball in the diamond's slot (`Sphere, Comet, Ball`) per the
+  user's "all 7 chip families" choice; the NEW Shard takes the slot in the seven chip families — Ice,
+  Lightning, Holy, Dark, Earth, Water, Arcane. Verified by re-deriving `SpellLook`'s own hash: the
+  Fireball spell (`magic_fireball_spell`) picks index 0 → Sphere, so its look is unchanged and already
+  round; the rename mainly re-homes Fire-family chip draws to a ball and gave the chips a flat
+  triangle again.
+- **QA/identity:** the bench and every live cast build through `BuildProjectileBody` (both `Ball` and
+  `Shard` cased); LookKey bits unchanged in size (value 3 still 3, new 15 splits groups only). No
+  authored profile referenced `Shard`, so no profile needed re-mapping.
+- **Docs:** `game-design.md` §3.8 shape table (Ball + new Shard rows), `magic-skills.md` shapes table
+  + the stale "shape:Shard" on Chill Touch (now `body:Hand`), this entry + `THINKING.md` §1l71.
+
+### 1l71-status
+- [x] `SpellData.cs`: `Shard = 3` → `Ball = 3` (round voxel orb), new `Shard = 15` (thin long triangle).
+- [x] `MagicProjectileModelBuilder.cs`: `Ball` case (proven orb cluster), new thin-triangle `Shard`
+      builder replacing the 1ec diamond; head doc builder list.
+- [x] `SpellLook.cs`: Fire = `{Sphere, Comet, Ball}`; new Shard in the 7 chip families.
+- [x] Docs: `game-design.md`, `magic-skills.md`, this entry + `THINKING.md` §1l71.
+- [x] Verified by grep + reread (no build, rule 3): zero authored/users of the old `ProjectileShape.Shard`
+      outside the families + builder; `StaticChecks.ps1` → 0 candidates; Fireball's resolved shape
+      re-derived by hand (FNV-1a + fmix32 → rE=0.1174 → Sphere) so the rename does not reshape it.
+- [x] `skills: none applied` — display-only enum/body/family wiring (rule 15); no DCC or build runs.
+
 ## 1l70. Ice spell rework — the seven redundant spells each get a distinct mechanic (task 4)
 
 User (testing.md #4): "we already have chill touch so frozen touch is just useless, change it into

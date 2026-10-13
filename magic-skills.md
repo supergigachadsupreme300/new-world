@@ -44,7 +44,8 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 |---|---|---|
 | **Bolt** | Jagged segmented bolt along the flight axis, crackling afterimages (same technique as the thunder-event lightning, `SpawnJaggedBolt`) | every spell with "Bolt" in the name, e.g. Frost Bolt, Chain Lightning, Volt, Fork/Leap/Doom/Fury Bolt |
 | **Sphere** | Classic orb on a fast warm flicker (`Ember` mode) with the densest ember exhaust in the game — fireball / plain orbs when the name gives no better shape |
-| **Shard** | Elongated translucent glassy crystal (alpha ~0.5) that slowly drills/spins along the axis | frost chips (the Ice school default) |
+| **Ball** | 1l71: a round hot voxel orb — renamed from the old diamond **Shard** so the fireball look is a ball | fireballs and generic orbs (Fire's chip slot) |
+| **Shard** | 1l71: a thin long flat triangle, tapering to a point along the flight line — the frost/stone chip reprofiled from a spinning diamond to a flat sliver | frost & stone chips (Ice, Lightning, Holy, Dark, Earth, Water, Arcane) |
 | **Debris** | Tumbling cluster of grey rock chunks (mixed sizes, random spins, one leader) - the Earth school's "Stone Shard", dressed like world rock-debris; a short debris burst kicks up from the crater at impact | Stone Shard |
 | **Lance** | Long thin spear of ice, heavier and faster than a bolt | Ice Lance, Frost Pierce, Glacial Impale |
 | **Spear** | Thick dark spear, the heaviest of the linear shapes | Shadow Spear |
@@ -213,7 +214,7 @@ All ten earlier beams leave `BeamHalfAngle` at 0 and keep the original single-ca
   - **Glacial Weight** (`magic_frostbolt_glacier_weight`) - + 5 Strength (passive) | Permanent +5 Strength.
   - **Avalanche** (`magic_frostbolt_glacier_avalanche`) - Active (Ice) - power 38, FP 28, cd 8s, range 10, radius 3.6, dur 3.5s, Frost | A cascading avalanche that crushes the area under falling ice.
   - **Eternal Cold** (`magic_frostbolt_glacier_eternal`) - + 6 Wisdom (passive) | Permanent +6 Wisdom.
-- **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Chill, shape:Shard, body:Hand | A numbing cold that slows the foe.
+- **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Chill, body:Hand | A numbing cold that slows the foe.
   - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Chill, shape:Missile, body:Soul | A homing cold that hunts its prey and seeps into the soul.
   - **Frost Curse** (`magic_frostbolt_chill_curse`) - Active (Ice) - power 28, FP 16, cd 4s, range 8, radius 2, dur 3s, Chill | A creeping cold that spirals, cursing all it touches.
   - **Frost Will** (`magic_frostbolt_chill_will`) - + 5 Faith (passive) | Permanent +5 Faith.

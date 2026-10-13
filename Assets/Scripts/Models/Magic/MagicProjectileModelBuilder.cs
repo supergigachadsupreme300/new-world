@@ -10,8 +10,8 @@
 /// What moved here, and what deliberately did not:
 ///
 /// 1. MOVED: both <c>CreateProjectileDisplay</c> overloads, <c>AttachDefaultProjectileVisual</c>,
-///    <c>BuildProjectileBody</c>, and every per-shape body builder (Bolt/Shard/Lance/Spear/Blade/
-///    Splash/Comet/Missile/Dart/Debris/Wave/Soul/Hand) plus the shared primitives (Primitive/Materialize/Cluster/
+///    <c>BuildProjectileBody</c>, and every per-shape body builder (Bolt/Ball/Lance/Spear/Blade/
+///    Splash/Comet/Missile/Dart/Debris/Wave/Soul/Hand/Shard) plus the shared primitives (Primitive/Materialize/Cluster/
 ///    AddTrailingFlecks). Measured self-contained before the move: every reference to all fourteen
 ///    lives inside this block, with exactly ONE external caller of the public API
 ///    (NewWorldTestGround's magic-model bench).
@@ -121,6 +121,7 @@ internal static class MagicProjectileModelBuilder
         {
             case ProjectileShape.Bolt: return Bolt("JaggedBolt", shader, color);
             case ProjectileShape.Shard: return Shard("Shard", shader, color);
+            case ProjectileShape.Ball: return Cluster("Ball", shader, color, 0.24f, 5, 0.10f, 0.03f); // 1l71: the round ball
             case ProjectileShape.Lance: return Lance("IceLance", shader, color);
             case ProjectileShape.Spear: return Spear("Spear", shader, color);
             case ProjectileShape.Blade: return Blade("WindBlade", shader, color);
@@ -201,29 +202,31 @@ internal static class MagicProjectileModelBuilder
     }
 
     /// <summary>
-    /// Diamond-shaped shard that drills forward — a translucent glass lead chip with two smaller
-    /// darker glass chips trailing behind it (1ec), keeping the frost chip read fading to the rear.
+    /// 1l71: a thin long flat triangle flying tip-first — the "frost &amp; stone chip" body. A stack of
+    /// flat cubes in the local XZ plane that taper in WIDTH to a near-point at +Z (the leading edge),
+    /// staying paper-thin in Y, so the silhouette reads as a long triangle rather than the round
+    /// <see cref="Ball"/> cluster or the solid <see cref="Lance"/> spike. Plain display shape — no
+    /// behaviour — so it is safe in the school families; the seven chip families (Ice, Lightning,
+    /// Holy, Dark, Earth, Water, Arcane) now pick it where the 1ec diamond used to sit.
     /// </summary>
     private static Transform Shard(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
-        var lead = Primitive(PrimitiveType.Cube, "Lead", root);
-        lead.localScale = new Vector3(0.28f, 0.28f, 0.12f);
-        lead.localRotation = Quaternion.Euler(0f, 0, 0f);
-        // Translucent glassy frost chip: "Sprites/Default" blends via the material color alpha.
-        Color glass = new Color(color.r, color.g, color.b, 0.5f);
-        Materialize(lead, shader, glass);
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 5; i++)
         {
-            var chip = Primitive(PrimitiveType.Cube, "Chip" + i, root);
-            float t = i/(float)(3 - 1);
-            float ss = Mathf.Lerp(0.1f, 0.06f, t);
-            chip.localScale = new Vector3(ss * 3.4f, ss * 3.4f, ss);
-            chip.localRotation = Quaternion.Euler(0f, 0f, 0f);
-            chip.localPosition = new Vector3(0f, 0f, -0.14f - i * 0.11f);
-            float dim = 0.85f - i * 0.2f;
-            Materialize(chip, shader, new Color(color.r * dim, color.g * dim, color.b * dim, 0.45f));
+            float t = i / (float)(5 - 1);
+            var seg = Primitive(PrimitiveType.Cube, "Seg" + i, root);
+            seg.localPosition = new Vector3(0f, 0f, Mathf.Lerp(-0.22f, 0.30f, t));
+            // Width 0.30 → 0.04 and depth 0.18 → 0.08: the stack narrows to a point at the leading
+            // edge, while height stays ~0.05 so the sliver reads thin and flat, edge-on.
+            seg.localScale = new Vector3(
+                Mathf.Lerp(0.30f, 0.04f, t),
+                Mathf.Lerp(0.06f, 0.035f, t),
+                Mathf.Lerp(0.18f, 0.08f, t));
+            Color c = Color.Lerp(color, Color.white, t * 0.25f); // tip brightens like a cutting edge
+            Materialize(seg, shader, c);
         }
+        AddTrailingFlecks(root, shader, color, 0.26f);
         return root;
     }
 
