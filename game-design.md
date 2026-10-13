@@ -1371,7 +1371,7 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   applies to the world-discovery flow.)*
 - On change: `PlayerStats` modifiers refresh, the player model **rebuilds** with the race's palette + body ratios (§3.5 Race Visuals), `RaceRig` applies the uniform scale, `RacePassiveManager` re-applies passives. Current HP/FP/stamina preserved as % of their new max.
 
-#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4 + 1e7 + 1e8 + 1ep)
+#### Player Model (Faceted Low-Poly Character, 1dw + 1dx + 1dy + 1dz + 1e0 + 1e1 + 1e2 + 1e3 + 1e4 + 1e7 + 1e8 + 1ep + 1l6w)
 
 - Every body part except the torso/chest silhouette (1e2/1e4 below), the neck cylinder (1e1) and the
   plain joint balls is a **unit-space faceted ellipsoid mesh** instead of a box
@@ -1497,6 +1497,18 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
   before — a more visible cap, flagged for play-test); standing hip surface 0.42·0.46 = **0.193** > the
   ±0.12 ball's 0.185 outer → still covered. Seated surface 0.32·0.59 = **0.189** vs ball inner edge
   0.175 → overlap, no gap. Supersedes the 1kv sizes; silhouettes and all other 1ku/1kv figures stand.
+- **Waist belt (1l6w)**: the torso trapezium's flat bottom cap meets the separate hip joints / thighs with
+  a visible side notch ("weird at the part connecting legs and torso"). Each stance now builds a `Belt`
+  band (the round `"Cylinder"` profile, sized slightly wider than the waist cross-section so it laps over
+  the seam) plus a small front `BeltBuckle` (`"HairBand"` profile) via `AddWaistBelt`. Belt colour is
+  `Darken(pantsC, 0.55)` (reads as the lower garment); the buckle is a fixed brass. Placement rides the
+  upper body where one exists: **standing** parents the belt to the `Torso` pivot so it stays welded to the
+  body's bottom edge as the torso leans (torso-local y **−0.255** male / **−0.12** female, over the skirt
+  waistband); **seated / sit** parent to the root at the body/torso base (male **−0.04 / −0.01**, female
+  **+0.06 / +0.10**, over the skirt). Sizes — standing `0.46×0.10×0.31` (female `0.56×0.09×0.33`), seated
+  `0.36×0.09×0.30` (female `0.48×0.09×0.34`), sit `0.42×0.10×0.30` (female `0.54×0.09×0.34`). The belt and
+  buckle carry no collider (like every part) and scale only with the model root, so race bulk/height apply
+  to them too; `ApplyRaceRatioRecurse` has no `Belt*` branch, so the head/arm/leg knobs leave them alone.
 - **Torso silhouette actually renders (1e7 routing fix, 1e8 closes the crown band)**: `BuildEllipsoid`
   remapped the three torso ids (`"Body"`/`"SitTorso"`/`"Chest"`) to the plain-ellipsoid fallback
   BEFORE `Generate` could reach its `BuildTorso` branch (they are never in `_profiles`), so the 1e2/1e4

@@ -1,3 +1,42 @@
+## 1l6w. Player waist belt (SHIPPED, play-test pending)
+
+User: "add belt to player model, it weird at the part connecting legs and torso."
+
+**What is actually "weird".** Read the standing builder geometry rather than guessing: the `Body` part
+spans root-local y `[−0.22, 0.58]` (torso pivot +0.05, part centre 0.13, half-height 0.40), while the hip
+joint balls sit at y `−0.25` (radius 0.065) and the thighs top out at `−0.25`. So the torso's flat bottom
+cap is 3 cm above the thigh tops and only the two small ball joints bridge the sides — a visible side
+notch at the waist. A band sized wider than the waist cross-section covers it.
+
+**H1 (confirmed): reuse existing profiles, add no mesher code.** `"Cylinder"` is already a closed
+elliptical band when scaled short in Y (12 facets + caps) and `"HairBand"` is a plain flat ellipsoid —
+both exist and are cached. So the belt is pure `MakePart` calls; `PlayerPartMesher` is untouched. Any
+new profile would have been a second generator for a shape that already exists.
+
+**H2 (attachment parent — the real design choice).** The seam is between a TORSO-space part and
+ROOT-space hip/thigh parts, so whichever parent the belt rides, a lean opens a gap on the other side.
+Measured the two against `PlayerAnimator`: torso pitch is `12 + 6·runBlend` plus `LookPitch·0.5` (up to
+~48° worst case; ~18° at a normal sprint). A root-parented belt would sit still while the body's bottom
+cap swings ~0.16 m forward with the lean, poking out past the band's 0.155 half-depth — i.e. the belt
+visibly detaches from the body. A **torso-parented** belt stays welded to the body's bottom edge and only
+opens a ~0.08–0.16 m gap toward the stationary hips, which reads as a shirt lifting out of a belt — the
+more plausible failure. Chose torso for standing. Seated/sit have no separate upper-body pivot (Body /
+Torso are children of root), so they parent to root — there is no lean to fight.
+
+**H3 (female).** The standing female skirt top is `−0.13` and its half-width ≈ 0.193, so a male-position
+belt (`y −0.255`, half-width 0.23) would be buried inside it. Belt therefore moves up to the skirt
+waistband (`y −0.12`) and widens (`0.56×0.09×0.33`, half-width 0.28 > skirt 0.193). Same per-gender
+shift for seated/sit.
+
+**H4 (race ratios).** `ApplyRaceRatioRecurse` branches on `Head*`/`Neck`/`Eye*`/`Hair*`/`Ponytail*` and on
+`Shoulder*`/`Hip*`; `Belt`/`BeltBuckle` match none, so the belt inherits only the root bulk/height scale
+(and thus tracks race proportions) without being distorted by the head/arm/leg knobs. Verified by reread
+of that method.
+
+**Verification:** grep (1 definition + 3 calls, `pantsC` in scope at each) + reread; `StaticChecks.ps1`
+→ 0 candidates. No build (rule 3). `skills: none applied` (rule 15). Open play-test: run-lean gap,
+female waistband, seated/car poses.
+
 ## 1l6v. Conflagration: faster ring spawn + rise, uniform particle size (SHIPPED, play-test pending)
 
 User: "ok now it need to create ring way faster and make it rise faster, and ensure the particle size

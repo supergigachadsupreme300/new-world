@@ -44,6 +44,20 @@ public static class PlayerModelBuilder
         MapBuilder.MakePart(name, pivot, size, Vector3.zero, color, "Joint");
     }
 
+    /// <summary>1l6w: a waist belt that hides the visible notch where the torso trapezium's flat
+    /// bottom cap meets the separate hip joints / thighs ("weird at the part connecting legs and
+    /// torso"). A slightly wider-than-waist band (reusing the round "Cylinder" profile) plus a small
+    /// front buckle; coloured from the pants so it reads as part of the lower garment. Caller supplies
+    /// the band's size and Y (per stance / gender) and the parent it rides.</summary>
+    private static void AddWaistBelt(Transform parent, Color pantsC, Vector3 size, float y)
+    {
+        var beltC = Darken(pantsC, 0.55f);
+        var buckleC = new Color(0.78f, 0.62f, 0.24f);
+        MapBuilder.MakePart("Belt", parent, size, new Vector3(0f, y, 0f), beltC, "Cylinder");
+        MapBuilder.MakePart("BeltBuckle", parent, new Vector3(0.11f, 0.07f, 0.05f),
+            new Vector3(0f, y, size.z * 0.5f + 0.01f), buckleC, "HairBand");
+    }
+
     /// <summary>
     /// Apply a race's body-ratio knobs to a freshly built player model (§3.5 Race Visuals).
     /// Height/Bulk stretch the whole root; the head, neck, eyes and hair are counter-scaled to read
@@ -138,6 +152,11 @@ public static class PlayerModelBuilder
             MapBuilder.MakePart("Skirt", torso.transform, new Vector3(0.52f, 0.28f, 0.3f), new Vector3(0f, -0.27f, 0f), dressC, "Skirt");
             MapBuilder.MakePart("SkirtHem", torso.transform, new Vector3(0.56f, 0.06f, 0.34f), new Vector3(0f, -0.42f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
+        // 1l6w: waist belt over the standing body's hip line (or the female skirt waistband). Rides the
+        // torso pivot so it stays welded to the body's bottom edge as the upper body leans.
+        AddWaistBelt(torso.transform, pantsC,
+            female ? new Vector3(0.56f, 0.09f, 0.33f) : new Vector3(0.46f, 0.10f, 0.31f),
+            female ? -0.12f : -0.255f);
         MapBuilder.MakePart("Head", torso.transform, new Vector3(0.3f, 0.3f, 0.3f), new Vector3(0f, 0.65f, 0f), skinC, "Head");
         MapBuilder.MakePart("Neck", torso.transform, new Vector3(0.15f, 0.16f, 0.15f), new Vector3(0f, 0.4f, 0f), skinC, "Cylinder");
 
@@ -256,6 +275,10 @@ public static class PlayerModelBuilder
             MapBuilder.MakePart("Skirt", root.transform, new Vector3(0.42f, 0.2f, 0.32f), new Vector3(0f, -0.02f, 0f), dressC, "Skirt");
             MapBuilder.MakePart("SkirtHem", root.transform, new Vector3(0.46f, 0.05f, 0.36f), new Vector3(0f, -0.13f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
+        // 1l6w: waist belt at the seated body's base (or the female skirt waistband).
+        AddWaistBelt(root.transform, pantsC,
+            female ? new Vector3(0.48f, 0.09f, 0.34f) : new Vector3(0.36f, 0.09f, 0.30f),
+            female ? 0.06f : -0.04f);
         // ── Head ──
         MapBuilder.MakePart("Head", root.transform, new Vector3(0.28f, 0.28f, 0.28f), new Vector3(0f, 0.74f, 0f), skinC, "Head");
         MapBuilder.MakePart("Neck", root.transform, new Vector3(0.13f, 0.10f, 0.13f), new Vector3(0f, 0.55f, 0f), skinC, "Cylinder");
@@ -403,6 +426,10 @@ public static class PlayerModelBuilder
             MapBuilder.MakePart("Skirt", root.transform, new Vector3(0.48f, 0.2f, 0.32f), new Vector3(0f, 0.02f, 0f), dressC, "Skirt");
             MapBuilder.MakePart("SkirtHem", root.transform, new Vector3(0.52f, 0.05f, 0.35f), new Vector3(0f, -0.08f, 0f), Darken(dressC, 0.6f), "SkirtHem");
         }
+        // 1l6w: waist belt at the sit torso's base (or the female skirt waistband).
+        AddWaistBelt(root.transform, pantsC,
+            female ? new Vector3(0.54f, 0.09f, 0.34f) : new Vector3(0.42f, 0.10f, 0.30f),
+            female ? 0.10f : -0.01f);
         MapBuilder.MakePart("Chest", root.transform, new Vector3(0.37f, 0.28f, 0.24f), new Vector3(0f, 0.42f, 0f), shirtC, "Chest");
 
         // ── Neck + head ──

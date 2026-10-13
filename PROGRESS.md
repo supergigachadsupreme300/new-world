@@ -1,3 +1,36 @@
+## 1l6w. Player waist belt — the visible notch where the torso meets the legs
+
+User: "add belt to player model, it weird at the part connecting legs and torso."
+
+- The standing torso trapezium ends in a flat bottom cap at torso-local `−0.27`; the hip joints / thighs
+  are separate parts on the root at `≈−0.25`–`−0.30`, so their side junction reads as a notch. A `Belt`
+  band across that line (plus a small front buckle) hides it.
+- **`PlayerModelBuilder.AddWaistBelt(parent, pantsC, size, y)`** — new helper. Belt mesh = the round
+  `"Cylinder"` profile (a closed elliptical band, sized a few cm wider than the waist: male standing
+  half-width 0.23 vs body 0.193) so it laps over the seam; buckle = `"HairBand"` (plain flat ellipsoid)
+  at `size.z/2 + 0.01`. Belt colour `Darken(pantsC, 0.55)` (reads as the lower garment), buckle a fixed
+  brass `(0.78, 0.62, 0.24)`.
+- Called once per stance, gender-aware: **standing** on the `Torso` pivot (so it stays welded to the
+  body's bottom edge as the upper body leans) at torso-local y **−0.255** male / **−0.12** female;
+  **seated / sit** on the root at the body/torso base (**−0.04 / +0.06** seated, **−0.01 / +0.10** sit).
+  Female Ys sit at the skirt waistband and the belt is widened past the skirt (half-width 0.24–0.28).
+- Belt/buckle scale only with the model root (race bulk/height apply); `ApplyRaceRatioRecurse` has no
+  `Belt*` branch, so the head/arm/leg knobs leave them alone. No collider (like every part).
+- **Docs:** `game-design.md` §3.5 (section header + 1l6w bullet). `MapBuilder.MakePart` doc untouched
+  (no API change — `"Cylinder"`/`"HairBand"` are existing profiles).
+
+### 1l6w-status
+- [x] `PlayerModelBuilder.cs`: `AddWaistBelt` helper + 3 call sites (standing/seated/sit), gender-aware
+  size/Y.
+- [x] Docs: `game-design.md` §3.5, this entry + `THINKING.md` §1l6w.
+- [x] Verified by grep + reread (no build, rule 3): 1 definition + 3 calls, `pantsC` in scope at each;
+  `StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — procedural C# model edit (rule 15); the DCC/Unity skills target a running
+  editor and rule 3 runs no build here.
+- [ ] **PLAY-TEST (user, Unity):** the standing player model shows a belt across the waist with a front
+  buckle and the legs↔torso notch is covered. Check it during a run lean (the belt rides the torso, so
+  the gap to the stationary hips opens slightly), the female skirt waistband, and the sitting / car poses.
+
 ## 1l6v. Conflagration: rings spawn + rise faster, and every ember is the same size
 
 User: "ok now it need to create ring way faster and make it rise faster, and ensure the particle size
