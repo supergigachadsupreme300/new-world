@@ -1,3 +1,30 @@
+## 1l74. Lightning Strike rework (testing.md #11)
+
+**H1 (is Sky Fury really a Beam in the catalog — CONFIRMED).** Row is `SpellDelivery.Beam` with
+`channelDrainPerSecond: 9f`. Its id `magic_lightning_fury` doubles as the L2 fork key, so the id is
+untouchable — display name, delivery and numbers change, never the key (rule 8 / save-key logic).
+
+**H2 (the drawn bolt is the whole feature — CONFIRMED).** The user asked for "single bolt strikes
+down" (as opposed to the sustained beam). The zone search against `TerrainShape.None` already gives
+an instant burst with no heavy mechanics — so the change is: delivery→zone, numbers, and a visible
+sky bolt. Rather than a third bespoke visual, the 1l73 `SpellBoltModelBuilder` is the delivery
+visual and the catalog flag `SkyStrikeBolt` names it. Resolution inside `ResolveZone`, after
+`ResolveGroundTarget`, so the bolt targets the SAME center the burst uses — one derivation of "where
+the spell lands" (1jt's shared-derivation invariant).
+
+**H3 (where the height lives — CONFIRMED).** `SkyStrikeHeight` const next to `GroundProbeUp`/Down/
+Lift; 30 m reads as sky from normal cast range without colliding with the far-shell ceiling. Nothing
+collides with the bolt (collider destroyed), so the value is purely visual.
+
+**Dead ends.** (i) Sharing `SummonFallingRock`'s drop path — no: that DEFERS the burst until a rock
+lands and ships a TerrainShape; wrong for an instant strike. (ii) Keeping it a Beam and adding a
+bolt at the beam tip — that's the 1l75 work for the two real beams, and a single instant bolt is a
+different shape to a sustained channel. (iii) Reusing `SpellStormModelBuilder.BuildLightningBolt`
+(crossed bars at a point) — rejected in 1l73; a from→to stroke is required.
+
+**Status: OPEN until play-test.** Catalog row, resolve branch and docs shipped; the bench sky-bolt
+stub (1l73) is the acceptance readout for the shape.
+
 ## 1l73. Lightning block foundation (OPEN — machinery ships here, behaviour in 1l74–1l79)
 
 testing.md #6–#11 rewrite five Lightning-school deliveries. Six later commits all need one shared

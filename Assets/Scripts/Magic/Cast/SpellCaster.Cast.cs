@@ -217,6 +217,11 @@ public partial class SpellCaster
     /// into the terrain it is lying on.</summary>
     public const float GroundLift = 0.02f;
 
+    /// <summary>1l74: how far above the impact center a SkyStrikeBolt delivery's bolt falls FROM. The
+    /// only bound is "reads as sky": the bolt is a picture (segments only, no collider), so this is
+    /// visual height, never a projectile runway.</summary>
+    public const float SkyStrikeHeight = 30f;
+
     /// <summary>1jt: snap a world XZ down onto the ground beneath it, skipping <paramref name="skipRoot"/>
     /// and its whole hierarchy. THE ONE downward ground probe for cast placement.
     /// <para><b>Why it lives here and not in each caller.</b> <see cref="SpellSummon.FollowCaster"/>
@@ -401,6 +406,18 @@ public partial class SpellCaster
         // Aim at the ground the player is pointing at, skipping any already-raised terrain (a wall
         // this spell itself reared) so a repeat cast targets the intended ground, not the wall face.
         Vector3 center = TerrainDeformer.ResolveGroundTarget(pos, fwd, Mathf.Max(range, 0.1f));
+
+        // 1l74: a SkyStrikeBolt delivery (Lightning Strike) is an instant zone blast announced by a
+        // single tall jagged bolt from the sky down onto the impact center — the bolt IS the cast,
+        // so it renders before the impact spawns its ring and ships with the same resolved tint
+        // (the sky-height is a picture, not a runway: nothing collides with the bolt).
+        if (spell != null && spell.SkyStrikeBolt)
+        {
+            var strikeLook = SpellLook.Resolve(spell);
+            SpellBoltModelBuilder.BuildBolt(null, center + Vector3.up * SkyStrikeHeight, center,
+                SkillFx.SharedSpriteMaterial(strikeLook.Core), 0.5f, segments: 12,
+                width: 0.2f, jitterAmplitude: 0.6f);
+        }
 
         // Sky spells (summonFallingRock: Meteor / Asteroid / Earth Meteor) summon a big rock that
         // drops from high above; the burst resolves in ResolveZoneImpact only when the rock lands,

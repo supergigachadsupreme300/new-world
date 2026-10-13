@@ -42,6 +42,35 @@ look code twice:
   defaulted off and delivered in 1l74–1l79; the bench's four new pedestal visuals should be
   verifiable after any of those land (each bolt stays parked on the pedestal).
 
+## 1l74. Lightning Strike — Sky Fury becomes an instant sky-bolt zone (testing.md #11)
+
+- **Before:** `magic_lightning_fury` "Sky Fury" was a channeled Beam (range 13, radius 1.2,
+  drain 9 FP/s) — a hold-to-sear line. **After:** "Lightning Strike" is a Zone (range 13,
+  radius 2.2) that resolves the normal instant zone blast, and a single tall jagged bolt falls
+  from the sky onto the impact center first.
+- `<SpellData.SkyStrikeBolt>` (added 1l73) drives the drawn bolt in `SpellCaster.ResolveZone`,
+  via the shared `SpellBoltModelBuilder` and the spell's resolved core tint. `SkyStrikeHeight`
+  (30f) is a new named const next to the other delivery-probe consts — visual height only, the
+  bolt is collider-less.
+- Aim preview was already correct for a Zone delivery (ground disc at aim); no PlayerController
+  change needed.
+- Docs: `magic-skills.md` L245 line rewritten (name, delivery, radius, instant). `game-design.md`
+  never named the spell (grep). PROGRESS's historical 1xg-era entry is left as history.
+
+### 1l74-status
+- [x] `SkillCatalog.Magic.cs`: Sky Fury row → Lightning Strike, Beam→Zone, radius 1.2→2.2, drain
+  removed, `skyStrikeBolt: true`; id unchanged.
+- [x] `SpellCaster.Cast.cs`: `SkyStrikeHeight` const + the sky-bolt branch in `ResolveZone`.
+- [x] Docs: `magic-skills.md` + this entry + THINKING.md §1l74.
+- [x] Verified by grep + reread (no build, rule 3): id `magic_lightning_fury` unchanged and still
+  dispatched as the L2 fork key; "Sky Fury" gone from live docs/code; Beam-local state (channel
+  drain) removed with no remaining reader (grep `channelDrainPerSecond` on this row only — the
+  other Beam spells keep theirs).
+- [x] `skills: none applied` (rule 15) — catalog data change + a drawn-bolt call.
+- [ ] **PLAY-TEST (user, Unity):** cast Lightning Strike — a jagged bolt drops from the sky onto
+  the aimed ground, the zone blast staggers everything in radius 2.2, and no FP drains while held
+  (it is a tap cast now). Bench: the sky-strike pedestal bolt should match the cast bolt.
+
 ## 1l72. Side-run animation when strafing + per-arm suppression so the empty hand keeps swinging
 
 User: "add an side running animation to player, seperate from the normal running." Clarified: trigger =

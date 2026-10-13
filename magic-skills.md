@@ -242,7 +242,7 @@ All ten earlier beams leave `BeamHalfAngle` at 0 and keep the original single-ca
   - **Energy** (`magic_lightning_charge_energy`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **True Conduit** (`magic_lightning_charge_conduit`) - + 5 Wisdom (passive) | Permanent +5 Wisdom.
   - **Storm Heart** (`magic_lightning_charge_heart`) - + 5 Faith (passive) | Permanent +5 Faith.
-- **Sky Fury** (`magic_lightning_fury`) - Active (Lightning) - power 30, FP 20, cd 5s, range 13, radius 1.2, channels 9 FP/s, Stagger | Hold a crackling sky-fury that staggers everything in its path.
+- **Lightning Strike** (`magic_lightning_fury`) - Active (Lightning) - power 30, FP 20, cd 5s, range 13, radius 2.2, instant, Stagger | Call a single jagged lightning bolt down from the sky onto the target.
   - **Fury Bolt** (`magic_lightning_fury_bolt`) - Active (Lightning) - power 34, FP 22, cd 5s, Stagger, shape:Bolt | A bolt with the fury of the sky.
   - **Sky Beam** (`magic_lightning_fury_beam`) - Active (Lightning) - power 36, FP 24, cd 6s, range 14, radius 1.3, channels 10 FP/s, Stagger | A furious beam from above — hold it to sear the whole line.
   - **Stormsurge** (`magic_lightning_fury_rage`) - + 5 AttackSpeed (passive) | Permanent +5 Attack Speed.

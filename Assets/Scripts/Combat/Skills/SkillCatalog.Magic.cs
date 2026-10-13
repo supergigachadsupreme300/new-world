@@ -79,7 +79,7 @@ public static partial class SkillCatalog
             S("magic_lightning_volt", "Volt", Spell("magic_lightning_volt_spell", "Volt", DamageType.Lightning, 26f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Stagger, projectileShape: ProjectileShape.Bolt), "A jolting bolt that staggers on impact.", Focus(16f), DamageType.Lightning, true),
             S("magic_lightning_storm", "Stormcall", Spell("magic_lightning_storm_spell", "Stormcall", DamageType.Lightning, 32f, 24f, SpellDelivery.Storm, 7f, deliveryRange: 10f, deliveryRadius: 3.2f, duration: 3.5f, statusEffect: StatusEffectType.Stagger), "Call lightning down in a storm over the target.", Focus(24f), DamageType.Lightning, true),
             S("magic_lightning_charge", "Deep Charge", Perk(PassivePerkType.CooldownReductionPercent, 3f), "Bottled lightning — cooldowns recover 3% faster.", passive: true),
-            S("magic_lightning_fury", "Sky Fury", Spell("magic_lightning_fury_spell", "Sky Fury", DamageType.Lightning, 30f, 20f, SpellDelivery.Beam, 5f, deliveryRange: 13f, deliveryRadius: 1.2f, statusEffect: StatusEffectType.Stagger, channelDrainPerSecond: 9f), "Hold a crackling sky-fury that staggers everything in its path.", Focus(20f), DamageType.Lightning, true),
+            S("magic_lightning_fury", "Lightning Strike", Spell("magic_lightning_fury_spell", "Lightning Strike", DamageType.Lightning, 30f, 20f, SpellDelivery.Zone, 5f, deliveryRange: 13f, deliveryRadius: 2.2f, statusEffect: StatusEffectType.Stagger, skyStrikeBolt: true), "Call a single jagged lightning bolt down from the sky onto the target.", Focus(20f), DamageType.Lightning, true),
         };
 
         // Root: magic_water (active, Focus 14, projectile water; signature status = Wet).
