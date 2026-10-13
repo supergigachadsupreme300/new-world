@@ -179,7 +179,8 @@ public static partial class SkillCatalog
         TerrainShape terrainShape = TerrainShape.None, ProjectileShape projectileShape = ProjectileShape.Auto,
         bool summonFallingRock = false, SpellLookProfile look = null,
         float beamHalfAngle = 0f, bool casterAnchored = false, float boltSplashRadius = 0f,
-        bool summonFiresForward = false)
+        bool summonFiresForward = false, bool centerOnCaster = false, bool selfTeleport = false,
+        bool skyStrikeBolt = false, bool stormCloud = false)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -212,6 +213,14 @@ public static partial class SkillCatalog
         spell.CasterAnchored = casterAnchored;
         spell.BoltSplashRadius = boltSplashRadius;
         spell.SummonFiresForward = summonFiresForward;
+        // 1l73: the Lightning block's four delivery opt-ins, all defaulted so every existing spell is
+        // unchanged, and (like the 1ir trio) deliberately absent from ClassSkillCatalog.MakeSpell —
+        // class skills need none of them. Each is a ONE-mechanic flag: a placement (CenterOnCaster),
+        // a movement (SelfTeleport) or a drawn shape (SkyStrikeBolt / StormCloud).
+        spell.CenterOnCaster = centerOnCaster;
+        spell.SelfTeleport = selfTeleport;
+        spell.SkyStrikeBolt = skyStrikeBolt;
+        spell.StormCloud = stormCloud;
         // 1ii: null (the default) means "fully deterministic from spell.id" — the resolver treats a
         // profile that merely EXISTS as authored, so these 22 (16 here + 6 in SkillCatalog.Magic.cs;
         // 21 before 1kf's Firestorm storm-body-only profile — both counts regex-measured, the older

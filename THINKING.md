@@ -1,3 +1,49 @@
+## 1l73. Lightning block foundation (OPEN — machinery ships here, behaviour in 1l74–1l79)
+
+testing.md #6–#11 rewrite five Lightning-school deliveries. Six later commits all need one shared
+jagged point-to-point bolt body; this task is that shared layer so each later commit stays one
+commit.
+
+**H1 (one builder for the school — CONFIRMED).** Five callers must draw a jagged bolt between two
+world points (chain jump, leap start→end, sky strike, storm cloud→ground, nova downward bolts).
+Five hand-rolled copies would be five spellings of one look — rule 8's "seek the invariant", the
+same call that made `SpellLook.Resolve` the single authour of spell identity (rule 13). The storm
+event already ships the technique (`RandomEventManager.SpawnJaggedBolt`); it's vertical-only and its
+`LookRotation(Vector3.forward, dir)` is degenerate for any horizontal dir (chain/leap bolts are
+horizontal). Generalising is strictly smaller than inheriting.
+
+**H2 (reuse `SpellStormModelBuilder.BuildLightningBolt` — REJECTED).** That builder draws two
+CROSSED BARS at a single point (`at`) and has no geometric path to a second point. Reusing it would
+mean every caller invents its own per-point variant anyway — the second spelling again.
+
+**H3 (a `BoltStrip` plain class vs a scene root per churn — CONFIRMED).** A live beam re-jitters
+every ~0.07 s. Recreating cubes per shuffle is a pooler's nightmare; instead `BoltStrip.Rebuild`
+re-shuffles a fixed set of transforms. It is NOT a MonoBehaviour because it owns no lifecycle — it
+is a data handle the owning effect parks inside its own update.
+
+**H4 (how the beam keeps its orientation — CONFIRMED by reading `SpellBeam`).** `PulseVisual` sets
+`_body.rotation = Quaternion.FromToRotation(Vector3.up, Direction)`, so the beam body lives in
+LOCAL ±Y space relative to `_body`. The strip must lay cubes along local (0,−L/2,0)→(0,L/2,0) and
+the caller only re-orients `_body`; then the FromToRotation per-frame already does the aim and the
+strip is re-jittered by `Rebuild` with the SAME parent-space axis. No second orientation
+computation. (1l75 lands on this.)
+
+**H5 (four flags vs one per axis — CONFIRMED).** `CenterOnCaster` is placement, `SelfTeleport` is
+movement, `SkyStrikeBolt`/`StormCloud` are drawn shapes. Merging them into one "special lightning"
+bool would hand each delivery a branch on a flag with no semantics (rule 20's predicate-per-decision
+applied to delivery), and would leak across the school: Static Nova is a zone-with-centering, Leap
+Bolt is an instant-with-movement, neither shares a mechanism. One flag per mechanism, all defaulted
+off in the catalog factory (class skills untouched — same precedent as the 1ir trio).
+
+**Benched (must match the runtime builder — rule 13):** every new branch mounts the exact builder
+the live delivery uses; the bench is the acceptance readout for shapes that only exist inside a live
+cast. `SpellBeamModelBuilder` is NOT this builder (beam funnel); the crossed-bars builder is NOT
+replaced by it (Devastation's per-strike bolts are, 1l77 — that's the flag `StormCloud`).
+
+**Status: OPEN.** Landed: builder + flags + factory + bench branches + StaticChecks entry, 0
+candidates. The six behaviour commits (1l74–1l79) ship on top of this; the section stays OPEN until
+the block is done.
+
 ## 1l72. Side-run animation when strafing (REWORKED after play-test; play-test pending)
 
 User: "add an side running animation to player, seperate from the normal running."

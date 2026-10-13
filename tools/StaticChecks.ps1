@@ -100,8 +100,9 @@ $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            'Assets\Scripts\Models\Magic\SkillFxModelBuilder.cs',
            'Assets\Scripts\Models\Magic\CastingCircleModelBuilder.cs',
            'Assets\Scripts\Models\Magic\CcZoneFxModelBuilder.cs',
-           'Assets\Scripts\Models\Magic\AoeAimPreviewModelBuilder.cs',
-           'Assets\Scripts\Models\WeaponProjectileModelBuilder.cs')
+'Assets\Scripts\Models\Magic\AoeAimPreviewModelBuilder.cs',
+            'Assets\Scripts\Models\Magic\SpellBoltModelBuilder.cs',  # 1l73: new file; check 1 (balance) covers a brand-new builder like the 1jb/1jd moves
+            'Assets\Scripts\Models\WeaponProjectileModelBuilder.cs')
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'

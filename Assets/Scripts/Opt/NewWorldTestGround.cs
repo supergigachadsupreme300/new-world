@@ -2024,6 +2024,54 @@ private static string Describe(in SpellLook look)
                 famRoot.localPosition = new Vector3(0f, -SummonModelBuilder.FamiliarRingHeight, 0f);
                 SummonModelBuilder.BuildFamiliarCircle(famRoot, SpellLook.Resolve(spell).Core);
             }
+            // 1l73: the Lightning school's point-to-point bolt bodies, mounted via the SAME builder
+            // the runtime deliveries use — for the same rule-13 reason as every branch above: a
+            // visual that exists only inside a live cast has no acceptance readout. One branch per
+            // flag; each is parked (large lifetime) so the shape can be judged without casting.
+            else if (spell.Delivery == SpellDelivery.Chain)
+            {
+                // 1l76: the chain's drawn identity is the jagged point-to-point bolt, so this mounts
+                // a short horizontal hop where a live first jump would land. Builds via the real
+                // builder rather than a proxy that could drift from the live bolt.
+                var cl = SpellLook.Resolve(spell);
+                SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
+                    new Vector3(0f, 0f, 0f), new Vector3(0f, 0.15f, 1.15f),
+                    SkillFx.SharedSpriteMaterial(cl.Core), 1000f);
+            }
+            else if (spell.SkyStrikeBolt)
+            {
+                // 1l74: a single tall bolt from above the pedestal down to its top, the exact shape
+                // the live zone draws before its instant blast.
+                var sl = SpellLook.Resolve(spell);
+                SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
+                    new Vector3(0f, 2.9f, 0f), new Vector3(0f, 0.05f, 0f),
+                    SkillFx.SharedSpriteMaterial(sl.Core), 1000f, segments: 8,
+                    width: 0.2f, jitterAmplitude: 0.5f);
+            }
+            else if (spell.StormCloud)
+            {
+                // 1l77: the storm's dark cloud body plus the profile of the cloud-to-ground strike
+                // the real bursts draw — same BuildCloud call and dark tint the runtime uses.
+                var wl = SpellLook.Resolve(spell);
+                var cloud = MapBuilder.BuildCloud(modelRoot.transform, new Vector3(0f, 2.9f, 0f), 1.6f);
+                foreach (var r in cloud.GetComponentsInChildren<Renderer>())
+                    r.material.color = new Color(0.15f, 0.15f, 0.18f);
+                SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
+                    new Vector3(0f, 2.3f, 0f), new Vector3(0f, 0.05f, 0f),
+                    SkillFx.SharedSpriteMaterial(wl.Core), 1000f, segments: 8,
+                    jitterAmplitude: 0.7f);
+            }
+            else if (spell.CenterOnCaster)
+            {
+                // 1l79: the nova's ground disc under the pedestal — the SAME BuildGroundZone the
+                // immediate zone uses, offset so the disc sits at the pedestal's base.
+                var nl = SpellLook.Resolve(spell);
+                var discRoot = new GameObject("NovaDisc").transform;
+                discRoot.SetParent(modelRoot.transform, false);
+                discRoot.localPosition = new Vector3(0f, -1.3f, 0f);
+                SpellZoneModelBuilder.BuildGroundZone(discRoot, spell.Radius,
+                    SkillFx.SharedSpriteMaterial(nl.Core));
+            }
             else
             {
                 MagicProjectileModelBuilder.CreateProjectileDisplay(spell)

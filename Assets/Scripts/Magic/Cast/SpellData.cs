@@ -12,7 +12,13 @@ public enum SpellDelivery
     Vortex = 3,
     Beam = 4,
     Summon = 5,
-    Storm = 6
+    Storm = 6,
+
+    /// <summary>1l73: a single instant strike that ARCS from victim to victim — the primary hit
+    /// lands along the aim, then the bolt jumps a fixed radius to nearby un-hit foes a limited
+    /// number of times (Chain Lightning). Resolved in SpellCaster.ResolveChain; no projectile body,
+    /// no zone — the drawn jagged bolts connect the victims.</summary>
+    Chain = 7
 }
 
 /// <summary>
@@ -194,4 +200,12 @@ public class SpellData : ScriptableObject
     public bool CasterAnchored;
     [Tooltip("1is: this summon SPRAYS FORWARD along the caster's aim every tick, with no target test at all — it is a stream, not a turret. Separate from CasterAnchored on purpose: sharing one flag would silently hand any future caster-anchored turret 'fires regardless of targets' for free, which is a balance change nobody would be looking for. Consequence worth knowing: with no target gate, Radius stops bounding the spell and only sizes the drawn circle; the bolts' own flight envelope decides how far it reaches.")]
     public bool SummonFiresForward;
+    [Tooltip("1l73: a Zone delivery resolves AT THE CASTER instead of the ground aim point — the impact center snaps to the ground beneath the player and the aim preview draws its disc around the player too. One flag for one placement decision; nothing else reads it (Static Nova is the only Zone spell that must NOT reach the aim point).")]
+    public bool CenterOnCaster;
+    [Tooltip("1l73: an Instant delivery TELEPORTS the caster forward along the aim instead of raycasting a victim — Range is the leap distance, Radius the landing-burst radius. The leap leaves a jagged bolt connecting the old and new positions (Leap Bolt is the only user).")]
+    public bool SelfTeleport;
+    [Tooltip("1l73: a Zone delivery draws a single tall jagged bolt from the sky down to the impact center (Lightning Strike). Purely visual — the resolve is the normal instant zone blast.")]
+    public bool SkyStrikeBolt;
+    [Tooltip("1l73: a Storm delivery mounts a dark cloud over the storm center and each strike draws a long multi-segment bolt from the cloud down to its ground point instead of the crossed bars (Devastation). The cloud and every bolt ship with and die with the storm.")]
+    public bool StormCloud;
 }

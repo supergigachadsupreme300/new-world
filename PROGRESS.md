@@ -1,3 +1,47 @@
+## 1l73. Lightning block foundation: SpellBoltModelBuilder + four one-mechanic delivery axes
+
+testing.md tasks #6–#11 rework the Lightning school's deliveries (Chain Lightning, Devastation,
+Leap Bolt, Static Nova, Lightning Strike, plus the beam bolt re-jitter). This task is the shared
+layer they land on, so the six later commits each stay one commit and never touch the school's
+look code twice:
+
+- **`SpellBoltModelBuilder`** (`Assets/Scripts/Models/Magic/`): the point-to-point jagged bolt —
+  `BuildBolt(parent, from, to, sharedMat, lifetime, ...)` for one-shots and `CreateStrip` +
+  `BoltStrip.Rebuild` for a live re-jittering channel. Same cube-chain technique as the thunder
+  event, generalised from "vertical storm bolt, jitter hard-coded to X/Z" to an arbitrary from→to
+  axis (perpendicular basis, tapered kick `1 − t·0.5`, first segment 1.6×, `AxisRotation` that
+  survives horizontal bolts where `LookRotation(forward, dir)` degenerates). Colliders destroyed;
+  materials handed in as the resolved core tint and assigned shared, matching the storm event's
+  batching. Not a rewrite of `SpellStormModelBuilder.BuildLightningBolt` (crossed bars at a point,
+  no path).
+- **Four `SpellData` flags, one mechanism each** (`CenterOnCaster`, `SelfTeleport`,
+  `SkyStrikeBolt`, `StormCloud`) + **`SpellDelivery.Chain` (= 7)**, all defaulted off and threaded
+  through the `Spell(...)` factory alongside the 1ir trio. Deliberately absent from
+  `ClassSkillCatalog.MakeSpell`, like the 1ir trio, with that stated at both sites.
+- **QA bench branches** (`NewWorldTestGround` pedestal switch): Chain hop, sky strike, storm cloud
+  + cloud-to-ground bolt, and the CenterOnCaster disc — every one mounting the SAME builder the
+  live delivery will use (rule 13: a visual with no acceptance readout is unverified).
+- **`tools/StaticChecks.ps1`**: new builder added to `$files` for check 1 (a brand-new builder
+  would otherwise be outside the covered set, as the 1jb/1jd moves taught).
+
+### 1l73-status
+- [x] `SpellBoltModelBuilder.cs` + `.meta` (new file).
+- [x] `SpellData.cs`: `Chain = 7` + `CenterOnCaster`/`SelfTeleport`/`SkyStrikeBolt`/`StormCloud`
+  with tooltips.
+- [x] `SkillCatalog.cs`: factory gained the four named params + assignments; comment records the
+  ClassSkillCatalog absence.
+- [x] `StaticChecks.ps1` `$files` entry + moved `SpellBoltModelBuilder.cs` in.
+- [x] `NewWorldTestGround.cs`: four fires-store branches (Chain hop, sky bolt, cloud, disc) using
+  the real builders + `SkillFx.SharedSpriteMaterial(SpellLook.Resolve(spell).Core)`.
+- [x] Docs: this entry + `THINKING.md` §1l73.
+- [x] Verified by grep + reread (no build, rule 3) + `tools\StaticChecks.ps1` → 0 candidates (the
+  reported `next` at `SpellBoltModelBuilder.cs:100` is the expected reassigned-in-loop local).
+- [x] `skills: none applied` (rule 15) — battlelightning C# mechanics + a vertex-chain builder; no
+  installed skill governs this artifact.
+- [ ] **PLAY-TEST (user, Unity):** no runtime behaviour changes yet by design — every flag is
+  defaulted off and delivered in 1l74–1l79; the bench's four new pedestal visuals should be
+  verifiable after any of those land (each bolt stays parked on the pedestal).
+
 ## 1l72. Side-run animation when strafing + per-arm suppression so the empty hand keeps swinging
 
 User: "add an side running animation to player, seperate from the normal running." Clarified: trigger =
