@@ -1,40 +1,53 @@
-## 1l72. Side-run animation when strafing (a gait separate from the forward run)
+## 1l72. Side-run animation when strafing + per-arm suppression so the empty hand keeps swinging
 
 User: "add an side running animation to player, seperate from the normal running." Clarified: trigger =
-strafing (A/D while the body still faces the camera).
+strafing (A/D while the body still faces the camera). First attempt shipped as `e49862f` with a
+facing-relative VELOCITY split; reworked after play-test (rule 1: follow-up fix, new commit, old stays).
 
-- The model faces the mouse-look yaw, and movement is `transform.TransformDirection(input)`, so A/D
-  slides the body sideways while the walk/run gait kept swinging the legs forward/back — a moonwalk.
-  `PlayerAnimator` only ever saw the planar speed MAGNITUDE, so it had no idea the motion was lateral.
-- Added a smoothed **facing-relative** velocity split: `localVel = transform.InverseTransformDirection(
-  (delta.x, 0, delta.z))`, low-passed with the same filter and the same 30 m/s teleport rejection as the
-  scalar `_speedH`, into new fields `_sideH` (local +x) / `_fwdH` (local +z). Same filter so the two
-  numbers can never disagree.
-- **`strafeBlend = SmoothStep(0.65, 0.92, |side| / (|side| + |fwd|))`** blends the forward walk/run pose
-  into a **side-step**: the leading leg abducts (hip Z) out toward the travel and lifts (knee), the
-  trailing leg follows half a cycle later, and a small antiphase hip X keeps the legs alive. A pure A/D
-  strafe (ratio 1.0) is fully side-run; a forward/diagonal move stays on the forward gait.
+- **Report 1 — "shakes like crazy while moving forward."** The velocity split is the cause: the body yaw
+  is set instantly to the camera yaw (`PlayerController.Camera.HandleMouseLook`), but the world velocity
+  still points along the PREVIOUS facing through a turn, so a straight run with any camera turn reported a
+  lateral component whose sign flipped every frame — the legs/torso rolled left-right violently.
+- **Fix:** detect the strafe from the move **INPUT**, already in the body frame because movement is
+  `transform.TransformDirection(input)`. New `PlayerController.MoveInput` (normalized body-frame `(x, y)`,
+  zero while a dialog blocks movement) set in `HandleMovement`; `PlayerAnimator` reads it via `_pc`.
+  `strafeBlend = SmoothStep(0.70, 0.95, |mi.x| / (|mi.x| + |mi.y|))`, `strafeSign = Sign(mi.x)` — a forward
+  run has `mi.x == 0` exactly, and the sign cannot flicker.
+- **Report 2 — "when casting a spell while moving the hand holding the weapon does not move, that's good,
+  but the empty hand should be moving like normal."** `SuppressArms` was one bool gating BOTH arms, so a
+  one-handed cast froze the empty arm too.
+- **Fix:** per-arm suppression. `PlayerAnimator.AcquireArms(right, left)` / `ReleaseArms(right, left)` keep
+  per-arm claim counts (`_armOwnersR`/`_armOwnersL` → `SuppressArmR`/`SuppressArmL`; `SuppressArms` stays
+  true while any claim is held). The arm block and `RestoreIdle` gate each arm separately, so an unclaimed
+  arm keeps its locomotion swing. `WeaponAnimator.Acquire` claims only the arm it drives, plus the support
+  arm for two-hand poses (`OffArm.Mirror`/`OffArm.Asym`); `_claimR`/`_claimL` remember the set so
+  `Release` mirrors `Acquire` even if the def changes mid-phase.
+- **Side-step pose** (unchanged from the first attempt): the leading leg abducts (hip Z) toward the travel
+  and lifts (knee), the trailing leg follows half a cycle later, a small antiphase hip X keeps the legs
+  alive, and the torso trades its forward lean for a roll into the travel. A pure A/D strafe (ratio 1.0) is
+  full side-run; forward and diagonal (W+A, ratio ≈ 0.71) stay on the forward gait.
 - **Direction facts encoded in the comments (rule 8):** a +Z hip rotation sweeps a foot toward +x for
   EITHER hip, so both legs abduct the SAME way (`strafeSign`), the near leg first; and +Z torso roll tips
-  the top toward −x, so the torso leans INTO the travel with `-strafeSign` and trades most of its forward
-  lean away.
-- Walk/run amplitude, cadence, `norm`, the idle path and the arm pose are untouched — the side-run is a
-  pure blend on top, so it cannot perturb the existing gaits.
-- **Docs:** `game-design.md` (animation cluster, next to 1jn). Touches `PlayerAnimator.cs` only.
+  the top toward −x, so the torso leans INTO the travel with `-strafeSign`.
+- **Docs:** `game-design.md` (animation cluster, next to 1jn), `Assets/Scripts/Animation/README.md`.
+  Touches `PlayerController.Movement.cs`, `PlayerAnimator.cs`, `WeaponAnimator.cs`.
 
 ### 1l72-status
-- [x] `PlayerAnimator.cs`: `_sideH`/`_fwdH` fields + per-frame local-velocity split; `strafeBlend` /
-  `strafeSign`; side-step applied to hip Z + knee X + small hip X; torso forward-lean/roll blend.
-- [x] Docs: `game-design.md`, this entry + `THINKING.md` §1l72.
-- [x] Verified by grep + reread (no build, rule 3): `transform.InverseTransformDirection` matches the
-  pattern already used for facing-relative motion; `strafeBlend`/`strafeSign` are declared before every
-  use in `Animate`; when `strafeBlend == 0` the expressions reduce exactly to the old forward values.
+- [x] `PlayerController.Movement.cs`: `public Vector2 MoveInput` + set it in `HandleMovement`.
+- [x] `PlayerAnimator.cs`: drop `_sideH`/`_fwdH` + the local-velocity block; input-based
+  `sideRatio`/`strafeBlend`/`strafeSign`; side-step on hip Z + knee X + small hip X; torso lean/roll.
+  Per-arm `SuppressArmL`/`SuppressArmR`; arm block + `RestoreIdle` gated per arm; watchdog clears both.
+- [x] `WeaponAnimator.cs`: `Acquire`/`Release` pass the claimed arm(s); class comment updated.
+- [x] Docs: `game-design.md`, `Animation/README.md`, this entry + `THINKING.md` §1l72.
+- [x] Verified by grep + reread (no build, rule 3): `AcquireArms`/`ReleaseArms` have exactly one caller
+  (`WeaponAnimator`); no other code reads `SuppressArms`; the strafe input is exact
+  (`transform.TransformDirection(input)`); when `strafeBlend == 0` the side-run terms reduce exactly to
+  the old forward values.
 - [x] `skills: none applied` (rule 15) — procedural C# animation behaviour.
-- [ ] **PLAY-TEST (user, Unity):** run forward (W) — normal run unchanged; then run with A or D held
-  (strafe) — the legs should step sideways and the torso lean into the travel, instead of the old
-  forward-swing/moonwalk. Check a diagonal (W+A) reads mostly as a forward run, that switching strafe
-  side (A↔D) mirrors cleanly, and that idle/stop and the attack arm poses are unaffected. `StaticChecks`
-  covers neither file.
+- [ ] **PLAY-TEST (user, Unity):** run forward while turning the camera — must NOT shake; strafe with A/D —
+  legs step sideways and the torso leans into the travel; W+A stays a forward run; cast while strafing —
+  the weapon hand holds its pose and the EMPTY hand still swings; a two-hand weapon swing still moves both
+  arms; idle + stop unaffected. `StaticChecks` covers neither file.
 
 ## 1l71. Held projectile body spins like the launched bolt
 

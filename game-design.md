@@ -1545,16 +1545,6 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
     multipliers the measured speed does; a stacked build therefore poses slightly short of a full run while
     its legs keep the correct rate.
   - **Gait speed is smoothed and teleport-guarded (1jn)**: because the cadence is a **division** by
-    running sideways (A/D while the body still faces the camera) read as a **moonwalk**. The animator now
-    keeps a smoothed **facing-relative** velocity split (`_sideH` = local +x, `_fwdH` = local +z, same
-    low-pass and 30 m/s teleport guard as the scalar speed) and blends in a **side-step** when motion is
-    mostly sideways (`strafeBlend = SmoothStep(0.65, 0.92, |side|/(|side|+|fwd|))`, so a pure A/D strafe
-    is full and a diagonal is mostly still a forward run). The lead leg abducts out in the travel
-    direction (a +Z hip rotation sweeps a foot toward +x for either hip, so **both** legs step the same
-    way: lead first, trail half a cycle later), lifts with its knee, and the torso trades most of its
-    forward lean for a roll **into** the travel (`-strafeSign`; +Z roll tips the top toward −x). Walk/run
-    amplitude, cadence and the idle path are untouched, so the two never disagree.
-  - **Gait speed is smoothed and teleport-guarded (1jn)**: because the cadence is a **division** by
     `StrideLength`, the measured planar speed is low-passed (12/s) and any reading above 30 m/s - a respawn
     or teleport, orders of magnitude past locomotion - is discarded rather than smoothed. Without this a
     single spiky frame is amplified into the `_phase` integrator and leaves a *permanent* phase error behind.
@@ -1562,16 +1552,22 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
     `LateUpdate` measured the player against a `default(Vector3)` and reported its distance from the world
     origin as speed. That was nearly invisible under the old clamped `norm` (one frame of run pose) and is
     a multi-Hz phase burst under a divisor.
-  - **Side-run pose while strafing (1l72)**: the walk/run cycle is a forward back-and-forth swing, so
-    running sideways (A/D while the body still faces the camera) read as a **moonwalk**. The animator now
-    keeps a smoothed **facing-relative** velocity split (`_sideH` = local +x, `_fwdH` = local +z, same
-    low-pass and 30 m/s teleport guard as the scalar speed) and blends in a **side-step** when motion is
-    mostly sideways (`strafeBlend = SmoothStep(0.65, 0.92, |side|/(|side|+|fwd|))`, so a pure A/D strafe
-    is full and a diagonal is mostly still a forward run). The lead leg abducts out in the travel
-    direction (a +Z hip rotation sweeps a foot toward +x for either hip, so **both** legs step the same
-    way: lead first, trail half a cycle later), lifts with its knee, and the torso trades most of its
-    forward lean for a roll **into** the travel (`-strafeSign`; +Z roll tips the top toward −x). Walk/run
-    amplitude, cadence and the idle path are untouched, so the two never disagree.
+  - **Side-run pose while strafing (1l72)**: the walk/run cycle is a forward back-and-forth swing, so a
+    sideways slide (A/D while the body still faces the camera) read as a **moonwalk**. The strafe is detected
+    from the move **INPUT** (`PlayerController.MoveInput`, already in the body frame because movement is
+    `transform.TransformDirection(input)`; `strafeBlend = SmoothStep(0.70, 0.95, |x|/(|x|+|y|))`, so a pure
+    A/D strafe is full and a diagonal stays a forward run). The lead leg abducts out in the travel direction
+    (a +Z hip rotation sweeps a foot toward +x for either hip, so **both** legs step the same way: lead
+    first, trail half a cycle later), lifts with its knee, and the torso trades most of its forward lean for
+    a roll **into** the travel (`-strafeSign`; +Z roll tips the top toward -x). Walk/run amplitude, cadence
+    and the idle path are untouched, so the two never disagree. *Detection is from input, not measured
+    velocity:* the body yaw is written from the camera every frame while the world velocity lags it through
+    a turn, so a velocity split reported a lateral component on a straight run and shook the legs (1l72 fix).
+  - **Per-arm suppression lets the empty hand keep swinging (1l72)**: `PlayerAnimator.AcquireArms(right,
+    left)` / `ReleaseArms(right, left)` claim arm pivots **per side** (`SuppressArmR`/`SuppressArmL`). A
+    one-handed cast or attack claims only the hand that holds the weapon, so the OTHER arm keeps its
+    locomotion swing; two-hand poses (`OffArm.Mirror`/`OffArm.Asym`) claim both. `SuppressArms` stays true
+    while any claim is held.
   - **Wrapped hair shell (1l2)**: supersedes the 1e3/1cn slab stack. The hair is now a single
     watertight **cap** (`PlayerPartMesher.BuildHairShell`, profile id `"HairCap"`) — a sphere lattice
     at radius 0.5 whose per-corner radius is pulled in to `HairShellInner` (0.30) wherever skin is

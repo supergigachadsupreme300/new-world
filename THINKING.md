@@ -1,4 +1,4 @@
-## 1l72. Side-run animation when strafing (SHIPPED, play-test pending)
+## 1l72. Side-run animation when strafing (REWORKED after play-test; play-test pending)
 
 User: "add an side running animation to player, seperate from the normal running."
 
@@ -36,13 +36,32 @@ first, the trail half a cycle later (`strafeSign`). Torso: rotating `(0,1,0)` ab
 `-strafeSign`. Both facts are counter-intuitive signs worth keeping in the source.
 
 **Dead ends / rejected.** (i) Not reusing `runBlend`'s `norm` for the side amplitude source of truth: the
-side amplitude is its own pair of numbers. (ii) Not touching the arm pose — arms already swing
-front-to-back in a run and defining a new arm gait risks the `SuppressArms`/`WeaponAnimator` ownership
-contract for no clear read. (iii) Not changing cadence for the side gait — the feet-plant invariant
-(`speed / stride`) is direction-agnostic and stays canonical.
+side amplitude is its own pair of numbers. (ii) **REJECTED — see rework:** originally I left the arm pose
+alone to avoid perturbing the `SuppressArms`/`WeaponAnimator` contract; that contract WAS the bug (a single
+bool froze both arms during a one-handed cast). (iii) Not changing cadence for the side gait — the
+feet-plant invariant (`speed / stride`) is direction-agnostic and stays canonical.
 
 **Verdicts.** H1 confirmed (user). H2 confirmed (code). H3 confirmed (code). At `strafeBlend == 0` every new
 expression reduces to the old forward value, so a straight run is bit-for-bit the previous pose.
+
+**REWORK after the first commit `e49862f` shipped (play-test feedback).**
+- **"Shakes like crazy while moving forward."** The velocity SIGNAL above is the cause, and it is a write
+  order (rule 7): the body yaw is rewritten from the camera every frame
+  (`HandleMouseLook` → `transform.rotation = Euler(0, _yaw, 0)`), but the character's world velocity lags
+  it through a turn — so the body-frame decomposition of world velocity reports a lateral component on a
+  straight run with any camera turn, and its sign flips frame to frame, rolling the legs/torso. Verdict:
+  velocity was the wrong SOURCE (rule 7: prefer the look/input source). Replaced with the move INPUT,
+  which is body-frame by construction (`direction = (input.x, 0, input.y)` fed to
+  `transform.TransformDirection`). New `PlayerController.MoveInput` exposes it; forward ⇒ `mi.x == 0`
+  exactly and `strafeSign = Sign(mi.x)` cannot flicker. Window widened to `SmoothStep(0.70, 0.95, …)`.
+- **"…the empty hand should be moving like normal."** `SuppressArms` was one bool; a one-handed cast set it
+  and `if (!SuppressArms)` froze the shoulder+elbow of BOTH arms. Replaced with per-arm claims —
+  `AcquireArms(right, left)` / `ReleaseArms(right, left)` keeping `_armOwnersR`/`_armOwnersL` and
+  `SuppressArmR`/`SuppressArmL` — and the arm block + `RestoreIdle` gate each arm separately.
+  `WeaponAnimator.Acquire` claims only the arm the def drives (`_offHand`), plus the support arm for
+  two-hand poses (`OffArm.Mirror`/`Asym`). Single-caller check (rule 5/14): grep shows only
+  `WeaponAnimator` calls `AcquireArms`/`ReleaseArms` and only `PlayerAnimator` reads `SuppressArms`, so the
+  signature change is contained.
 
 `skills: none applied` (rule 15) — procedural C# animation; the per-frame write stays in the animator.
 

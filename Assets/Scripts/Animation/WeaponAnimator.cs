@@ -14,9 +14,11 @@ using UnityEngine;
 /// blade-only "wiggle". The weapon rides the hand at its equipped rest pose; only magic focuses
 /// keep small local accents (orb arc, scale pulse, strum) on top.
 ///
-/// The arms are fully owned while attacking: this component sets
-/// <see cref="PlayerAnimator.SuppressArms"/> so the walk/idle animator can't overwrite the swing
-/// mid-attack, then restores the captured base pose on recovery. Rest poses are re-captured at the
+/// The arms it drives are owned while attacking: this component sets
+/// <see cref="PlayerAnimator.SuppressArms"/> (per arm via <see cref="PlayerAnimator.AcquireArms"/>)
+/// so the walk/idle animator can't overwrite the swing mid-attack, then restores the captured base
+/// pose on recovery. A one-handed def claims only the hand that holds the weapon, so the empty arm
+/// keeps its locomotion swing during a cast (1l72). Rest poses are re-captured at the
 /// start of every attack, so re-parenting onto a hand (WeaponRigBuilder's ReparentToHands) never
 /// breaks the animation.
 ///
@@ -402,6 +404,12 @@ public sealed class WeaponAnimator : MonoBehaviour
     /// <summary>True when THIS rig currently holds an AcquireArms claim on the player arms.</summary>
     private bool _ownsArms;
 
+    /// <summary>The arms this rig claimed, so Release hands back exactly what Acquire took. A
+    /// one-handed phase (Mode None) claims only its owner arm; Asym/Mirror also claim the support
+    /// arm. Storing them keeps release correct even if the def changed mid-phase (1l72).</summary>
+    private bool _claimR;
+    private bool _claimL;
+
     /// <summary>Two-hand grip ramp, 0 → 1 over <see cref="TwoHandGripBlendIn"/>. Reset at each
     /// phase entry so the support hand eases onto the hilt instead of snapping to it.</summary>
     private float _gripBlend;
@@ -676,12 +684,18 @@ public sealed class WeaponAnimator : MonoBehaviour
         }
     }
 
-    /// <summary>Claim the player arms ONCE per phase (balanced with exactly one release in End).</summary>
+    /// <summary>Claim the player arms ONCE per phase (balanced with exactly one release in End).
+    /// Claims the arm this rig drives, plus the support arm only when the def poses it
+    /// (<see cref="OffArm.Mirror"/> / <see cref="OffArm.Asym"/>). A one-handed def leaves the other
+    /// arm to the locomotion gait, so a cast freezes only the casting hand (1l72).</summary>
     private void Acquire()
     {
         if (_ownsArms) return;
         _ownsArms = true;
-        if (_playerAnim != null) _playerAnim.AcquireArms();
+        bool other = _def.Mode != OffArm.None;
+        _claimR = !_offHand || (_offHand && other);
+        _claimL = _offHand || (!_offHand && other);
+        if (_playerAnim != null) _playerAnim.AcquireArms(_claimR, _claimL);
     }
 
     /// <summary>Release the arm claim held by this rig. Safe to call when not owning.</summary>
@@ -689,7 +703,7 @@ public sealed class WeaponAnimator : MonoBehaviour
     {
         if (!_ownsArms) return;
         _ownsArms = false;
-        if (_playerAnim != null) _playerAnim.ReleaseArms();
+        if (_playerAnim != null) _playerAnim.ReleaseArms(_claimR, _claimL);
     }
 
     /// <summary>Restore the arm pivots to their rest pose. The model's rest is local identity

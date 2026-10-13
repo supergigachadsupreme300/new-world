@@ -62,22 +62,27 @@ public sealed class PlayerAnimator : MonoBehaviour
     /// <summary>Smoothed planar speed (m/s) of the character root. See <see cref="SpeedSmoothing"/>.</summary>
     private float _speedH;
 
-    /// <summary>Smoothed velocity components in the model's local frame (+x right, +z forward),
-    /// low-passed with the same filter as <see cref="_speedH"/>. Their split tells a strafe (mostly
-    /// sideways A/D motion while the body still faces the camera) apart from a normal forward
-    /// walk/run, which drives the side-run pose.</summary>
-    private float _sideH;
-    private float _fwdH;
+    /// <summary>Smoothed planar speed (m/s) of the character root. See <see cref="SpeedSmoothing"/>.</summary>
+    private float _speedH;
 
     /// <summary>
-    /// When true, the arm pivots (shoulders AND elbows) are left entirely to a
-    /// <see cref="WeaponAnimator"/>, which drives them through its attack pose track / ready sway
-    /// while SuppressArms is set. Managed by <see cref="AcquireArms"/> / <see cref="ReleaseArms"/>
-    /// so several weapon rigs (dual wield, or an attack over a ready sway) can hold the arms at once.
+    /// When true, at least one arm pivot is left to a <see cref="WeaponAnimator"/>, which drives it
+    /// through its attack pose track / ready sway while SuppressArms is set. Managed by
+    /// <see cref="AcquireArms"/> / <see cref="ReleaseArms"/> so several weapon rigs (dual wield, or an
+    /// attack over a ready sway) can hold an arm at once. Suppression is PER ARM (<see
+    /// cref="SuppressArmR"/> / <see cref="SuppressArmL"/>): a one-handed action claims only its own
+    /// side, so the empty hand keeps its walk/run swing (1l72).
     /// </summary>
     public bool SuppressArms;
 
-    private int _armOwners;
+    /// <summary>True while some caller owns the RIGHT / LEFT arm pivots (shoulder + elbow). The
+    /// unowned arm is still driven by the locomotion gait, so a one-handed cast freezes only the
+    /// casting hand.</summary>
+    public bool SuppressArmR => _armOwnersR > 0;
+    public bool SuppressArmL => _armOwnersL > 0;
+
+    private int _armOwnersR;
+    private int _armOwnersL;
 
     /// <summary>Last frame a WeaponAnimator wrote the arm pivots (PingArms). Feeds the watchdog.</summary>
     private float _lastArmWrite;
@@ -205,18 +210,24 @@ public sealed class PlayerAnimator : MonoBehaviour
       private CombatController _cc;
       private WeaponStowAnimator _wstow;
 
-    /// <summary>Claim ownership of the arm pivots (attack or ready sway). Calls SuppressArms on.</summary>
-    public void AcquireArms()
+    /// <summary>Claim ownership of the given arm pivots (attack, cast or ready sway). An owner
+    /// claims the arm it drives; a two-handed grip claims both. Any UNclaimed arm keeps its
+    /// locomotion swing, so a one-handed cast freezes only the casting hand and the empty hand still
+    /// moves (1l72).</summary>
+    public void AcquireArms(bool right, bool left)
     {
-        _armOwners++;
-        SuppressArms = _armOwners > 0;
+        if (right) _armOwnersR++;
+        if (left) _armOwnersL++;
+        SuppressArms = _armOwnersR > 0 || _armOwnersL > 0;
     }
 
-    /// <summary>Release one claim on the arm pivots. Calls SuppressArms off when none are left.</summary>
-    public void ReleaseArms()
+    /// <summary>Release one claim on the given arm pivots. Calls SuppressArms off when none are
+    /// left, and each arm flag off when its own claims are gone.</summary>
+    public void ReleaseArms(bool right, bool left)
     {
-        _armOwners = Mathf.Max(0, _armOwners - 1);
-        SuppressArms = _armOwners > 0;
+        if (right) _armOwnersR = Mathf.Max(0, _armOwnersR - 1);
+        if (left) _armOwnersL = Mathf.Max(0, _armOwnersL - 1);
+        SuppressArms = _armOwnersR > 0 || _armOwnersL > 0;
     }
 
     /// <summary>WeaponAnimator pings each frame it actively drives the arm pivots, keeping the
@@ -267,9 +278,10 @@ public sealed class PlayerAnimator : MonoBehaviour
         // Safety net: a leaked arm-owner claim (a WeaponAnimator phase that ended without
         // releasing) leaves SuppressArms stuck, freezing the arms in a stale pose forever. Every
         // rig that actively drives the palms pings every frame; a long silence means a leak.
-        if (SuppressArms && _armOwners > 0 && Time.time - _lastArmWrite > 0.5f)
+        if (SuppressArms && (_armOwnersR > 0 || _armOwnersL > 0) && Time.time - _lastArmWrite > 0.5f)
         {
-            _armOwners = 0;
+            _armOwnersR = 0;
+            _armOwnersL = 0;
             SuppressArms = false;
             if (!_armWatchdogLogged)
             {
@@ -307,14 +319,6 @@ public sealed class PlayerAnimator : MonoBehaviour
         float rawH = Mathf.Min(new Vector2(delta.x, delta.z).magnitude, TeleportSpeed);
         _speedH = Mathf.Lerp(_speedH, rawH, 1f - Mathf.Exp(-Time.deltaTime * SpeedSmoothing));
         float speedH = _speedH;
-
-        // Facing-relative movement, same low-pass and teleport rejection as the scalar speed above
-        // so the two never disagree. localVel.x is sideways (+right), localVel.z is forward.
-        Vector3 localVel = rawH < TeleportSpeed
-            ? transform.InverseTransformDirection(new Vector3(delta.x, 0f, delta.z))
-            : Vector3.zero;
-        _sideH = Mathf.Lerp(_sideH, localVel.x, 1f - Mathf.Exp(-Time.deltaTime * SpeedSmoothing));
-        _fwdH = Mathf.Lerp(_fwdH, localVel.z, 1f - Mathf.Exp(-Time.deltaTime * SpeedSmoothing));
 
         if (speedH < 0.35f)
         {
@@ -395,14 +399,18 @@ public sealed class PlayerAnimator : MonoBehaviour
         float elbowR = Mathf.Lerp(wElbowR, rElbowR, runBlend);
 
         // ── Side-run pose (strafing) ─────────────────────────────────────────────
-        // When planar motion is mostly SIDEWAYS relative to the model's facing (A/D while the body
-        // still faces the camera), the forward walk/run swing reads as a moonwalk. Detect the
-        // strafe from the local velocity split and blend to a side-step: the leading leg abducts
-        // out in the travel direction and lifts, the trailing leg follows, and the torso rolls into
-        // the travel. Forward walk/run still drives slow and mostly-forward (diagonal) motion.
-        float sideRatio = Mathf.Abs(_sideH) / Mathf.Max(0.05f, Mathf.Abs(_sideH) + Mathf.Abs(_fwdH));
-        float strafeBlend = Mathf.SmoothStep(0.65f, 0.92f, sideRatio);
-        float strafeSign = _sideH >= 0f ? 1f : -1f;
+        // When planar motion is mostly SIDEWAYS to the model's facing (A/D while the body still
+        // faces the camera), the forward walk/run swing reads as a moonwalk, so blend to a
+        // side-step: the leading leg abducts out in the travel direction and lifts, the trailing
+        // leg follows, and the torso rolls into the travel. Detection is from the move INPUT
+        // (already in the body frame - movement is transform.TransformDirection(input)), NOT from
+        // measured velocity: the body yaw leads the world velocity through a turn, so a
+        // velocity-based split reported a lateral component on every forward turn and the sign
+        // flipped frame to frame - a violent leg/torso shake on a straight run (1l72).
+        Vector2 mi = _pc.MoveInput;
+        float sideRatio = Mathf.Abs(mi.x) / Mathf.Max(0.15f, Mathf.Abs(mi.x) + Mathf.Abs(mi.y));
+        float strafeBlend = Mathf.SmoothStep(0.7f, 0.95f, sideRatio);
+        float strafeSign = mi.x >= 0f ? 1f : -1f;
 
         // A +abduct (Z) rotation sweeps a foot toward +x for EITHER hip, so a strafe has both legs
         // step the same way: the lead leg goes out first, the trail leg half a cycle later.
@@ -428,7 +436,9 @@ public sealed class PlayerAnimator : MonoBehaviour
         if (_kneeL != null) _kneeL.localRotation = Quaternion.Euler(kneeLx, 0f, 0f);
         if (_kneeR != null) _kneeR.localRotation = Quaternion.Euler(kneeRx, 0f, 0f);
 
-        if (!SuppressArms)
+        // A one-handed phase (cast/attack) owns only its own arm; the OTHER arm keeps its
+        // locomotion swing. Only skip the whole block when both arms are owned.
+        if (!SuppressArmL || !SuppressArmR)
         {
             // Apply per-weapon arm gaits when PlayerAnimator drives arms (walk/run). WeaponAnimator owns arms during attacks/guard/sway.
             ArmGait gL = _defaultArmGait;
@@ -497,13 +507,14 @@ public sealed class PlayerAnimator : MonoBehaviour
                   elbowLA = Mathf.Lerp(wElbowL, erL, t) * gL.ElbowScale;
               }
 
-              if (_shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armRA, 0f, 0f);
-              if (_shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armLA, 0f, 0f);
-              if (_elbowR != null) _elbowR.localRotation = Quaternion.Euler(elbowRA, 0f, 0f);
-              if (_elbowL != null) _elbowL.localRotation = Quaternion.Euler(elbowLA, 0f, 0f);
+              if (!SuppressArmR && _shoulderR != null) _shoulderR.localRotation = Quaternion.Euler(armRA, 0f, 0f);
+              if (!SuppressArmL && _shoulderL != null) _shoulderL.localRotation = Quaternion.Euler(armLA, 0f, 0f);
+              if (!SuppressArmR && _elbowR != null) _elbowR.localRotation = Quaternion.Euler(elbowRA, 0f, 0f);
+              if (!SuppressArmL && _elbowL != null) _elbowL.localRotation = Quaternion.Euler(elbowLA, 0f, 0f);
         }
-        // When SuppressArms is set, a WeaponAnimator fully owns the shoulders AND elbows
-        // (windup/strike/charge pose tracks), so nothing is written here mid-attack.
+        // A suppressed arm's shoulder+elbow are owned by a WeaponAnimator (attack/cast/guard pose
+        // track); any UNsuppressed arm above still gets its locomotion swing, so a one-handed cast
+        // freezes only the casting hand and the empty hand keeps moving (1l72).
 
         // Cartoon run top body: forward lean, gentle bob, small side sway (Y axis). When strafing,
         // most of the forward lean is traded for a roll INTO the travel direction (a runner leans
@@ -535,11 +546,14 @@ public sealed class PlayerAnimator : MonoBehaviour
     private void RestoreIdle(float blend)
     {
         Vector3 idle = Quaternion.identity.eulerAngles;
-        if (!SuppressArms)
+        if (!SuppressArmL)
         {
             SetLerped(_shoulderL, idle, blend);
-            SetLerped(_shoulderR, idle, blend);
             SetLerped(_elbowL, idle, blend);
+        }
+        if (!SuppressArmR)
+        {
+            SetLerped(_shoulderR, idle, blend);
             SetLerped(_elbowR, idle, blend);
         }
         SetLerped(_hipL, idle, blend);

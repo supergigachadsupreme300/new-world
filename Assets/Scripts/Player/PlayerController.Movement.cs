@@ -44,6 +44,13 @@ public partial class PlayerController
     private float _currentMoveSpeed;
     private float _moveAccel = 12f;
 
+    /// <summary>Normalized planar move input for this frame, in the BODY frame (x = strafe right,
+    /// y = forward). Zero when a dialog blocks movement or no key/axis is held. Read by
+    /// <see cref="PlayerAnimator"/> so a strafe (sideways A/D) is told apart from a forward run by
+    /// the INPUT, not by measured velocity: the body yaw leads the world velocity while turning, so
+    /// a velocity-based split spiked on every forward turn and shook the legs/torso (1l72).</summary>
+    public Vector2 MoveInput { get; private set; }
+
     private void HandleMovement()
     {
         bool dialogBlocked = (WifeNPC.Instance != null && WifeNPC.Instance.IsDialogActive) ||
@@ -55,6 +62,7 @@ public partial class PlayerController
                              (LibrarianNPC.Instance != null && LibrarianNPC.Instance.IsDialogActive) ||
                              (CraftingManager.Instance != null && CraftingManager.Instance.IsOpen);
         Vector2 input = dialogBlocked ? Vector2.zero : ReadMoveInput();
+        MoveInput = input.sqrMagnitude > 0.0001f ? input.normalized : Vector2.zero;
         Vector3 direction = new Vector3(input.x, 0f, input.y);
         float mag = direction.magnitude;
         if (mag > 1f)
