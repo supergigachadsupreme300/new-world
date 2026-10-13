@@ -1,3 +1,41 @@
+## 1l72. Side-run animation when strafing (a gait separate from the forward run)
+
+User: "add an side running animation to player, seperate from the normal running." Clarified: trigger =
+strafing (A/D while the body still faces the camera).
+
+- The model faces the mouse-look yaw, and movement is `transform.TransformDirection(input)`, so A/D
+  slides the body sideways while the walk/run gait kept swinging the legs forward/back — a moonwalk.
+  `PlayerAnimator` only ever saw the planar speed MAGNITUDE, so it had no idea the motion was lateral.
+- Added a smoothed **facing-relative** velocity split: `localVel = transform.InverseTransformDirection(
+  (delta.x, 0, delta.z))`, low-passed with the same filter and the same 30 m/s teleport rejection as the
+  scalar `_speedH`, into new fields `_sideH` (local +x) / `_fwdH` (local +z). Same filter so the two
+  numbers can never disagree.
+- **`strafeBlend = SmoothStep(0.65, 0.92, |side| / (|side| + |fwd|))`** blends the forward walk/run pose
+  into a **side-step**: the leading leg abducts (hip Z) out toward the travel and lifts (knee), the
+  trailing leg follows half a cycle later, and a small antiphase hip X keeps the legs alive. A pure A/D
+  strafe (ratio 1.0) is fully side-run; a forward/diagonal move stays on the forward gait.
+- **Direction facts encoded in the comments (rule 8):** a +Z hip rotation sweeps a foot toward +x for
+  EITHER hip, so both legs abduct the SAME way (`strafeSign`), the near leg first; and +Z torso roll tips
+  the top toward −x, so the torso leans INTO the travel with `-strafeSign` and trades most of its forward
+  lean away.
+- Walk/run amplitude, cadence, `norm`, the idle path and the arm pose are untouched — the side-run is a
+  pure blend on top, so it cannot perturb the existing gaits.
+- **Docs:** `game-design.md` (animation cluster, next to 1jn). Touches `PlayerAnimator.cs` only.
+
+### 1l72-status
+- [x] `PlayerAnimator.cs`: `_sideH`/`_fwdH` fields + per-frame local-velocity split; `strafeBlend` /
+  `strafeSign`; side-step applied to hip Z + knee X + small hip X; torso forward-lean/roll blend.
+- [x] Docs: `game-design.md`, this entry + `THINKING.md` §1l72.
+- [x] Verified by grep + reread (no build, rule 3): `transform.InverseTransformDirection` matches the
+  pattern already used for facing-relative motion; `strafeBlend`/`strafeSign` are declared before every
+  use in `Animate`; when `strafeBlend == 0` the expressions reduce exactly to the old forward values.
+- [x] `skills: none applied` (rule 15) — procedural C# animation behaviour.
+- [ ] **PLAY-TEST (user, Unity):** run forward (W) — normal run unchanged; then run with A or D held
+  (strafe) — the legs should step sideways and the torso lean into the travel, instead of the old
+  forward-swing/moonwalk. Check a diagonal (W+A) reads mostly as a forward run, that switching strafe
+  side (A↔D) mirrors cleanly, and that idle/stop and the attack arm poses are unaffected. `StaticChecks`
+  covers neither file.
+
 ## 1l71. Held projectile body spins like the launched bolt
 
 User: "projectile have an spinning animation when launch, i want it to spin while not launched as well."

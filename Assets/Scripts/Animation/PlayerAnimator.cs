@@ -62,6 +62,13 @@ public sealed class PlayerAnimator : MonoBehaviour
     /// <summary>Smoothed planar speed (m/s) of the character root. See <see cref="SpeedSmoothing"/>.</summary>
     private float _speedH;
 
+    /// <summary>Smoothed velocity components in the model's local frame (+x right, +z forward),
+    /// low-passed with the same filter as <see cref="_speedH"/>. Their split tells a strafe (mostly
+    /// sideways A/D motion while the body still faces the camera) apart from a normal forward
+    /// walk/run, which drives the side-run pose.</summary>
+    private float _sideH;
+    private float _fwdH;
+
     /// <summary>
     /// When true, the arm pivots (shoulders AND elbows) are left entirely to a
     /// <see cref="WeaponAnimator"/>, which drives them through its attack pose track / ready sway
@@ -301,6 +308,14 @@ public sealed class PlayerAnimator : MonoBehaviour
         _speedH = Mathf.Lerp(_speedH, rawH, 1f - Mathf.Exp(-Time.deltaTime * SpeedSmoothing));
         float speedH = _speedH;
 
+        // Facing-relative movement, same low-pass and teleport rejection as the scalar speed above
+        // so the two never disagree. localVel.x is sideways (+right), localVel.z is forward.
+        Vector3 localVel = rawH < TeleportSpeed
+            ? transform.InverseTransformDirection(new Vector3(delta.x, 0f, delta.z))
+            : Vector3.zero;
+        _sideH = Mathf.Lerp(_sideH, localVel.x, 1f - Mathf.Exp(-Time.deltaTime * SpeedSmoothing));
+        _fwdH = Mathf.Lerp(_fwdH, localVel.z, 1f - Mathf.Exp(-Time.deltaTime * SpeedSmoothing));
+
         if (speedH < 0.35f)
         {
             Breathe();
@@ -379,10 +394,39 @@ public sealed class PlayerAnimator : MonoBehaviour
         float elbowL = Mathf.Lerp(wElbowL, rElbowL, runBlend);
         float elbowR = Mathf.Lerp(wElbowR, rElbowR, runBlend);
 
-        if (_hipL != null) _hipL.localRotation = Quaternion.Euler(legL, 0f, 0f);
-        if (_hipR != null) _hipR.localRotation = Quaternion.Euler(legR, 0f, 0f);
-        if (_kneeL != null) _kneeL.localRotation = Quaternion.Euler(kneeL, 0f, 0f);
-        if (_kneeR != null) _kneeR.localRotation = Quaternion.Euler(kneeR, 0f, 0f);
+        // ── Side-run pose (strafing) ─────────────────────────────────────────────
+        // When planar motion is mostly SIDEWAYS relative to the model's facing (A/D while the body
+        // still faces the camera), the forward walk/run swing reads as a moonwalk. Detect the
+        // strafe from the local velocity split and blend to a side-step: the leading leg abducts
+        // out in the travel direction and lifts, the trailing leg follows, and the torso rolls into
+        // the travel. Forward walk/run still drives slow and mostly-forward (diagonal) motion.
+        float sideRatio = Mathf.Abs(_sideH) / Mathf.Max(0.05f, Mathf.Abs(_sideH) + Mathf.Abs(_fwdH));
+        float strafeBlend = Mathf.SmoothStep(0.65f, 0.92f, sideRatio);
+        float strafeSign = _sideH >= 0f ? 1f : -1f;
+
+        // A +abduct (Z) rotation sweeps a foot toward +x for EITHER hip, so a strafe has both legs
+        // step the same way: the lead leg goes out first, the trail leg half a cycle later.
+        float sideLead = Mathf.Max(0f, Mathf.Sin(_phase));
+        float sideTrail = Mathf.Max(0f, Mathf.Sin(_phase + Mathf.PI));
+        float abductAmp = 22f + 8f * norm;
+        float liftAmp = (1.0f + 0.3f * norm) * Mathf.Rad2Deg;
+        float leadZ = sideLead * abductAmp;
+        float trailZ = sideTrail * abductAmp;
+        float rightAbduct = strafeSign * (strafeSign > 0f ? leadZ : trailZ);
+        float leftAbduct = strafeSign * (strafeSign > 0f ? trailZ : leadZ);
+        float rightLift = strafeSign > 0f ? sideLead : sideTrail;
+        float leftLift = strafeSign > 0f ? sideTrail : sideLead;
+        float sideSmallSwing = (6f + 4f * norm) * Mathf.Sin(_phase);
+
+        float legLx = Mathf.Lerp(legL, -sideSmallSwing, strafeBlend);
+        float legRx = Mathf.Lerp(legR, sideSmallSwing, strafeBlend);
+        float kneeLx = Mathf.Lerp(kneeL, leftLift * liftAmp, strafeBlend);
+        float kneeRx = Mathf.Lerp(kneeR, rightLift * liftAmp, strafeBlend);
+
+        if (_hipL != null) _hipL.localRotation = Quaternion.Euler(legLx, 0f, leftAbduct * strafeBlend);
+        if (_hipR != null) _hipR.localRotation = Quaternion.Euler(legRx, 0f, rightAbduct * strafeBlend);
+        if (_kneeL != null) _kneeL.localRotation = Quaternion.Euler(kneeLx, 0f, 0f);
+        if (_kneeR != null) _kneeR.localRotation = Quaternion.Euler(kneeRx, 0f, 0f);
 
         if (!SuppressArms)
         {
@@ -461,12 +505,15 @@ public sealed class PlayerAnimator : MonoBehaviour
         // When SuppressArms is set, a WeaponAnimator fully owns the shoulders AND elbows
         // (windup/strike/charge pose tracks), so nothing is written here mid-attack.
 
-        // Cartoon run top body: forward lean, gentle bob, small side sway (Y axis)
+        // Cartoon run top body: forward lean, gentle bob, small side sway (Y axis). When strafing,
+        // most of the forward lean is traded for a roll INTO the travel direction (a runner leans
+        // into the turn); +Z roll tips the top toward -x, so the sign is inverted from the strafe.
         if (_torso != null)
         {
             float sideSway = Mathf.Sin(_phase * 1.5f) * (4f * runBlend);
-            float fwdLean = (12f + 6f * runBlend);
-            _torso.localRotation = Quaternion.Euler(fwdLean + lookTilt, sideSway, 0f);
+            float fwdLean = (12f + 6f * runBlend) * (1f - 0.6f * strafeBlend);
+            float strafeRoll = -strafeSign * strafeBlend * (10f + 6f * runBlend);
+            _torso.localRotation = Quaternion.Euler(fwdLean + lookTilt, sideSway, strafeRoll);
         }
         if (_head != null)
             _head.localRotation = Quaternion.Euler(-(1f + 2f * runBlend) * Mathf.Sin(_phase * 2f) - 2f * runBlend, 0f, 0f);

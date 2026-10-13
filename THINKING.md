@@ -1,3 +1,51 @@
+## 1l72. Side-run animation when strafing (SHIPPED, play-test pending)
+
+User: "add an side running animation to player, seperate from the normal running."
+
+**H1 (what "side running" means — asked, not guessed).** Three readings: (a) strafe — A/D while the body
+still faces the camera; (b) turn the body to face the movement direction, then animate that; (c) any
+non-zero lateral component. (b) changes facing/look, a much bigger change than the request. Confirmed by
+asking: **strafe (a)**.
+
+**H2 (does strafing even exist here — confirmed).** `PlayerController.Movement` computes
+`move = transform.TransformDirection(direction) * speed` with `direction = (input.x, 0, input.y)`, and the
+body's yaw comes from mouse look (`Euler(0,_yaw,0)`). So `input.x` (A/D) is genuinely lateral to facing:
+the body strafes. Player-side, the state is real.
+
+**H3 (why the animator couldn't tell — confirmed by reading `Animate`).** It derived everything from
+`delta` = world planar velocity and used only its MAGNITUDE (`_speedH`). A scalar has no direction, so a
+sideways slide and a forward dash were identical inputs — hence the legs swing forward/back either way
+(the moonwalk). Reusing `_speedH` cannot work; a new directional signal is required.
+
+**Signal chosen.** `localVel = transform.InverseTransformDirection(new Vector3(delta.x, 0f, delta.z))`,
+split into `_sideH` (x, right) / `_fwdH` (z, forward). Deliberately fed through the SAME low-pass and the
+SAME `TeleportSpeed` rejection as `_speedH`: two filters on one measurement would be a second, uncalibrated
+instrument (rule 7), and the cadence integrator already taught us a spiky frame must not be believed
+(`OnEnable` seeding / 30 m/s guard, 1jn).
+
+**Blend threshold is arithmetic, not taste.** `sideRatio = |side| / (|side| + |fwd|)`. Pure strafe = 1.0;
+a 45° diagonal = 0.707. To keep a diagonal reading as a forward run, the smoothstep window is
+`SmoothStep(0.65, 0.92, ratio)` → diagonal ≈ 0.03 (near-zero side-run), pure strafe = 1.0. The window must
+sit ABOVE 0.707 for diagonals to stay forward, which is why it is not `0.5..0.8`.
+
+**Direction arithmetic (worked, then written into comments — rule 8).** Hip pivots are aligned with the
+model, so a +Z local rotation on EITHER hip sweeps that foot toward +x: rotating `(0,-1,0)` about Z by θ
+gives `(sinθ, -cosθ, 0)`, x = +sinθ > 0. So a rightward strafe has BOTH legs step +x — the lead leg out
+first, the trail half a cycle later (`strafeSign`). Torso: rotating `(0,1,0)` about +Z by θ puts the top at
+`(-sinθ, cosθ, 0)`, so +Z leans the top toward −x; to lean INTO a rightward travel the roll is
+`-strafeSign`. Both facts are counter-intuitive signs worth keeping in the source.
+
+**Dead ends / rejected.** (i) Not reusing `runBlend`'s `norm` for the side amplitude source of truth: the
+side amplitude is its own pair of numbers. (ii) Not touching the arm pose — arms already swing
+front-to-back in a run and defining a new arm gait risks the `SuppressArms`/`WeaponAnimator` ownership
+contract for no clear read. (iii) Not changing cadence for the side gait — the feet-plant invariant
+(`speed / stride`) is direction-agnostic and stays canonical.
+
+**Verdicts.** H1 confirmed (user). H2 confirmed (code). H3 confirmed (code). At `strafeBlend == 0` every new
+expression reduces to the old forward value, so a straight run is bit-for-bit the previous pose.
+
+`skills: none applied` (rule 15) — procedural C# animation; the per-frame write stays in the animator.
+
 ## 1l71. Held projectile body spins like the launched bolt (SHIPPED, play-test pending)
 
 User: "projectile have an spinning animation when launch, i want it to spin while not launched as well."
