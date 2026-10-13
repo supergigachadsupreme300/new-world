@@ -8,7 +8,9 @@ using UnityEngine;
 /// <para><b>1kc adds <see cref="BuildConflagration"/></b> — the Firestorm/Conflagration look (ground
 ///   circle + ember rings rising in a vortex), authored on Conflagration alone through
 ///   <c>ZoneBody.VortexCircle</c> (1l6u: the rings are spawned continuously by
-///   <c>ConflagrationEmitter</c>).</para></para>
+///   <c>ConflagrationEmitter</c>).</para>
+/// <para><b>1l6z adds <see cref="BuildFrozenField"/></b> — the Deep Freeze look (a frost disc ringed
+///   by a rosette of ice spikes), authored on Deep Freeze alone through <c>ZoneBody.FrozenField</c>.</para></para>
 /// </summary>
 public static class SpellZoneModelBuilder
 {
@@ -71,6 +73,62 @@ public static class SpellZoneModelBuilder
         halo.transform.localPosition = new Vector3(0f, 0.9f, 0f);
         halo.transform.localScale = new Vector3(radius * 1.6f, 0.03f, radius * 1.6f);
         ApplyShared(halo, sharedMat);
+    }
+
+    /// <summary>1l6z: the Deep Freeze body — a frozen field. A flat frost disc (<c>Core</c>) ringed by
+    /// a rosette of translucent ice spikes (<c>Edge</c>) jutting straight up at varied heights, with a
+    /// taller central spire, so the zone reads as ground frozen solid rather than the two stacked discs
+    /// of <see cref="BuildGroundZone"/> (a ground disc plus a floating halo, which the user described as
+    /// "just two discs placing on top of each other"). Authored-only through <c>ZoneBody.FrozenField</c>;
+    /// every collider is destroyed, so this is body-only by construction.</summary>
+    public static void BuildFrozenField(Transform parent, float radius, Color core, Color edge)
+    {
+        Material coreMat = SkillFx.SharedSpriteMaterial(core);
+        Material edgeMat = SkillFx.SharedSpriteMaterial(edge);
+
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        disc.name = "SpellDisc";
+        DestroyCollider(disc);
+        disc.transform.SetParent(parent, false);
+        disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
+        ApplyShared(disc, coreMat);
+
+        // Two rings of spikes: an outer rosette near the rim and a shorter inner cluster, each spike
+        // taller toward the centre. Each is an elongated cube, tilted a little so the field is not
+        // rotationally symmetric. Sizes/heights are jittered once at build so the field reads as ice.
+        for (int ring = 0; ring < 2; ring++)
+        {
+            int count = ring == 0 ? 10 : 6;
+            float rr = ring == 0 ? radius * 0.82f : radius * 0.44f;
+            float baseH = ring == 0 ? 0.7f : 1.1f;
+            for (int i = 0; i < count; i++)
+            {
+                float ang = (i / (float)count) * Mathf.PI * 2f + ring * 0.45f;
+                float h = baseH * Random.Range(0.75f, 1.3f);
+                float w = Random.Range(0.10f, 0.16f);
+
+                var spike = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                spike.name = "SpellSpike_" + ring + "_" + i;
+                DestroyCollider(spike);
+                spike.transform.SetParent(parent, false);
+                spike.transform.localPosition = new Vector3(
+                    Mathf.Cos(ang) * rr, h * 0.5f, Mathf.Sin(ang) * rr);
+                spike.transform.localScale = new Vector3(w, h, w);
+                spike.transform.localRotation = Quaternion.Euler(
+                    Random.Range(-9f, 9f), ang * Mathf.Rad2Deg, Random.Range(-9f, 9f));
+                ApplyShared(spike, edgeMat);
+            }
+        }
+
+        // A taller central spire so the field reads as growing toward the middle.
+        var spire = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        spire.name = "SpellSpire";
+        DestroyCollider(spire);
+        spire.transform.SetParent(parent, false);
+        spire.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+        spire.transform.localScale = new Vector3(0.22f, 1.8f, 0.22f);
+        spire.transform.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+        ApplyShared(spire, edgeMat);
     }
 
     /// <summary>The 1kc Conflagration body: a flat ground circle with a rising curtain of spinning

@@ -137,10 +137,18 @@ public class SpellZone : MonoBehaviour
 
         // 1kc: an authored VortexCircle body is drawn regardless of pull — its rising edge swirl IS
         // the "wind" that drags foes in, so the pull branch below must not swap it back to the old
-        // funnel. Every other zone resolves Funnel and keeps the pre-1kc shapes.
+        // funnel. Every other zone resolves Funnel; 1l6z's FrozenField (Deep Freeze) is handled below.
         if (_look.ZoneModel == ZoneBody.VortexCircle)
         {
             SpellZoneModelBuilder.BuildConflagration(transform, Radius, color, SpellLook.HotCore(color));
+            return;
+        }
+
+        // 1l6z: an authored FrozenField body (Deep Freeze) — a frost disc + ice spikes, drawn in
+        // place of the generic ground zone's two stacked discs (which the user could not read).
+        if (_look.ZoneModel == ZoneBody.FrozenField)
+        {
+            SpellZoneModelBuilder.BuildFrozenField(transform, Radius, color, _look.Edge);
             return;
         }
 

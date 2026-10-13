@@ -1960,6 +1960,16 @@ private static string Describe(in SpellLook look)
                 SpellZoneModelBuilder.BuildConflagration(modelRoot.transform, spell.Radius,
                     cl.Core, SpellLook.HotCore(cl.Core));
             }
+            // 1l6z: Deep Freeze's frozen-field body — the SAME builder the runtime SpellZone runs,
+            // for the same rule-13 reason as the branches above: a visual that exists only inside a
+            // live cast has no acceptance readout, so the pedestal mounts the field so the spikes can
+            // be judged without casting.
+            else if (SpellLook.Resolve(spell).ZoneModel == ZoneBody.FrozenField)
+            {
+                var fl = SpellLook.Resolve(spell);
+                SpellZoneModelBuilder.BuildFrozenField(modelRoot.transform, spell.Radius,
+                    fl.Core, fl.Edge);
+            }
             // 1kf: Firestorm's authored storm body — the pre-1kc conflagration funnel — mounted via
             // the SAME builder SpellStorm runs, for the same rule-13 reason as the branches above: a
             // visual that exists only inside a live cast has no acceptance readout. Full spell

@@ -2444,7 +2444,9 @@ measurement — a derivation, not a lane run, so re-press F4 to confirm it and t
 must not move after 1ka either — any movement would be a real change, not the expected ratchet.
 **1kc adds the zone-body axis's 2 bits at 38 under 1f7's contract, not 1jt's:** it resolves to
 `Funnel` for every non-authored zone, so only Conflagration's own key flips (to `VortexCircle`) —
-with `M == N` already, `M`/`C` hold by construction (see §3.8.5).
+with `M == N` already, `M`/`C` hold by construction (see §3.8.5). 1l6z adds a second authored body
+(`FrozenField` on Deep Freeze) that flips one more key but likewise resolves to `Funnel` for
+everyone else.
 
 **Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
 main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render
@@ -2549,6 +2551,21 @@ not one verdict moved — the only key to change is Conflagration's, which flips
 `zone bodies:` (Funnel = every zone spell but Conflagration; VortexCircle = 1) and `authored = 26`.
 Giving every non-authored spell the same two bits is also why the axis can only split a group, never
 merge one — the 1jt ratchet, unchanged.
+
+**1l6z adds `FrozenField` — a second authored zone body.** Deep Freeze is a non-pulling `Zone`, so it
+resolved the generic ground zone: a flat disc plus a floating halo, literally *two stacked discs* (the
+user's report: "basically just two discs placing on top of each other"). The fix is the same
+authored-only axis, never a new delivery or an id check: Deep Freeze's profile now carries
+`ZoneBody.FrozenField`, and `SpellZone.BuildVisual` draws
+`SpellZoneModelBuilder.BuildFrozenField(transform, Radius, _look.Core, _look.Edge)` — a frost `Core`
+disc ringed by two rosettes of translucent ice spikes (10 near the rim, 6 shorter inside, all taller
+toward the centre) plus a taller central spire. The spikes take `Edge` (the paler, cooler end), so they
+read as ice against the disc. Because the axis is authored-only and still resolves to `Funnel` for
+every other zone, no other key moves: only Deep Freeze's zone bits flip `Funnel → FrozenField`, so the
+F4 readout becomes `zone bodies:` Funnel = every zone spell but Conflagration and Deep Freeze;
+VortexCircle = 1; FrozenField = 1 — and `authored = 27` (was 26). This is a **drawn** change only:
+Deep Freeze stays a `SpellDelivery.Zone` with the same radius, duration and Frost status, and every
+collider in the field is destroyed, so it is body-only by construction.
 
 #### Spell Sources
 

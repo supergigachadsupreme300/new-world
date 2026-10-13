@@ -122,7 +122,7 @@ public enum SkyRockStyle
 /// flame), so there is deliberately no school family and no deterministic <see cref="SpellLook.Pick"/>
 /// — a jitter would have given a quarter of the Zone spells a body their delivery never described.
 /// <see cref="Inherit"/> always resolves to <see cref="Funnel"/>; only an authored profile may grant
-/// <see cref="VortexCircle"/>.
+/// <see cref="VortexCircle"/> or <see cref="FrozenField"/>.
 /// <para><b>Read by <c>SpellZone.BuildVisual</c>, and by the QA spell band's bench so the new body
 /// has an acceptance readout.</b> Placement/reach still come from the spell's own fields (radius,
 /// duration); this axis is drawn-only and never touches delivery (rule 13).</para></summary>
@@ -136,7 +136,12 @@ public enum ZoneBody
     /// <summary>The 1kc conflagration/Firestorm look: a flat ground circle with a rising curtain of
     /// ember tongues (1l6t: they rise straight up at the ring radius and emerge from the ground,
     /// rather than converging to the centre). Conflagration's own body.</summary>
-    VortexCircle = 2
+    VortexCircle = 2,
+    /// <summary>The 1l6z Deep Freeze look: a flat frost disc ringed by a rosette of translucent ice
+    /// spikes jutting up at varied heights, tallest toward the centre. Deep Freeze's own body — it
+    /// draws this instead of the generic ground zone's two stacked discs (a disc and a floating halo,
+    /// which read as nothing in particular). 1l6z.</summary>
+    FrozenField = 3
 }
 
 /// <summary>Persistent-storm body family for a <c>SpellDelivery.Storm</c> spell (1kf) — what a storm

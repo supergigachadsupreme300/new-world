@@ -1,3 +1,42 @@
+## 1l6z. Deep Freeze: a frozen-field zone body (new authored-only `ZoneBody.FrozenField`)
+
+User (testing.md #3): "the deep freeze model need a change, its basicly just two disc placing on top
+of eachother and if i dont know what that is then probably player wont too."
+
+- **Root cause.** Deep Freeze (`magic_frostbolt_freeze_deep`) is a non-pulling `SpellDelivery.Zone`,
+  so `SpellZone.BuildVisual` fell through the pull branch to `SpellZoneModelBuilder.BuildGroundZone` —
+  a flat ground `SpellDisc` plus a floating `SpellHalo` at y=0.9, i.e. **literally two stacked discs**.
+  Nothing about "freeze" reached the model.
+- **New `ZoneBody.FrozenField = 3`** (`SpellLook.cs`) — authored-only, exactly like `VortexCircle`:
+  no school family, no deterministic pick, `Inherit` still resolves to `Funnel`, and only an authored
+  profile may grant it (rule 13 / rule 20 — never a delivery move or an id check).
+- **`SpellZoneModelBuilder.BuildFrozenField(parent, radius, core, edge)`** — a frost `Core` disc ringed
+  by two rosettes of translucent ice spikes (10 near the rim + 6 shorter inside, taller toward the
+  centre) plus a taller central spire, all in `Edge` (the paler/cooler end) so they read as ice. Every
+  collider destroyed → body-only by construction (same contract as `BuildFunnel`/`BuildGroundZone`).
+- **Dispatch** in `SpellZone.BuildVisual` before the pull branch:
+  `if (_look.ZoneModel == ZoneBody.FrozenField) { BuildFrozenField(transform, Radius, color, _look.Edge); return; }`.
+- **Authored look** on the Deep Freeze def (`SkillCatalog.Magic.cs:359`):
+  `look: Look(SpellImpactStyle.Pillar, SpellCastStyle.Halo, zoneBody: ZoneBody.FrozenField)`.
+  Delivery (`Zone`), radius 2.6, duration 3.5 s and the Frost status are untouched — the body axis only.
+- QA bench + `LookKey` see it the same way as 1kc (`ZoneModel` packed at bit 38; `FrozenField = 3` fits).
+- **Docs:** `game-design.md` §3.8.5 (+ the §3.8.3 F4 note), `magic-skills.md` Zone-delivery row +
+  Deep Freeze row, this entry + `THINKING.md` §1l6z.
+
+### 1l6z-status
+- [x] `SpellLook.cs`: `ZoneBody.FrozenField = 3` (+ doc comment; authored-only).
+- [x] `SpellZoneModelBuilder.cs`: `BuildFrozenField(...)` + header note.
+- [x] `SpellZone.cs`: `FrozenField` dispatch branch (before the pull branch).
+- [x] `SkillCatalog.Magic.cs`: Deep Freeze authored `zoneBody: ZoneBody.FrozenField`.
+- [x] Docs: `game-design.md` §3.8.3/§3.8.5, `magic-skills.md`, this entry + `THINKING.md` §1l6z.
+- [x] Verified by grep + reread (no build, rule 3): only Deep Freeze authors `FrozenField`;
+      `StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — procedural C# model edit (rule 15); the DCC/Unity skills target a
+      running editor and rule 3 runs no build here.
+- [ ] **PLAY-TEST (user, Unity):** cast Deep Freeze — the zone should read as a frozen field (frost
+      disc ringed by ice spikes, tallest in the centre), not two stacked discs. On the QA bench,
+      Deep Freeze's pedestal shows the frozen field.
+
 ## 1l6y. Chill Touch: a spectral reaching-hand projectile body (new display-only `ProjectileShape.Hand`)
 
 User (testing.md #2): "create a new model for chill touch as a hand."

@@ -1,3 +1,34 @@
+## 1l6z. Deep Freeze frozen-field zone body (SHIPPED, play-test pending)
+
+User (testing.md #3): "the deep freeze model need a change, its basicly just two disc placing on top
+of eachother and if i dont know what that is then probably player wont too."
+
+**What it drew before.** Deep Freeze (`magic_frostbolt_freeze_deep`) is a `Zone` spell with no pull. In
+`SpellZone.BuildVisual` the `VortexCircle` branch doesn't apply, `PullSpeed == 0`, so it hits
+`BuildGroundZone` — a ground `SpellDisc` + a floating `SpellHalo` at y=0.9. That IS the user's "two
+discs on top of each other", verbatim. Nothing about "freeze solid" reached the model.
+
+**H1 (confirmed): extend the 1kc `ZoneBody` axis, not a delivery move and not an id check.** Rule 20
+names the trap: a drawn complaint must not be answered by touching `SpellDelivery`. `ZoneBody` is the
+established authored-only zone-body axis (`Inherit → Funnel`, only a profile grants `VortexCircle`), so
+a new member `FrozenField = 3` follows the proven shape. ZoneModel is packed at bit 38 in `LookKey`
+with room (3 < 4), so the F4 key/readout work unchanged; only Deep Freeze's own key flips (Funnel →
+FrozenField).
+
+**H2 (geometry): spikes read "frozen" better than another disc.** A ring of translucent elongated
+cubes, jittered in height/width/tilt, plus a taller central spire, over the same frost `Core` disc —
+reads as ground frozen solid even at radius 2.6. Colours: disc = `_look.Core`, spikes = `_look.Edge`
+(the paler, cooler end) so the spikes separate from the disc; Edge-for-Ice is near-white so this
+doesn't need a new colour derivation (rule 13 — no second palette).
+
+**H3 (dispatch placement): before the pull branch.** A FrozenField zone has no pull; placing the
+branch after the `PullSpeed > 0` check would still be correct here, but before it is the same
+conviction 1kc's VortexCircle takes ("this body's shape IS the delivery's read") and keeps the two
+authored bodies adjacent.
+
+**Verdict:** ship. Play-test only (no build, rule 3): the spike field's in-world read at radius 2.6 is
+Unity-visible; the bench pedestal shows the body and F4 shows `FrozenField = 1`, `authored = 27`.
+
 ## 1l6y. Chill Touch hand body (SHIPPED, play-test pending)
 
 User (testing.md #2): "create a new model for chill touch as a hand."
