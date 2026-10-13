@@ -51,7 +51,8 @@ Every spell that uses the **Projectile** delivery has a `projectileShape:` visua
 | **Blade** | Flat translucent cross-blade (alpha ~0.4) that spins in-plane with a shimmer envelope | Wind Blade, Razor Blade, Wind Scissor, Laceration |
 | **Splash** | Rolling surge with a splash envelope that soaks on contact | Tidal Surge |
 | **Comet** | Streaking fire with a trailing ember tail | Scorch, Burn, Frost Bite |
-| **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles, Chill Soul |
+| **Missile** | Small dart with a soft halo; **homing** - re-evaluates its trajectory every frame and prioritizes the target that ends up on the flight path, bending to chase it | Arcane Missiles |
+| **Soul** | Spectral wisp - a bright cold core in a soft translucent halo with a long tapering frost tail and two stray motes, so a homing shot reads as a spirit that hunts (display-only body; the spell keeps `Missile` for its homing) | Chill Soul |
 | **Dart** | Sleek single dart, thin and fast | physical shots (Archer Wind Shot, Taoist Talisman) |
 
 Shapes are set per spell in the skill tables (`projectileShape:`), or left `Auto` to resolve by school: Fire=Sphere, Ice=Shard, Lightning=Bolt, Wind=Blade, Water=Splash, Earth=Debris, anything else=Sphere. `Auto` can never resolve to `Ember Streak` (1f7): it is authored-only, exactly like `Missile`, because the look layer must not grant a body a spell never asked for.
@@ -212,7 +213,7 @@ All ten earlier beams leave `BeamHalfAngle` at 0 and keep the original single-ca
   - **Avalanche** (`magic_frostbolt_glacier_avalanche`) - Active (Ice) - power 38, FP 28, cd 8s, range 10, radius 3.6, dur 3.5s, Frost | A cascading avalanche that crushes the area under falling ice.
   - **Eternal Cold** (`magic_frostbolt_glacier_eternal`) - + 6 Wisdom (passive) | Permanent +6 Wisdom.
 - **Chill Touch** (`magic_frostbolt_chill`) - Active (Ice) - power 24, FP 14, cd 3s, Chill, shape:Shard | A numbing cold that slows the foe.
-  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Chill, shape:Missile | A homing cold that hunts its prey and seeps into the soul.
+  - **Chill Soul** (`magic_frostbolt_chill_soul`) - Active (Ice) - power 30, FP 18, cd 4s, Chill, shape:Missile, body:Soul | A homing cold that hunts its prey and seeps into the soul.
   - **Frost Curse** (`magic_frostbolt_chill_curse`) - Active (Ice) - power 28, FP 16, cd 4s, range 8, radius 2, dur 3s, Chill | A creeping cold that spirals, cursing all it touches.
   - **Frost Will** (`magic_frostbolt_chill_will`) - + 5 Faith (passive) | Permanent +5 Faith.
   - **Cold Stare** (`magic_frostbolt_chill_stare`) - Active (Ice) - power 26, FP 14, cd 3s, range 11, radius 1, channels 7 FP/s, Chill | A gaze of ice that freezes the heart — hold it to chill and slow.

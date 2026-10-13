@@ -1,3 +1,44 @@
+## 1l6x. Chill Soul: a spectral soul-wisp body (new display-only `ProjectileShape.Soul`)
+
+User (testing.md #1): "the model of chill soul create a projectile with 3 different object but nothing
+is special about it so it need a change whether about functions or model." Chose **Soul wisp body
+(model)** over a function change.
+
+- **Root cause.** Chill Soul's `projectileShape` was `ProjectileShape.Missile`, so its drawn body came
+  from the shared `Missile(...)` cluster — three identical 2-cube dart-stacks, the same body Arcane
+  Missiles wears. Nothing about the spell's own identity reached the model.
+- **New `ProjectileShape.Soul = 13`** (`SpellData.cs`) — **display-only**: unlike `Missile`/`Wave` it
+  carries no behaviour, and like them it never appears in a `Shape_*` family, so only an authored
+  `SpellLookProfile.DisplayShape` can grant it.
+- **`MagicProjectileModelBuilder.Soul(name, shader, color)`** — one cold soul: a bright core leading
+  (+Z) inside a soft translucent halo (alpha 0.20), a 4-segment tapering frost tail
+  (shrinking/darkening/fading) and two stray motes. New `case ProjectileShape.Soul` in
+  `BuildProjectileBody`; the class header's body list gained `Wave/Soul`.
+- **Authored look** on the Chill Soul def (`SkillCatalog.Magic.cs:389`):
+  `look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, shape: ProjectileShape.Soul)`. Every
+  other profile field stays `Inherit`, so only the body axis moves. `spell.Shape` stays `Missile` (the
+  homing trigger) — the `Shape` vs `DisplayShape` split (1ig/1ib) is untouched, so Chill Soul still
+  homes.
+- F4/QA bench draws every spell's body via `CreateProjectileDisplay(spell)`, so the new body is visible
+  without firing; `LookKey` already packs `DisplayShape` (Soul = 13 fits its 4 bits at 26..29).
+- **Docs:** `game-design.md` §3.8 shape table (Missile row → Arcane Missiles only; new **Soul** row),
+  `magic-skills.md` shape table (same) + Chill Soul row (`shape:Missile, body:Soul`), `SpellData.cs`
+  enum doc, `MagicProjectileModelBuilder` header list.
+
+### 1l6x-status
+- [x] `SpellData.cs`: `ProjectileShape.Soul = 13` (+ doc comment; display-only, authored-only).
+- [x] `MagicProjectileModelBuilder.cs`: `Soul(...)` body + dispatch case + header list.
+- [x] `SkillCatalog.Magic.cs`: Chill Soul authored `DisplayShape = Soul`.
+- [x] Docs: `game-design.md` §3.8, `magic-skills.md`, this entry + `THINKING.md` §1l6x.
+- [x] Verified by grep + reread (no build, rule 3): only Arcane Missiles still draws `Missile`; Chill
+      Soul keeps `Shape = Missile` so homing is unchanged; `StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` — procedural C# model edit (rule 15); the DCC/Unity skills target a
+      running editor and rule 3 runs no build here.
+- [ ] **PLAY-TEST (user, Unity):** cast Chill Soul — the homing shot should read as a single spectral
+      wisp (cold core + halo + trailing frost tail), not a cluster of three darts, and still bend
+      toward enemies. On the QA magic-model bench Chill Soul's pedestal shows the wisp while Arcane
+      Missiles keeps the dart stacks.
+
 ## 1l6w. Player waist belt — the visible notch where the torso meets the legs
 
 User: "add belt to player model, it weird at the part connecting legs and torso."

@@ -1,3 +1,45 @@
+## 1l6x. Chill Soul soul-wisp body (SHIPPED, play-test pending)
+
+User (testing.md #1): "the model of chill soul create a projectile with 3 different object but nothing
+is special about it so it need a change whether about functions or model." → offered model / function /
+both; user chose the **model** option ("Soul wisp body").
+
+**What the "3 objects" ARE.** Traced Chill Soul (`magic_frostbolt_chill_soul`, `SkillCatalog.Magic.cs`)
+→ `projectileShape: ProjectileShape.Missile`. `Missile` is partly BEHAVIOUR: `SpellEffect` sets
+`_homing = _spell.Shape == ProjectileShape.Missile`. The **drawn** body comes from
+`SpellLook.DisplayShape`, into which a non-Auto `spell.Shape` is inherited — so both Chill Soul and
+Arcane Missiles get `DisplayShape = Missile` → `MagicProjectileModelBuilder.Missile(...)` = three
+2-cube dart-stacks (`Cluster("Missile"+i, …, 0.12f, 2, …)`, offset ±0.16 in X). That is the "3 objects
+with nothing special". Grep `ProjectileShape.Missile` → only Arcane Missiles + Chill Soul (defs) plus
+the enum doc / spell-effect gate. Nothing else draws it.
+
+**H1 (confirmed): the fix is a per-spell DISPLAY body, not a new gameplay shape.** The spell must stay
+`Missile` for homing, so the body cannot be changed by editing `spell.Shape` (1iw's lesson: that field
+is gameplay). Rule 13's pattern for a structural, authored-only body is an enum member that only an
+authored `SpellLookProfile.DisplayShape` may grant — exactly how `Missile` is honoured at
+`SpellLook.Resolve` L460 ("Missile is honoured here but ONLY here").
+
+**H2 (confirmed): a new `ProjectileShape` member is the smallest correct axis, not a new enum.** The
+`DisplayShape` field is already typed `ProjectileShape`, so adding `Soul = 13` reuses the existing
+resolution + `LookKey` packing. Weighed against: (a) a brand-new axis enum like
+`SkyRockStyle`/`ZoneBody` — more plumbing for one spell, and it would need its own `LookKey` bit;
+(b) reusing an existing distinct shape (`Shard`/`Dart`) — cheap but still generic, which is the user's
+exact complaint. `Soul` is genuinely new geometry, so a new member is honest.
+
+**H3 (confirmed): display-only is safe in this enum.** `Missile`/`Wave` "also mean behaviour"; `Soul`
+means nothing but a body, so `spell.Shape = Soul` would be inert (it would only inherit into
+`DisplayShape`). Kept it out of every `Shape_*` family (they only hand out school bodies) and said so
+in the enum doc. `LookKey` packs `DisplayShape` in bits 26..29 — 13 fits, no overlap with `Cast` (30).
+
+**H4 (rejected): a function change.** The user's phrasing allowed "functions or model", so drain /
+pierce / soul-mark were offered; the model option was chosen, so the homing/chill behaviour is
+untouched and no balance surface is at risk.
+
+**Verdict:** ship the wisp as a display-only shape. Verification is a play-test (no build, rule 3): the
+translucent alpha (Shard already proves "Sprites/Default" honours `color.a`) and the in-flight look are
+only visible in Unity. QA readout: the bench's per-spell pedestal (1ij wired
+`CreateProjectileDisplay(spell)`) shows the wisp without firing a cast.
+
 ## 1l6w. Player waist belt (SHIPPED, play-test pending)
 
 User: "add belt to player model, it weird at the part connecting legs and torso."

@@ -11,7 +11,7 @@
 ///
 /// 1. MOVED: both <c>CreateProjectileDisplay</c> overloads, <c>AttachDefaultProjectileVisual</c>,
 ///    <c>BuildProjectileBody</c>, and every per-shape body builder (Bolt/Shard/Lance/Spear/Blade/
-///    Splash/Comet/Missile/Dart/Debris) plus the shared primitives (Primitive/Materialize/Cluster/
+///    Splash/Comet/Missile/Dart/Debris/Wave/Soul) plus the shared primitives (Primitive/Materialize/Cluster/
 ///    AddTrailingFlecks). Measured self-contained before the move: every reference to all fourteen
 ///    lives inside this block, with exactly ONE external caller of the public API
 ///    (NewWorldTestGround's magic-model bench).
@@ -127,6 +127,7 @@ internal static class MagicProjectileModelBuilder
             case ProjectileShape.Splash: return Splash("WaterSplash", shader, color);
             case ProjectileShape.Comet: return Comet("Comet", shader, color, rockBody);
             case ProjectileShape.Missile: return Missile("ArcaneMissiles", shader, color);
+            case ProjectileShape.Soul: return Soul("ChillSoul", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
             case ProjectileShape.Wave: return Wave("FireWave", shader, color);
@@ -417,6 +418,58 @@ internal static class MagicProjectileModelBuilder
             var mini = Cluster("Missile" + i, shader, color, 0.12f, 2, 0.07f, 0.015f, fade: 0.6f);
             mini.localPosition = new Vector3(i * 0.16f - 0.16f, 0f, 0f);
             mini.SetParent(root, false);
+        }
+        return root;
+    }
+
+    /// <summary>
+    /// 1l6x: a drifting spectral wisp — Chill Soul's body. One cold soul instead of the arcane
+    /// three-dart volley: a bright core leads (+Z) inside a soft translucent halo, with a long
+    /// tapering frost tail and two stray motes trailing behind, so a homing missile reads as a
+    /// spirit that hunts rather than a scatter of chips. <see cref="ProjectileShape.Soul"/> is
+    /// display-only — no behaviour rides on it — and this body is reached only through an authored
+    /// <c>SpellLookProfile.DisplayShape</c>.
+    /// </summary>
+    private static Transform Soul(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+
+        // Soft outer halo: a large, dim, slightly turned shell = the soul's aura.
+        var halo = Primitive(PrimitiveType.Cube, "Halo", root);
+        halo.localScale = Vector3.one * 0.42f;
+        halo.localRotation = Quaternion.Euler(0f, 45f, 45f);
+        Materialize(halo, shader, new Color(color.r, color.g, color.b, 0.20f));
+
+        // Bright cold core, leading the wisp.
+        var core = Primitive(PrimitiveType.Cube, "Core", root);
+        core.localPosition = new Vector3(0f, 0f, 0.05f);
+        core.localScale = Vector3.one * 0.22f;
+        Materialize(core, shader, Color.Lerp(color, Color.white, 0.45f));
+
+        // Tapering frost tail: shrinking, darkening, increasingly transparent cubes to the rear.
+        const int tail = 4;
+        for (int i = 0; i < tail; i++)
+        {
+            float t = i / (float)(tail - 1);
+            var seg = Primitive(PrimitiveType.Cube, "Tail" + i, root);
+            seg.localPosition = new Vector3(
+                UnityEngine.Random.Range(-0.03f, 0.03f),
+                UnityEngine.Random.Range(-0.03f, 0.03f),
+                -0.12f - i * 0.10f);
+            seg.localScale = Vector3.one * Mathf.Lerp(0.16f, 0.05f, t);
+            seg.localRotation = Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(0f, 360f));
+            Color c = Color.Lerp(color, Color.black, 0.35f + t * 0.4f);
+            Materialize(seg, shader, new Color(c.r, c.g, c.b, Mathf.Lerp(0.7f, 0.3f, t)));
+        }
+
+        // Two stray motes drifting beside the tail.
+        for (int i = 0; i < 2; i++)
+        {
+            var mote = Primitive(PrimitiveType.Cube, "Mote" + i, root);
+            float side = i == 0 ? 1f : -1f;
+            mote.localPosition = new Vector3(side * 0.12f, UnityEngine.Random.Range(-0.04f, 0.04f), -0.22f - i * 0.12f);
+            mote.localScale = Vector3.one * 0.06f;
+            Materialize(mote, shader, new Color(color.r, color.g, color.b, 0.55f));
         }
         return root;
     }

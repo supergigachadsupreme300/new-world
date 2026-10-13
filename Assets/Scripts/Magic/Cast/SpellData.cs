@@ -98,7 +98,14 @@ public enum ProjectileShape
     /// in any <c>Shape_*</c> family — the deterministic pick would hand it to a spell as a display
     /// only, and the look layer would grant the sweep without the spell asking. Only an authored
     /// <c>spell.Shape</c> may grant it. Fire Wave is the only user.</summary>
-    Wave = 12
+    Wave = 12,
+
+    /// <summary>1l6x: a drifting spectral wisp — a cold soul that hunts (Chill Soul's drawn body).
+    /// <b>Display-only:</b> unlike <see cref="Missile"/> and <see cref="Wave"/> this value carries NO
+    /// behaviour — it is a body and nothing else. Like them it must never appear in a <c>Shape_*</c>
+    /// family: the deterministic pick may only hand out school bodies, so an authored
+    /// <c>SpellLookProfile.DisplayShape</c> is the one thing that grants it.</summary>
+    Soul = 13
 }
 
 /// <summary>
