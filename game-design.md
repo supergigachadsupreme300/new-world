@@ -1982,7 +1982,7 @@ pull on top; all other Vortex spells keep the `SpellZone` funnel.
 
 #### §3.8.1 Delivery Behaviors
 
-Beyond the core projectile / instant / zone / vortex, spells use three richer deliveries so spells in
+Beyond the core projectile / instant / zone / vortex, spells use four richer deliveries so spells in
 a school read distinctly instead of feeling like copies:
 
 - **Beam** — a channeled ray from the caster to the aim point. The cast **fires on the normal cast
@@ -2051,6 +2051,14 @@ a school read distinctly instead of feeling like copies:
   (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
   visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard,
   Hail Lance, Avalanche, Eclipse.
+- **Chain** — 1l76 (testing.md #7): an instant strike that **bounces between foes**. `SpellCaster`
+  hits whatever the aim ray meets if it is a combatant, else the nearest combatant within `Range`
+  (so a cast aimed into a crowd still starts on someone); then up to `ChainMaxJumps` (2) leaps to the
+  nearest **un-hit** combatant within `ChainJumpRadius` (5 m) of the last victim, giving **three**
+  victims max. Every victim takes **full** power (`28`), so the chain is about reach, not a damage
+  ladder. Each leg is drawn by `SpellBoltModelBuilder.BuildBolt` — caster→primary, then
+  victim→victim — so the arc reads as one continuous jagged stroke; there is no aim preview (like
+  Instant). Only Chain Lightning uses it.
 
 **Ground placement is unbounded.** The four ground deliveries (Zone / Vortex / Summon / Storm) aim
 where the camera actually points — out to a practical `SpellCaster.GroundAimMax` (1200 units) cap,

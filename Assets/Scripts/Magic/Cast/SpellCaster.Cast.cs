@@ -137,6 +137,8 @@ public partial class SpellCaster
                 return ResolveDirect(totalPower, spell, pos, fwd, spell.Range * mods.RangeMult);
             case SpellDelivery.Projectile:
                 return FireProjectile(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
+            case SpellDelivery.Chain:
+                return ResolveChain(totalPower, spell, pos, fwd, spell.Range * mods.RangeMult);
             case SpellDelivery.Zone:
                 return ResolveZone(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Vortex:
@@ -221,6 +223,20 @@ public partial class SpellCaster
     /// only bound is "reads as sky": the bolt is a picture (segments only, no collider), so this is
     /// visual height, never a projectile runway.</summary>
     public const float SkyStrikeHeight = 30f;
+
+    /// <summary>1l76: how far a chain bolt leaps between victims (Chain Lightning). Named and public
+    /// so game-design.md and any future reader share ONE number rather than re-deriving a subtree.</summary>
+    public const float ChainJumpRadius = 5f;
+
+    /// <summary>1l76: how many leaps after the primary victim a chain makes — 2 means three victims
+    /// (primary + two jumps).</summary>
+    public const int ChainMaxJumps = 2;
+
+    /// <summary>1l76: the chain bolt's drawn shape/lifetime, shared by every jump in the arc.</summary>
+    public const int ChainBoltSegments = 12;
+    public const float ChainBoltWidth = 0.18f;
+    public const float ChainBoltJitter = 0.55f;
+    public const float ChainBoltLife = 0.4f;
 
     /// <summary>1jt: snap a world XZ down onto the ground beneath it, skipping <paramref name="skipRoot"/>
     /// and its whole hierarchy. THE ONE downward ground probe for cast placement.
@@ -397,6 +413,106 @@ public partial class SpellCaster
             return ApplyHit(spell, power, hit.collider.gameObject);
         }
         return new DamageResult();
+    }
+
+    /// <summary>1l76: Chain Lightning (testing.md #7). One instant strike on the aimed (or nearest)
+    /// combatant, then up to <see cref="ChainMaxJumps"/> leaps outward to the nearest un-hit
+    /// combatant within <see cref="ChainJumpRadius"/> of the last victim. Every victim takes FULL
+    /// power (the chain is about reach, not a damage ladder), and each leg is drawn as a jagged bolt
+    /// (<see cref="SpellBoltModelBuilder"/>) — the first from the caster to the primary, each leap
+    /// from the previous victim to the next, so the arc reads as one continuous stroke.</summary>
+    private DamageResult ResolveChain(float power, SpellData spell, Vector3 pos, Vector3 fwd, float range)
+    {
+        GameObject victim = FindChainTarget(pos, fwd, range, out Vector3 point);
+        if (victim == null) return new DamageResult();
+
+        var total = ApplyHit(spell, power, victim);
+        var look = SpellLook.Resolve(spell);
+        Material mat = SkillFx.SharedSpriteMaterial(look.Core);
+        SpellBoltModelBuilder.BuildBolt(null, pos, point, mat, ChainBoltLife,
+            ChainBoltSegments, ChainBoltWidth, ChainBoltJitter);
+
+        var visited = new List<Transform> { victim.transform };
+        Vector3 from = point;
+        for (int hop = 0; hop < ChainMaxJumps; hop++)
+        {
+            victim = NearestChainVictim(from, ChainJumpRadius, visited, out point);
+            if (victim == null) break;
+
+            var step = ApplyHit(spell, power, victim);
+            total.TotalDamage += step.TotalDamage;
+            total.HitTargets |= step.HitTargets;
+
+            SpellBoltModelBuilder.BuildBolt(null, from, point, mat, ChainBoltLife,
+                ChainBoltSegments, ChainBoltWidth, ChainBoltJitter);
+            visited.Add(victim.transform);
+            from = point;
+        }
+        return total;
+    }
+
+    /// <summary>1l76: the chain's first victim — whatever the aim ray hits, if it is a combatant,
+    /// else the nearest combatant within reach (so a chain aimed into a crowd still starts on
+    /// someone instead of fizzling when the reticle is between two foes).</summary>
+    private GameObject FindChainTarget(Vector3 pos, Vector3 fwd, float range, out Vector3 point)
+    {
+        point = Vector3.zero;
+        if (Physics.Raycast(pos, fwd, out RaycastHit hit, Mathf.Max(range, 0.1f)))
+        {
+            GameObject victim = ChainVictim(hit.collider.gameObject);
+            if (victim != null)
+            {
+                point = victim.transform.position;
+                return victim;
+            }
+        }
+        return NearestChainVictim(pos, Mathf.Max(range, 0.1f), null, out point);
+    }
+
+    /// <summary>1l76: nearest un-visited combatant within <paramref name="radius"/> of
+    /// <paramref name="center"/>. <paramref name="visited"/> holds the roots already struck this
+    /// cast, so a chain cannot ping-pong between two foes forever.</summary>
+    private GameObject NearestChainVictim(Vector3 center, float radius, HashSet<Transform> visited, out Vector3 point)
+    {
+        point = Vector3.zero;
+        GameObject best = null;
+        float bestSq = float.MaxValue;
+        int count = Physics.OverlapSphereNonAlloc(center, radius, _overlapBuffer);
+        for (int i = 0; i < count; i++)
+        {
+            var col = _overlapBuffer[i];
+            GameObject victim = col != null ? ChainVictim(col.gameObject) : null;
+            if (victim == null) continue;
+            if (visited != null && visited.Contains(victim.transform)) continue;
+            float sq = (victim.transform.position - center).sqrMagnitude;
+            if (sq < bestSq)
+            {
+                bestSq = sq;
+                best = victim;
+            }
+        }
+        if (best != null) point = best.transform.position;
+        return best;
+    }
+
+    /// <summary>1l76: the combatant a chain collider resolves to — the object itself if damageable,
+    /// else its root — or null for the caster, allies, and non-combatants. Mirrors the Beam's
+    /// friendly skip (Player/Companion tags) so a chain never leaps onto your own side, and reuses
+    /// <see cref="IDamageable"/> as the same "real combatant" predicate the other deliveries use.</summary>
+    private GameObject ChainVictim(GameObject go)
+    {
+        if (go == null) return null;
+        GameObject victim;
+        if (go.TryGetComponent<IDamageable>(out _))
+            victim = go;
+        else if (go.transform.root != null && go.transform.root.TryGetComponent<IDamageable>(out _))
+            victim = go.transform.root.gameObject;
+        else
+            return null;
+
+        if (victim.transform == transform.root) return null;
+        if (victim.CompareTag("Player") || victim.CompareTag("Companion")) return null;
+        return victim;
     }
 
     private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)

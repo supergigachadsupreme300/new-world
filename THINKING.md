@@ -1,3 +1,41 @@
+## 1l76. Chain Lightning bounces between foes (testing.md #7)
+
+**H1 (chain is a delivery, not a projectile flag — CHOSE DELIVERY).** The cheap route was to keep
+`magic_chain_spell` a projectile and hang a bounce off `SpellEffect`. Rejected: the chain's **first**
+hit is an instant strike (no travel, no flight time), so a projectile that "sometimes teleports to the
+next foe" is a projectile whose body lies about what it is. A `SpellDelivery.Chain` case makes the
+cast's shape honest and costs one enum value + one resolver, matching how 1l73 reserved `Chain = 7`.
+
+**H2 (primary = ray then nearest, not sphere only — CONFIRMED by reading Instant).** `ResolveDirect`
+already resolves an instant as "raycast along the aim; hit the thing the reticle is on". A chain is
+that plus leaps, so the primary uses the SAME ray first (aim fidelity) with a nearest-combatant
+fallback (so a cast into a crowd does not fizzle when the reticle sits between two foes). A
+sphere-only primary would have ignored where the player is pointing.
+
+**H3 (full power on every victim — CONFIRMED against the task).** testing.md asks for it: the chain's
+identity is reach, not a falling damage ladder. Each hop calls the SAME `ApplyHit`, so every victim
+gets the same Stagger/knockback/status path the direct bolt had — no second damage formula.
+
+**H4 (why a `visited` set matters — the ping-pong).** Without excluding already-hit roots, "nearest
+un-visited within 5 m" of two adjacent foes is always the *other* one, so a 2-jump chain would hit foe
+A, foe B, then foe A again — silently triple-hitting and reading as a bug. Excluding visited roots
+makes each cast touch distinct victims. (`NearestChainVictim` skips `transform.root` and the
+Player/Companion tags too, mirroring `SpellBeam`'s friendly skip, so a chain between the player and a
+wall cannot leap back onto the caster.)
+
+**H5 (no aim preview — CONFIRMED).** `PlayerController.Combat`'s preview gate lists
+Zone/Vortex/Summon/Storm; Chain is not among them, so it shows no ring exactly like Instant. Adding a
+preview would imply a ground placement Chain does not have.
+
+**Dead ends.** (i) Reusing `_overlapBuffer` (the existing `Collider[128]`) instead of a fresh list — a
+chain's neighbourhood is small, so no per-cast allocation. (ii) Drawing the bolt from the muzzle vs
+the caster root — used the cast `pos` (the same origin `Execute` got), so aim and body agree. (iii)
+`ChainMaxJumps` as 3 (four victims) — the task says three targets, so 2 jumps. (iv) A chain-specific
+bolt shape — the 1l73 builder is path-generic, so no new geometry.
+
+**Status: OPEN until play-test.** `Chain` delivery + catalog row + docs shipped; verify leap count,
+full-power-per-victim, the no-self/no-ally rule, and no double-hit in one cast.
+
 ## 1l75. Lightning beams draw as a jagged bolt (testing.md #6)
 
 **H1 (why a beam's body can be swapped with no aim rewrite — CONFIRMED by read).** The line body is

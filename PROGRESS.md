@@ -42,6 +42,41 @@ look code twice:
   defaulted off and delivered in 1l74–1l79; the bench's four new pedestal visuals should be
   verifiable after any of those land (each bolt stays parked on the pedestal).
 
+## 1l76. Chain Lightning bounces between foes (testing.md #7)
+
+- **Before:** `magic_chain_spell` was a plain `SpellDelivery.Projectile` bolt. **After:** a new
+  `SpellDelivery.Chain` — one instant strike that **leaps**. `SpellCaster.ResolveChain` hits what the
+  aim ray meets if it is a combatant, else the nearest combatant within `Range` (a cast into a crowd
+  still starts on someone), then up to `ChainMaxJumps` (2) leaps to the nearest **un-hit** combatant
+  within `ChainJumpRadius` (5 m) of the last victim — **three** victims max, each taking **full**
+  power (`28`; the chain buys reach, not a damage ladder). Each leg is a jagged
+  `SpellBoltModelBuilder.BuildBolt` (caster→primary, then victim→victim), so the arc reads as one
+  stroke; bolts are pure visuals, no colliders.
+- Targeting reuses `ApplyHit`'s "real combatant" predicate (`IDamageable` on the object or root) and
+  mirrors the Beam's `Player`/`Companion` skip, so a chain never keeps the caster or an ally as the
+  next victim; `_overlapBuffer` (the existing `Collider[128]`) finds the leap target — no new alloc.
+- Catalog: `magic_chain_spell` delivery `Projectile`→`Chain`, `deliveryRange: 10f` (Chain now uses
+  `Range` for the primary reach), `projectileShape` dropped (there is no projectile body), description
+  updated. Spell id unchanged (save/fork key). Look/status (Stagger) unchanged.
+- No aim-preview change: Chain is an instant-strike delivery (the preview gates on
+  Zone/Vortex/Summon/Storm), so it shows no ring, like Instant.
+- Public consts `ChainJumpRadius`/`ChainMaxJumps`/`ChainBolt*` next to `SkyStrikeHeight`, so the docs
+  and a future reader share ONE number.
+
+### 1l76-status
+- [x] `SpellCaster.Cast.cs`: `Chain` dispatch case + `ResolveChain`/`FindChainTarget`/
+  `NearestChainVictim`/`ChainVictim` + six consts.
+- [x] `SkillCatalog.cs`: `magic_chain_spell` row → `Chain`, `deliveryRange: 10f`, shape dropped, desc.
+- [x] Docs: `game-design.md` §3.8.1 (Chain bullet + "four richer deliveries"), `magic-skills.md`
+  (Chain delivery row, delivery-fields line, `magic_chain` skill-table row, Chain Lightning section),
+  this entry + `THINKING.md` §1l76.
+- [x] Bench branch already present from 1l73 (`SpellDelivery.Chain` pedestal hop).
+- [x] Verified by grep + reread (no build, rule 3) + `tools\StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` (rule 15) — C# delivery mechanics; no installed skill governs it.
+- [ ] **PLAY-TEST (user, Unity):** cast Chain Lightning at a lone foe (one strike, no leaps) and into
+  a cluster (arc caster→foe→foe→foe, each staggering); confirm a chain fired between the player and a
+  wall does not leap onto the player, and that the same foe is never hit twice in one cast.
+
 ## 1l75. Lightning beams draw as a re-jittering jagged bolt (testing.md #6)
 
 - **Before:** every `SpellDelivery.Beam` drew the same cylinder line body (or cone funnel). **After:**

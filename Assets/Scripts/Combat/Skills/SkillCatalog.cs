@@ -309,10 +309,10 @@ public static partial class SkillCatalog
         Add(list, "magic_lightning", "Storm Focus", SkillType.Magic, true, None(), false, DamageType.Lightning,
             Perk(PassivePerkType.CooldownReductionPercent, 6f), null, "Spells ready 6% faster, enfolding the storm.");
         Add(list, "magic_chain", "Chain Lightning", SkillType.Magic, false, Focus(20f), true, DamageType.Lightning,
-            Spell("magic_chain_spell", "Chain Lightning", DamageType.Lightning, 28f, 20f, SpellDelivery.Projectile, 5f,
-                statusEffect: StatusEffectType.Stagger, projectileShape: ProjectileShape.Bolt,
+            Spell("magic_chain_spell", "Chain Lightning", DamageType.Lightning, 28f, 20f, SpellDelivery.Chain, 5f,
+                deliveryRange: 10f, statusEffect: StatusEffectType.Stagger,
                 look: Look(SpellImpactStyle.Cross, SpellCastStyle.Arc, tempo: 1.3f, value: 1.1f)),
-            P("magic_lightning"), "Electric blast that staggers foes (requires Storm Focus).");
+            P("magic_lightning"), "An electric strike that staggers the first foe it hits, then leaps to nearby enemies (requires Storm Focus).");
         Add(list, "magic_heal", "Lesser Heal", SkillType.Magic, false, Focus(10f), false, DamageType.Holy,
             Spell("magic_heal_spell", "Lesser Heal", DamageType.Holy, 15f, 10f, SpellDelivery.Instant, 0f,
                 heals: true,
