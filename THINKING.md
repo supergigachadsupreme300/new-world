@@ -1,3 +1,23 @@
+## 1l82. Side-run only on pure A/D
+
+**Question.** The legs still showed a side-step on forward/diagonal movement. Where does that come from,
+given `strafeBlend = SmoothStep(0.70, 0.95, |x|/(|x|+|y|))` is ~0 at a 45° diagonal?
+
+**H1 (the blend, not the input — CONFIRMED).** `SmoothStep(0.70, 0.95, r)` is only *approximately* 0 below
+0.70, and there is no forward-input term at all: the gait is chosen by a *ratio*, so any input that leans
+lateral (a shallow diagonal, a stick, or A/D with a fading forward component) lands part-way between the two
+gaits. A ratio is the wrong predicate for "is the player strafing" — the user asked for a **separation by
+input**.
+
+**Fix.** Replace the ratio with a direct input predicate: `strafeBlend = (|x| > 0.01 && |y| < 0.2) ? 1 : 0`.
+Pure A/D ⇒ full side-run; any W/S ⇒ forward gait, no leg side-step. Kept the `0.2` forward tolerance so a
+small analog drift does not kill the strafe, but a real W press (keyboard = 1.0) always does.
+
+**Rejected.** (i) Tightening the SmoothStep window — still a ratio, still bleeds. (ii) Smoothing the blend
+across frames — the user wants the gaits *separate by input*, not cross-faded; a hard select is the point.
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l81. Torso never tilts sideways
 
 **H1 (the tilt is the torso, not the legs — CONFIRMED by reading the pose block).** Every side-motion

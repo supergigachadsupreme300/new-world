@@ -396,17 +396,19 @@ public sealed class PlayerAnimator : MonoBehaviour
         float elbowR = Mathf.Lerp(wElbowR, rElbowR, runBlend);
 
         // ── Side-run pose (strafing) ─────────────────────────────────────────────
-        // When planar motion is mostly SIDEWAYS to the model's facing (A/D while the body still
-        // faces the camera), the forward walk/run swing reads as a moonwalk, so blend to a
-        // side-step: the leading leg abducts out in the travel direction and lifts, the trailing
-        // leg follows, and the torso rolls into the travel. Detection is from the move INPUT
-        // (already in the body frame - movement is transform.TransformDirection(input)), NOT from
-        // measured velocity: the body yaw leads the world velocity through a turn, so a
-        // velocity-based split reported a lateral component on every forward turn and the sign
-        // flipped frame to frame - a violent leg/torso shake on a straight run (1l72).
+        // The side-run is its OWN gait, selected by INPUT, and it engages ONLY while the player
+        // moves purely laterally — A/D pressed with no W/S. Any simultaneous forward/back input
+        // keeps the forward/back gait, so pressing A or D DURING a run no longer drags the legs
+        // into the side-step: the two gaits are exclusive (1l82, the user's "separate animation by
+        // input"). Detection is from the move INPUT (already in the body frame - movement is
+        // transform.TransformDirection(input)), NOT from measured velocity: the body yaw leads the
+        // world velocity through a turn, so a velocity-based split reported a lateral component on
+        // every forward turn and the sign flipped frame to frame - a violent shake on a straight
+        // run (1l72).
         Vector2 mi = _pc.MoveInput;
-        float sideRatio = Mathf.Abs(mi.x) / Mathf.Max(0.15f, Mathf.Abs(mi.x) + Mathf.Abs(mi.y));
-        float strafeBlend = Mathf.SmoothStep(0.7f, 0.95f, sideRatio);
+        float latIn = Mathf.Abs(mi.x);
+        float fwdIn = Mathf.Abs(mi.y);
+        float strafeBlend = (latIn > 0.01f && fwdIn < 0.2f) ? Mathf.Clamp01(latIn) : 0f;
         float strafeSign = mi.x >= 0f ? 1f : -1f;
 
         // A +abduct (Z) rotation sweeps a foot toward +x for EITHER hip, so a strafe has both legs

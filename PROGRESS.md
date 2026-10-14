@@ -106,6 +106,18 @@ look code twice:
   each tick should drop a long jagged bolt from the cloud onto a foe; the ground ring/flash and damage
   unchanged. Confirm Stormcall is visually unchanged (still crossed bars, no cloud).
 
+## 1l82. Side-run is its own gait — activates only on pure A/D
+
+- **Report:** "fixing the legs animation too, it's still affected by side moving; separate animation by
+  input, side running animation only activate when using a/d."
+- **Cause:** the leg side-step was a continuous blend — `strafeBlend = SmoothStep(0.70, 0.95, |x|/(|x|+|y|))`.
+  Any lateral input that pushed the ratio up (e.g. a near-diagonal, or A/D pressed while the body carried
+  forward) pulled the legs part-way into the side-step instead of choosing a gait.
+- **Fix:** the side-run is now **selected by input**, not blended: `strafeBlend = 1` iff `|x| > 0.01` and
+  `|y| < 0.2` (A/D held, no W/S), else `0`. Pressing A/D *during* a forward run keeps the forward gait; a
+  diagonal never touches the legs. `strafeSign` and the leg side-step math are unchanged.
+- Docs: `game-design.md` side-run paragraph, this entry + `THINKING.md §1l82`.
+
 ## 1l81. Torso never tilts sideways (forward run was picking up the strafe roll)
 
 - **Report:** "player are having a side running animation, but it's affecting the front running; I
@@ -294,7 +306,10 @@ facing-relative VELOCITY split; reworked after play-test (rule 1: follow-up fix,
   alive, and the torso trades its forward lean for a roll into the travel. A pure A/D strafe (ratio 1.0) is
   full side-run; forward and diagonal (W+A, ratio ≈ 0.71) stay on the forward gait.
   - *Superseded by 1l81:* the torso roll (and the small Y sway) was removed — the top body now leans forward
-    only and never tilts sideways. The leg side-step above is unchanged.
+    only and never tilts sideways.
+  - *Superseded by 1l82:* the leg side-step is no longer a `SmoothStep` blend of a side ratio — it is a
+    separate gait selected by INPUT, engaged only while A/D is held with NO W/S (`strafeBlend = 1` iff
+    `|x| > 0.01` and `|y| < 0.2`). Pressing A/D during a forward run keeps the forward gait.
 - **Direction facts encoded in the comments (rule 8):** a +Z hip rotation sweeps a foot toward +x for
   EITHER hip, so both legs abduct the SAME way (`strafeSign`), the near leg first; and +Z torso roll tips
   the top toward −x, so the torso leaned INTO the travel with `-strafeSign` (removed in 1l81).

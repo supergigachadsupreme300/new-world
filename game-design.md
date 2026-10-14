@@ -1552,20 +1552,20 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
     `LateUpdate` measured the player against a `default(Vector3)` and reported its distance from the world
     origin as speed. That was nearly invisible under the old clamped `norm` (one frame of run pose) and is
     a multi-Hz phase burst under a divisor.
-  - **Side-run pose while strafing (1l72)**: the walk/run cycle is a forward back-and-forth swing, so a
-    sideways slide (A/D while the body still faces the camera) read as a **moonwalk**. The strafe is detected
-    from the move **INPUT** (`PlayerController.MoveInput`, already in the body frame because movement is
-    `transform.TransformDirection(input)`; `strafeBlend = SmoothStep(0.70, 0.95, |x|/(|x|+|y|))`, so a pure
-    A/D strafe is full and a diagonal stays a forward run). The lead leg abducts out in the travel direction
-    (a +Z hip rotation sweeps a foot toward +x for either hip, so **both** legs step the same way: lead
-    (a +Z hip rotation sweeps a foot toward +x for either hip, so **both** legs step the same way: lead
-    first, trail half a cycle later) and lifts with its knee. **1l81: the torso does NOT tilt or roll** —
-    it leans forward only; on the user's report the 1l72 torso "roll into the travel" (and its small Y
-    sway) tilted the top body sideways and leaked into a forward run, so both were removed. The side-step
-    is now leg-only. Walk/run amplitude, cadence
-    and the idle path are untouched, so the two never disagree. *Detection is from input, not measured
-    velocity:* the body yaw is written from the camera every frame while the world velocity lags it through
-    a turn, so a velocity split reported a lateral component on a straight run and shook the legs (1l72 fix).
+  - **Side-run pose while strafing (1l72; input-gated 1l82)**: the walk/run cycle is a forward
+    back-and-forth swing, so a sideways slide (A/D while the body still faces the camera) read as a
+    **moonwalk**; the strafe gait steps the lead leg out in the travel direction (a +Z hip rotation sweeps
+    a foot toward +x for either hip, so **both** legs step the same way: lead first, trail half a cycle
+    later) and lifts with its knee. **1l82: the side-run is its own gait, selected by INPUT and only while
+    the player moves purely laterally** — A/D pressed with no W/S (`strafeBlend = 1` iff `|x| > 0.01` and
+    `|y| < 0.2`), so pressing A/D *during* a forward run keeps the forward gait and a diagonal never touches
+    the legs. **1l81: the torso does NOT tilt or roll** — it leans forward only; the 1l72 torso "roll into
+    the travel" (and its small Y sway) tilted the top body sideways and was removed, so the side-step is now
+    leg-only and the torso never yaws or rolls. Detection is from the move **INPUT**
+    (`PlayerController.MoveInput`, already in the body frame because movement is
+    `transform.TransformDirection(input)`), NOT measured velocity: the body yaw is written from the camera
+    every frame while the world velocity lags it through a turn, so a velocity split reported a lateral
+    component on a straight run and shook the legs (1l72 fix).
   - **Per-arm suppression lets the empty hand keep swinging (1l72)**: `PlayerAnimator.AcquireArms(right,
     left)` / `ReleaseArms(right, left)` claim arm pivots **per side** (`SuppressArmR`/`SuppressArmL`). A
     one-handed cast or attack claims only the hand that holds the weapon, so the OTHER arm keeps its
