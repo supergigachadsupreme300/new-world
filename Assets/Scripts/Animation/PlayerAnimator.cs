@@ -62,9 +62,6 @@ public sealed class PlayerAnimator : MonoBehaviour
     /// <summary>Smoothed planar speed (m/s) of the character root. See <see cref="SpeedSmoothing"/>.</summary>
     private float _speedH;
 
-    /// <summary>Smoothed planar speed (m/s) of the character root. See <see cref="SpeedSmoothing"/>.</summary>
-    private float _speedH;
-
     /// <summary>
     /// When true, at least one arm pivot is left to a <see cref="WeaponAnimator"/>, which drives it
     /// through its attack pose track / ready sway while SuppressArms is set. Managed by
