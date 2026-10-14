@@ -1,3 +1,29 @@
+## 1l83. Beam root at the muzzle
+
+**H1 (the beam snaps to the caster ROOT — CONFIRMED by reading both writers).** `SpellBeam.Update` wrote
+`transform.position = _caster.transform.position` (comment claimed "the caster's hand"), and
+`WeaponRigBuilder.EnsureCombatStack` puts `SpellCaster` on `playerRoot` — the feet. So the per-frame write
+overrides `ResolveBeam`'s spawn point. Three visuals ride the same class: the straight line beam, the cone
+funnel (`BuildFunnelVisual`), and the lightning `BoltStrip` — which is exactly the reported "funnel, beam,
+arcstorm".
+
+**H2 (why the spawn offset didn't save it).** `ResolveBeam` placed the root at `pos + fwd*0.5 + up*0.2`,
+so even the spawn frame differed from a projectile's `pos + fwd*0.5`. But the dominant error is the
+per-frame snap to the root; the offset is a second, smaller mismatch.
+
+**Fix.** Pass the real cast origin (`origin`) through `ResolveBeam` → `SpellBeam.Initialize`, and follow
+`anchor.position + anchor.forward * CastMuzzleOffset`. Extracted `CastMuzzleOffset = 0.5f` so the beam and
+`FireProjectile` share one muzzle number instead of two bare `0.5`s (rule 8).
+
+**Rejected.** (i) Only removing the snap — a channeled beam must follow the player while held, so it would
+stay behind. (ii) Keeping the caster-root follow and just adding the offset — still the feet-plus-forward,
+not the weapon; the user explicitly asked for the projectile spawn point.
+
+**Scope note.** This covers the Beam delivery family (line beam, cone funnel, lightning bolt). The Zone/
+Storm ground funnel is placed at the aim point on the ground by design and is not this bug.
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l82. Side-run only on pure A/D
 
 **Question.** The legs still showed a side-step on forward/diagonal movement. Where does that come from,

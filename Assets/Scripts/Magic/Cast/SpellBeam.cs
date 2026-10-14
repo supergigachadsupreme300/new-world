@@ -6,9 +6,10 @@ using UnityEngine.InputSystem;
 /// Channeled beam delivery (SpellDelivery.Beam). Spawned by SpellCaster on cast (e.g. wheel-cast
 /// release), aimed along the cast direction, and kept alive while the caster holds LMB and can pay
 /// the per-second focus upkeep (<see cref="SpellData.ChannelDrainPerSecond"/>). The beam tracks the
-/// caster position each frame, ticks the spell's damage to everything inside its capsule, and fades
-/// out on input release or when the focus pool runs dry. On devices without a mouse the beam sustains
-/// itself for a short fixed window instead.
+/// cast origin (the weapon in hand) each frame — offset by <see cref="SpellCaster.CastMuzzleOffset"/>,
+/// the same muzzle a projectile spawns from (1l83) — ticks the spell's damage to everything inside its
+/// capsule, and fades out on input release or when the focus pool runs dry. On devices without a mouse
+/// the beam sustains itself for a short fixed window instead.
 /// </summary>
 public class SpellBeam : MonoBehaviour
 {
@@ -66,6 +67,12 @@ public class SpellBeam : MonoBehaviour
     private SpellData _spell;
     private float _power;
     private Transform _casterRoot;
+
+    /// <summary>1l83: the cast origin (the weapon in hand). The beam root follows this — offset by
+    /// <see cref="SpellCaster.CastMuzzleOffset"/> — so it launches from the muzzle projectiles spawn
+    /// from, not the caster's feet. Null when the cast had no origin transform, in which case the
+    /// follow falls back to the caster root (still offset, so it never sits at the feet).</summary>
+    private Transform _origin;
     private float _tick;
     private float _noInput;
     private float _fixedWindow = 1.6f;
@@ -121,11 +128,13 @@ public class SpellBeam : MonoBehaviour
     /// untouched and still load-bearing, because TickCone still walks all 14 analytic capsules.</para></summary>
     private readonly HashSet<Transform> _tickSeen = new HashSet<Transform>();
 
-    /// <summary>Configure the beam. Length/width multiplied by the charged size scale.</summary>
+    /// <summary>Configure the beam. Length/width multiplied by the charged size scale.
+    /// <paramref name="origin"/> is the cast point (weapon in hand) the beam root follows (1l83).</summary>
     public void Initialize(SpellCaster caster, SpellData spell, float power,
-        Vector3 dir, float lengthMult = 1f, float widthMult = 1f)
+        Vector3 dir, float lengthMult = 1f, float widthMult = 1f, Transform origin = null)
     {
         _caster = caster;
+        _origin = origin;
         _spell = spell;
         _power = power;
         _casterRoot = caster != null ? caster.transform.root : null;
@@ -161,9 +170,13 @@ public class SpellBeam : MonoBehaviour
             return;
         }
 
-        // Origin follows the caster's hand so the beam tracks movement while held.
-        if (_caster != null)
-            transform.position = _caster.transform.position;
+        // 1l83: Origin follows the caster's WEAPON (the cast origin), offset by the same muzzle a
+        // projectile spawns from, so the beam tracks the hand while held and launches from the weapon
+        // — the old line used the caster ROOT (feet), so every beam/funnel/lightning bolt came out of
+        // the player's feet. Falls back to the caster root (still offset) when no origin was passed.
+        Transform anchor = _origin != null ? _origin : (_caster != null ? _caster.transform : null);
+        if (anchor != null)
+            transform.position = anchor.position + anchor.forward * SpellCaster.CastMuzzleOffset;
 
         // Re-aim with the caster's current aim each frame so the beam sweeps as the player turns.
         // 1is: the derivation itself now lives in SpellCaster.CurrentAimDirection. From 1is it was

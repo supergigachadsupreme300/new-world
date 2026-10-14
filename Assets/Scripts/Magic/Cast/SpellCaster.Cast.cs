@@ -144,7 +144,7 @@ public partial class SpellCaster
             case SpellDelivery.Vortex:
                 return SpawnVortex(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Beam:
-                return ResolveBeam(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
+                return ResolveBeam(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, origin);
             case SpellDelivery.Summon:
                 return ResolveSummon(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Storm:
@@ -218,6 +218,14 @@ public partial class SpellCaster
     /// <summary>1jt: how far above the hit the caller is placed, so a flat ground ring is not z-fought
     /// into the terrain it is lying on.</summary>
     public const float GroundLift = 0.02f;
+
+    /// <summary>1l83: how far ahead of the cast origin a spell's drawn body is rooted. A projectile's
+    /// spawn and a channeled beam's root both sit this far along the cast forward, so a beam launches
+    /// from the SAME muzzle its projectiles would — never from the caster's feet (which is what
+    /// <see cref="SpellBeam.Update"/>'s old "follow <c>_caster.transform.position</c>" wanted, since
+    /// <see cref="SpellCaster"/> sits on the player ROOT, not the hand). Mirrors the ranged weapon's
+    /// Muzzle (WeaponRigBuilder).</summary>
+    public const float CastMuzzleOffset = 0.5f;
 
     /// <summary>1l74: how far above the impact center a SkyStrikeBolt delivery's bolt falls FROM. The
     /// only bound is "reads as sky": the bolt is a picture (segments only, no collider), so this is

@@ -106,6 +106,21 @@ look code twice:
   each tick should drop a long jagged bolt from the cloud onto a foe; the ground ring/flash and damage
   unchanged. Confirm Stormcall is visually unchanged (still crossed bars, no cloud).
 
+## 1l83. Beam/funnel/lightning root at the muzzle, not the caster's feet
+
+- **Report:** "the funnel, beam, arcstorm model are placed too low, the magic looks like it launched
+  from player feet; the root should be where the projectiles spawn."
+- **Cause:** `SpellBeam.Update` snapped the beam root to `_caster.transform.position` every frame — and
+  `SpellCaster` is added to the player **root** (`WeaponRigBuilder.EnsureCombatStack`), i.e. the feet.
+  `ResolveBeam` also added `+0.2 up` at spawn. So the straight beam (Arc Storm), the cone funnel
+  (Flamethrower) and the lightning bolt strip all launched from the feet, not the weapon.
+- **Fix:** `ResolveBeam` roots the beam at `origin + fwd * SpellCaster.CastMuzzleOffset` (new `0.5`
+  const, NO vertical lift) and passes the cast origin to `SpellBeam.Initialize`; `SpellBeam.Update`
+  follows `anchor.position + anchor.forward * CastMuzzleOffset` (falls back to the caster root, still
+  offset, when no origin). `FireProjectile` now uses the same `CastMuzzleOffset` instead of a bare `0.5`,
+  so beam and projectile share ONE muzzle number.
+- Docs: `game-design.md` beam section (1l83 paragraph), this entry + `THINKING.md §1l83`.
+
 ## 1l82. Side-run is its own gait — activates only on pure A/D
 
 - **Report:** "fixing the legs animation too, it's still affected by side moving; separate animation by

@@ -27,7 +27,7 @@ public partial class SpellCaster
         // The small forward muzzle offset mirrors the ranged Muzzle and keeps the bolt clear of
         // the caster's own collider; the SpellEffect's caster-root skip and ground probe handle
         // self/terrain contacts from there.
-        pos += fwd * 0.5f;
+        pos += fwd * CastMuzzleOffset;
         GameObject go;
         if (spell.CastEffectPrefab != null)
         {

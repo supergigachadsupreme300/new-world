@@ -29,14 +29,18 @@ public partial class SpellCaster
     /// holds the sustain input (LMB) and can afford its per-second focus upkeep; it fades out on
     /// release or when the pool runs dry. Charge widens the beam and raises its tick power.
     /// </summary>
-    private DamageResult ResolveBeam(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale)
+    private DamageResult ResolveBeam(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, Transform origin)
     {
         StopChannel();
         var go = new GameObject("SpellBeam");
-        go.transform.position = pos + fwd * 0.5f + Vector3.up * 0.2f;
+        // 1l83: root at the SAME muzzle a projectile spawns from (cast origin + cast-forward *
+        // offset) and NO vertical lift. Before 1l83 this added +0.2 up AND SpellBeam.Update then
+        // snapped the whole beam to the caster ROOT every frame, so the straight beam, the cone
+        // funnel and the lightning bolt all launched from the player's feet instead of the weapon.
+        go.transform.position = pos + fwd * CastMuzzleOffset;
         go.transform.rotation = Quaternion.LookRotation(fwd);
         var beam = go.AddComponent<SpellBeam>();
-        beam.Initialize(this, spell, power, fwd, sizeScale, sizeScale);
+        beam.Initialize(this, spell, power, fwd, sizeScale, sizeScale, origin);
         _activeBeam = beam;
         return new DamageResult { HitTargets = true };
     }

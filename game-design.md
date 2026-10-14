@@ -2012,6 +2012,14 @@ a school read distinctly instead of feeling like copies:
   constant shrink-and-enlarge. The body now keeps the scale the builder wrote for the whole channel, so
   a held beam stays steady; the debris still orbits (1is swirl) and the tip orb keeps its soft glow
   throb — only the body's scale is frozen.
+  **1l83: the beam root sits at the projectile muzzle, NOT the caster's feet.** `ResolveBeam` roots the
+  beam at `origin + cast-forward * SpellCaster.CastMuzzleOffset` (0.5 m, no vertical lift) and hands the
+  cast origin to `SpellBeam`, whose per-frame follow is now `anchor.position + anchor.forward * offset`
+  (falling back to the caster root — still offset — when there is no origin). Before this the beam added
+  `+0.2 up` at spawn and then snapped to `_caster.transform.position` every frame; because `SpellCaster`
+  sits on the player **root**, the straight beam, the cone funnel and the lightning bolt all launched
+  from the player's feet. The offset is the SAME constant a projectile spawns from, so beam and bolt
+  share one muzzle.
   **1l75: a Lightning beam draws as a jagged bolt, not a line.** `SpellBeam` swaps its cylinder for a
   re-jittering `BoltStrip` (12 segments, re-shuffled every 0.07 s in place) whenever
   `spell.Type == Lightning` — the school's identity, keyed the same way `SpellStorm`'s
