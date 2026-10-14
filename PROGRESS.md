@@ -106,6 +106,27 @@ look code twice:
   each tick should drop a long jagged bolt from the cloud onto a foe; the ground ring/flash and damage
   unchanged. Confirm Stormcall is visually unchanged (still crossed bars, no cloud).
 
+## 1l81. Torso never tilts sideways (forward run was picking up the strafe roll)
+
+- **Report:** "player are having a side running animation, but it's affecting the front running; I
+  don't want the player to tilt to the side at all."
+- **Cause:** `PlayerAnimator`'s torso pose was `Euler(fwdLean + lookTilt, sideSway, strafeRoll)` — a
+  `strafeRoll` (Z roll "into the travel", up to ~16° at sprint) plus a 4° Y `sideSway`, both intended
+  only for a side-run but read as a lateral tilt.
+- **Fix:** the torso leans **forward only** — `Euler(fwdLean + lookTilt, 0f, 0f)`. The roll and the
+  sway are gone, and the forward lean is no longer scaled by `strafeBlend` (the roll it traded against
+  is gone). The **legs** still take the side-step pose while strafing; only the top body is held level.
+- Docs: `game-design.md` §3.6 (strafe note) now says the torso does not roll; this entry + `THINKING.md`
+  §1l81. Supersedes 1l72's "torso trades its forward lean for a roll into the travel".
+
+### 1l81-status
+- [x] `Assets/Scripts/Animation/PlayerAnimator.cs`: torso `sideSway`/`strafeRoll` removed.
+- [x] `game-design.md` strafe note updated; this entry + `THINKING.md` §1l81.
+- [x] `tools\StaticChecks.ps1` → 0 candidates. No build (rule 3).
+- [x] `skills: none applied` (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** running forward (and diagonally) keeps the upper body upright with
+  only the forward lean; strafing still side-steps the legs but no longer tilts the torso.
+
 ## 1l80. Follow-up compile fix: `SpellData.Type` not `.DamageType`, and `List`→`HashSet` in `ResolveChain`
 
 Three console errors, two of them the same mistake: the field is `SpellData.Type`, not `.DamageType`
@@ -272,9 +293,11 @@ facing-relative VELOCITY split; reworked after play-test (rule 1: follow-up fix,
   and lifts (knee), the trailing leg follows half a cycle later, a small antiphase hip X keeps the legs
   alive, and the torso trades its forward lean for a roll into the travel. A pure A/D strafe (ratio 1.0) is
   full side-run; forward and diagonal (W+A, ratio ≈ 0.71) stay on the forward gait.
+  - *Superseded by 1l81:* the torso roll (and the small Y sway) was removed — the top body now leans forward
+    only and never tilts sideways. The leg side-step above is unchanged.
 - **Direction facts encoded in the comments (rule 8):** a +Z hip rotation sweeps a foot toward +x for
   EITHER hip, so both legs abduct the SAME way (`strafeSign`), the near leg first; and +Z torso roll tips
-  the top toward −x, so the torso leans INTO the travel with `-strafeSign`.
+  the top toward −x, so the torso leaned INTO the travel with `-strafeSign` (removed in 1l81).
 - **Docs:** `game-design.md` (animation cluster, next to 1jn), `Assets/Scripts/Animation/README.md`.
   Touches `PlayerController.Movement.cs`, `PlayerAnimator.cs`, `WeaponAnimator.cs`.
 

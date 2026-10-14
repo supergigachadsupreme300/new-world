@@ -1558,8 +1558,11 @@ Races deliberately use a **wide net-stat-budget spread**, because racial % modif
     `transform.TransformDirection(input)`; `strafeBlend = SmoothStep(0.70, 0.95, |x|/(|x|+|y|))`, so a pure
     A/D strafe is full and a diagonal stays a forward run). The lead leg abducts out in the travel direction
     (a +Z hip rotation sweeps a foot toward +x for either hip, so **both** legs step the same way: lead
-    first, trail half a cycle later), lifts with its knee, and the torso trades most of its forward lean for
-    a roll **into** the travel (`-strafeSign`; +Z roll tips the top toward -x). Walk/run amplitude, cadence
+    (a +Z hip rotation sweeps a foot toward +x for either hip, so **both** legs step the same way: lead
+    first, trail half a cycle later) and lifts with its knee. **1l81: the torso does NOT tilt or roll** —
+    it leans forward only; on the user's report the 1l72 torso "roll into the travel" (and its small Y
+    sway) tilted the top body sideways and leaked into a forward run, so both were removed. The side-step
+    is now leg-only. Walk/run amplitude, cadence
     and the idle path are untouched, so the two never disagree. *Detection is from input, not measured
     velocity:* the body yaw is written from the camera every frame while the world velocity lags it through
     a turn, so a velocity split reported a lateral component on a straight run and shook the legs (1l72 fix).

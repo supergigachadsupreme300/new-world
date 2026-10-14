@@ -1,3 +1,23 @@
+## 1l81. Torso never tilts sideways
+
+**H1 (the tilt is the torso, not the legs — CONFIRMED by reading the pose block).** Every side-motion
+write in the mover lives on `_torso`'s Euler: `sideSway` on Y and `strafeRoll` on Z (L521-524 pre-fix).
+The hip abduction (`rightAbduct`/`leftAbduct`) is the strafe *leg* pose and does not tilt the body. So
+"don't tilt to the side" = zero the torso's Y and Z.
+
+**H2 (why it showed on a FORWARD run — CHOSE to remove the term, not gate it).** Pure forward input
+gives `sideRatio = 0` so `strafeBlend = 0` and `strafeRoll = 0` — but `sideSway` is `4° * runBlend`,
+independent of strafe, so it rocks the top body at every running speed. Rather than hunt the exact
+diagonal that read as a tilt, remove both side terms unconditionally: the report is "at all", and a
+stand/running body only needs the forward lean. Keeping the roll gated behind `strafeBlend` would leave
+the sway, and the user asked for *none*.
+
+**Dead end.** (i) Only zeroing `strafeRoll` and keeping `sideSway` — the sway is the term present on a
+straight forward run, so that would not have fixed the reported artifact. (ii) Removing the leg strafe
+too — not asked; the legs still need the side-step to avoid a moonwalk (1l72).
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l80. Compile fix — `SpellData.Type`, and the `strike.DamageType` ghost
 
 **H1 (`.DamageType` → `.Type` — CONFIRMED).** `SpellData` has no `DamageType` member; the school is

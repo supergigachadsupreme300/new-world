@@ -513,15 +513,15 @@ public sealed class PlayerAnimator : MonoBehaviour
         // track); any UNsuppressed arm above still gets its locomotion swing, so a one-handed cast
         // freezes only the casting hand and the empty hand keeps moving (1l72).
 
-        // Cartoon run top body: forward lean, gentle bob, small side sway (Y axis). When strafing,
-        // most of the forward lean is traded for a roll INTO the travel direction (a runner leans
-        // into the turn); +Z roll tips the top toward -x, so the sign is inverted from the strafe.
+        // 1l81: the torso leans FORWARD only — never a sideways tilt or sway. The 1l72 strafe
+        // "roll into the travel" (and the small Y-axis sway) both made the top body tilt to the
+        // side, and the user reported that bleeding into a forward run. The LEGS still take the
+        // side-step pose while strafing; only the torso is held level. Forward lean is no longer
+        // tied to `strafeBlend`, since the roll it used to trade against is gone.
         if (_torso != null)
         {
-            float sideSway = Mathf.Sin(_phase * 1.5f) * (4f * runBlend);
-            float fwdLean = (12f + 6f * runBlend) * (1f - 0.6f * strafeBlend);
-            float strafeRoll = -strafeSign * strafeBlend * (10f + 6f * runBlend);
-            _torso.localRotation = Quaternion.Euler(fwdLean + lookTilt, sideSway, strafeRoll);
+            float fwdLean = 12f + 6f * runBlend;
+            _torso.localRotation = Quaternion.Euler(fwdLean + lookTilt, 0f, 0f);
         }
         if (_head != null)
             _head.localRotation = Quaternion.Euler(-(1f + 2f * runBlend) * Mathf.Sin(_phase * 2f) - 2f * runBlend, 0f, 0f);
