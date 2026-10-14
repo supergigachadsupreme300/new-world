@@ -42,6 +42,38 @@ look code twice:
   defaulted off and delivered in 1l74–1l79; the bench's four new pedestal visuals should be
   verifiable after any of those land (each bolt stays parked on the pedestal).
 
+## 1l75. Lightning beams draw as a re-jittering jagged bolt (testing.md #6)
+
+- **Before:** every `SpellDelivery.Beam` drew the same cylinder line body (or cone funnel). **After:**
+  a `DamageType.Lightning` beam swaps the cylinder for a `BoltStrip` — the 1l73 builder's fixed set of
+  cube segments laid along the beam's local Y and re-shuffled in place every `BoltJitterInterval`
+  (0.07 s). Keyed on the school, matching `SpellStorm`'s `strike.DamageType == Lightning` precedent,
+  so the two remaining lightning beams (Arc Storm, Storm Pulse) inherit it and a future one will too;
+  every other school's line body is byte-identical.
+- `PulseVisual` still re-aims `_body` (`FromToRotation(up, Direction)`), and the strip's cubes ride
+  local ±Y, so the per-frame aim needs no second computation (1l73 H4). Fade materials are still
+  collected by child scan, so the bolt segments fade with the beam.
+- Public `BoltWidthFor`/`BoltJitterFor` so the QA bench mounts the same ladder; the bench grew a
+  lightning-line-beam branch (previously such beams fell to the generic orb).
+- Docs: `game-design.md` §3.8.1 Beam, `magic-skills.md` Beam row, `Magic/README.md` model table,
+  `ARCHITECTURE.md` counts + tree (the new 1l73 builder needed indexing).
+
+### 1l75-status
+- [x] `SpellBeam.cs`: `BoltSegments`/`BoltJitterInterval`/`BoltWidthFactor`/`BoltJitterFactor` +
+  min-floor consts, `BoltWidthFor`/`BoltJitterFor`, `_boltStrip`/`_boltJitterTimer` fields, the
+  lightning sub-branch in `BuildVisual`, the re-shuffle timer in `Update`.
+- [x] `NewWorldTestGround.cs`: lightning-line-beam bench branch (real `BoltStrip` via the same helpers).
+- [x] Docs: `game-design.md`, `magic-skills.md`, `Magic/README.md`, `ARCHITECTURE.md`, this entry,
+  THINKING.md §1l75.
+- [x] Verified by grep + reread (no build, rule 3) + `tools\StaticChecks.ps1` → 0 candidates. The
+  non-lightning line path is untouched (diff is inside the `else` only); `_body` is still non-null in
+  both sub-branches so `PulseVisual`'s first branch handles the bolt; no reader of the old body.
+- [x] `skills: none applied` (rule 15) — C# delivery visuals.
+- [ ] **PLAY-TEST (user, Unity):** channel Arc Storm / Storm Pulse — the beam is a crackling jagged
+  bolt that re-shuffles ~14×/s and sweeps with the aim; it fades on release like before; a non-lightning
+  beam (Searing Ray / Hunger) is visually unchanged. Bench: the two lightning-beam pedestals show the
+  bolt strip.
+
 ## 1l74. Lightning Strike — Sky Fury becomes an instant sky-bolt zone (testing.md #11)
 
 - **Before:** `magic_lightning_fury` "Sky Fury" was a channeled Beam (range 13, radius 1.2,

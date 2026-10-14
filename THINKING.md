@@ -1,3 +1,37 @@
+## 1l75. Lightning beams draw as a jagged bolt (testing.md #6)
+
+**H1 (why a beam's body can be swapped with no aim rewrite — CONFIRMED by read).** The line body is
+placed in WORLD space by `PulseVisual` (`_body.position = mid`), which for a cylinder is the same
+problem a rotating strip would have. 1l73's H4 finding is the lever: `_body.rotation =
+FromToRotation(up, Direction)`, so a body whose geometry is authored along local Y is aimed for free.
+The strip runs (0,−L/2,0)→(0,L/2,0) in `_body` local; `PulseVisual` aims `_body`; `Update` only
+re-jitters the strip inside that frame's aim. No second orientation path.
+
+**H2 (school vs per-spell flag — CHOSE SCHOOL).** `SpellStorm` already branches on
+`strike.DamageType == DamageType.Lightning` for its extra bolt; mirroring that keeps the lightning
+identity in one place and lets the two remaining lightning beams (Arc Storm, Storm Pulse) inherit it.
+A per-spell flag (`BeamJaggedBolt`) would need re-adding for every future lightning beam and let the
+school drift — the earlier sketch's flag is deliberately not shipped.
+
+**H3 (no per-shuffle churn — CONFIRMED).** Rebuilding the cubes per re-jitter would be a pooler's
+nightmare five times a second; `BoltStrip` holds its transforms and `Rebuild` rewrites them, so a
+re-jitter is pure transform writes. That is why the strip is a plain class and not a scene root.
+
+**H4 (bench would have lied — CONFIRMED).** The bench had no branch for LINE beams: they fell to
+`CreateProjectileDisplay` (generic orb). So before this task the pedestal for the two lightning beams
+would have kept reporting a shapes look after the live beam became a bolt — rule 13's
+"a visual that exists only inside a live cast". Branch added, mounting the real strip with the SAME
+`BoltWidthFor`/`BoltJitterFor` ladders.
+
+**Dead ends.** (i) Putting jitter in the builder (`CreateStrip` randomising once) — wrong: a still bolt
+is not lightning; the re-shuffle is the effect. (ii) Re-jittering by distance travelled — that's for
+trails along a path (rule 19); a stationary channel wants a fixed cadence, which is what 0.07 s is.
+(iii) Keying on `spell.Radius` instead of `spell.DamageType` — the two lightning beams could have been
+caught by a radius floor, but that is a coincidental property, not the identity.
+
+**Status: OPEN until play-test.** `SpellBeam` cyan-strip branch + bench branch shipped; verify the
+sweep, the re-shuffle rate, and that non-lightning beams are unchanged.
+
 ## 1l74. Lightning Strike rework (testing.md #11)
 
 **H1 (is Sky Fury really a Beam in the catalog — CONFIRMED).** Row is `SpellDelivery.Beam` with

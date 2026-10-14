@@ -53,6 +53,7 @@ component that spawns them, so *"where is the code that builds the casting circl
 | `SpellBeamModelBuilder` | line body, funnel discs + debris, the **shared** tip orb | `SpellBeam.PulseVisual` — the debris orbit + tip-orb glow (the body scale HOLDS since 1kb; the funnel flare is gone) |
 | `SpellZoneModelBuilder` | pull funnel, ground zone disc + halo, the 1kc conflagration vortex-circle | the zone's own lifetime; the conflagration's ember rings are spawned continuously by an internal `ConflagrationEmitter`/`RisingRing` (1l6u) |
 | `SpellStormModelBuilder` | lightning bar pair, `BoltFader` | `SpellStorm`'s strike scheduling |
+| `SpellBoltModelBuilder` | the point-to-point jagged lightning bolt + the re-jittering `BoltStrip` (1l73) | `SpellBeam`'s re-shuffle timer only — the strip holds its own cubes; the one-shot deliveries keep nothing |
 | `SummonModelBuilder` | totem body, familiar ring (1l6p; a ground circle before), **and (1je) the `SummonedAlly` combat construct** | `SpellSummon`'s pulse; for the ally, `SummonedAlly`'s move / face / strike / fade / die |
 | `SkillFxModelBuilder` | slash + ring flash geometry, `SlashFader`, `RingFader` | nothing — these are one-shot |
 | `CastingCircleModelBuilder` | all ten pieces (disc, two rings, rune + ticks, hex, spokes, arc, waves) | `CastingCircle`'s per-frame pulse and rotation |

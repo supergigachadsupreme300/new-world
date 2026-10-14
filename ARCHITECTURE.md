@@ -16,7 +16,7 @@ staged at the bottom, smallest-blast-radius first, and each one is separately co
 | Folder | `.cs` | What is actually in it |
 |---|---:|---|
 | `Models/` | 8 | `BossModelBuilder`, `EnemyModelBuilder`, `GoblinModelBuilder`, `HorseModelBuilder`, `ItemBuilder`, `PlayerPartMesher`, `WeaponModelBuilder`, `WeaponProjectileModelBuilder` (1jd) |
-| `Models/Magic/` | 11 | the named magic MODELS — 3 from 1ja/1jb, **8 more from 1jd** (beam, zone, storm, summon, skill FX, casting circle, AoE preview, CC ring). `Magic/README.md` is the index. |
+| `Models/Magic/` | 12 | the named magic MODELS — 3 from 1ja/1jb, **8 more from 1jd** (beam, zone, storm, summon, skill FX, casting circle, AoE preview, CC ring), and the 1l73 point-to-point lightning bolt. `Magic/README.md` is the index. |
 | `Models/MapBuilder/` | 10 | 10 partials of one class - **moved in 1jc** to `Legacy/MapBuilder/` (old-game content, read-only: AGENTS.md rule 18) — **and it is not "models"** (see §2.1) |
 | `Animation/` | 3 | `PlayerAnimator`, `WeaponAnimator`, `WeaponStowAnimator` |
 | `Player/` | 32 | 6 `PlayerController` partials + `Races/` (9 files) + rest |
@@ -144,6 +144,7 @@ Assets/Scripts/
         SpellBeamModelBuilder.cs       line body, funnel, shared tip orb          (1jd)
         SpellZoneModelBuilder.cs       pull funnel + ground zone                 (1jd)
         SpellStormModelBuilder.cs      lightning bars + BoltFader                (1jd)
+        SpellBoltModelBuilder.cs       point-to-point jagged bolt + BoltStrip    (1l73)
         SummonModelBuilder.cs          totem body + familiar ring                 (1jd/1l6p)
         SkillFxModelBuilder.cs         slash/ring flash + their two faders        (1jd)
         CastingCircleModelBuilder.cs   all ten casting-circle pieces              (1jd)

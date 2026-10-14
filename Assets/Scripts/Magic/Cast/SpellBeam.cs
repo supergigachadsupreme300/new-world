@@ -37,6 +37,25 @@ public class SpellBeam : MonoBehaviour
     /// as SpellTornado gets from TornadoBehavior.AddDebrisBlock).</summary>
     public const int FunnelDebris = 3;
 
+    // 1l75: a Lightning beam's drawn body is a jagged BoltStrip (testing.md #6) — the school
+    // identity, not a per-spell override (see the BuildVisual branch). Public derivations so the QA
+    // bench mirrors the SAME width/jitter ladders: a re-stated number would be a second spelling of
+    // the lightning look the bench and the beam could drift apart in.
+    public const int BoltSegments = 12;
+    public const float BoltJitterInterval = 0.07f;
+    public const float BoltWidthFactor = 0.5f;
+    public const float BoltJitterFactor = 0.6f;
+    public const float BoltMinWidth = 0.14f;
+    public const float BoltMinJitter = 0.5f;
+
+    /// <summary>1l75: the bolt's segment thickness — a fraction of the beam width, floored so a
+    /// thin beam cannot read as a hairline.</summary>
+    public static float BoltWidthFor(float beamWidth) => Mathf.Max(beamWidth * BoltWidthFactor, BoltMinWidth);
+
+    /// <summary>1l75: the lateral jitter amplitude for the strip's interior segments — breadth
+    /// relative to the beam width, floored so the jaggedness never disappears on a narrow beam.</summary>
+    public static float BoltJitterFor(float beamWidth) => Mathf.Max(beamWidth * BoltJitterFactor, BoltMinJitter);
+
     public Vector3 Direction;
     public float Length = 12f;
     public float Width = 1.2f;
@@ -59,6 +78,11 @@ public class SpellBeam : MonoBehaviour
     private Vector3 _bodyBaseScale;
     private Vector3 _orbBaseScale;
     private readonly Collider[] _tickBuffer = new Collider[64];
+
+    // 1l75: the Lightning beam's jagged bolt strip (see BuildVisual line branch). Re-shuffled in
+    // place by BoltStrip.Rebuild every BoltJitterInterval; null for every non-lightning beam.
+    private BoltStrip _boltStrip;
+    private float _boltJitterTimer;
 
     /// <summary>1ie/1ih: the beam's resolved look, cached at Initialize.</summary>
     private SpellLook _look;
@@ -222,6 +246,21 @@ public class SpellBeam : MonoBehaviour
         }
 
         PulseVisual();
+
+        // 1l75: Lightning beams re-shuffle their bolt segments periodically — the strip's cubes are
+        // rewritten in place (no per-visit create/destroy churn, which is why the strip is a plain
+        // class with Rebuild rather than a fresh root per shuffle), and only while the beam is
+        // alive: the fade block above already early-returns once _fadeOut starts.
+        if (_boltStrip != null)
+        {
+            _boltJitterTimer -= Time.deltaTime;
+            if (_boltJitterTimer <= 0f)
+            {
+                _boltJitterTimer = BoltJitterInterval;
+                float half = Length * 0.5f;
+                _boltStrip.Rebuild(new Vector3(0f, -half, 0f), new Vector3(0f, half, 0f));
+            }
+        }
 
         _tick -= Time.deltaTime;
         if (_tick <= 0f)
@@ -465,10 +504,32 @@ public class SpellBeam : MonoBehaviour
         }
         else
         {
-            SpellBeamModelBuilder.LineBody line = SpellBeamModelBuilder.BuildLineBody(
-                transform, transform.position, Direction, Length, Width, color);
-            _body = line.Body;
-            _bodyBaseScale = line.BodyBaseScale;
+            // 1l75: a Lightning beam's drawn body IS the jagged bolt — the school identity, not a
+            // spell override — so the line body is swapped for a re-jittering BoltStrip mounted under
+            // a plain _body root. PulseVisual keeps re-aiming that root (`FromToRotation(up,
+            // Direction)`), and the strip's cubes ride along local Y (half-length each way), so the
+            // per-frame aim stays exact without the strip knowing the beam exists. Keying on the
+            // DAMAGE TYPE is the SpellStorm precedent (its per-strike extra-bolt test is
+            // `strike.DamageType == DamageType.Lightning`); a per-spell flag would need re-adding for
+            // every future lightning beam and would let the school's identity drift. Every other
+            // school keeps the line body unchanged.
+            if (_spell != null && _spell.DamageType == DamageType.Lightning)
+            {
+                var boltRoot = new GameObject("BoltBody");
+                boltRoot.transform.SetParent(transform, false);
+                _body = boltRoot.transform;
+                _boltStrip = SpellBoltModelBuilder.CreateStrip(_body, BoltSegments,
+                    SkillFx.SharedSpriteMaterial(color), BoltWidthFor(Width), BoltJitterFor(Width));
+                _bodyBaseScale = Vector3.one;
+                _boltJitterTimer = 0f;
+            }
+            else
+            {
+                SpellBeamModelBuilder.LineBody line = SpellBeamModelBuilder.BuildLineBody(
+                    transform, transform.position, Direction, Length, Width, color);
+                _body = line.Body;
+                _bodyBaseScale = line.BodyBaseScale;
+            }
             _baseColor = color;
         }
 

@@ -2007,6 +2007,13 @@ a school read distinctly instead of feeling like copies:
   constant shrink-and-enlarge. The body now keeps the scale the builder wrote for the whole channel, so
   a held beam stays steady; the debris still orbits (1is swirl) and the tip orb keeps its soft glow
   throb — only the body's scale is frozen.
+  **1l75: a Lightning beam draws as a jagged bolt, not a line.** `SpellBeam` swaps its cylinder for a
+  re-jittering `BoltStrip` (12 segments, re-shuffled every 0.07 s in place) whenever
+  `spell.DamageType == Lightning` — the school's identity, keyed the same way `SpellStorm`'s
+  per-strike extra bolt is, so every future lightning beam inherits it and every other school keeps
+  the cylinder. Width and jitter derive from the beam width through `SpellBeam.BoltWidthFor` /
+  `BoltJitterFor` — the same functions the QA bench mounts, so the pedestal cannot drift from the
+  cast.
   Examples: Searing Ray, Arc Storm, Beacon (heal), Hunger, Cold Stare, Storm Breath.
 - **Summon** — ground-targeted (shows the AoE preview ring; a **caster-anchored** summon shows
   **no** preview — 1l6s, since it stations behind the player, there is no aim point to mark).

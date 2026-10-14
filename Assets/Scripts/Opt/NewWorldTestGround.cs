@@ -1996,6 +1996,19 @@ private static string Describe(in SpellLook look)
             // these mount the SAME builders the runtime uses rather than a proxy that could drift:
             // SpellBeamModelBuilder.BuildFunnelVisual for the swept wedge's funnel body (1is), and
             // SummonModelBuilder.BuildFamiliarCircle for the familiar ring (1l6p).
+            // 1l75: a Lightning beam's body is the live SpellBeam's jagged re-jittering bolt (testing.md
+            // #6). The two remaining lightning beams are LINE beams, so the cone branch below never
+            // claims them — without this branch they fall to the generic orb, a visual with no
+            // acceptance readout (rule 13). Static strip, same width/jitter ladders as the live beam
+            // via SpellBeam.BoltWidthFor/BoltJitterFor, laid along local Z so it reads as a beam.
+            else if (spell.DamageType == DamageType.Lightning && spell.Delivery == SpellDelivery.Beam)
+            {
+                var bl = SpellLook.Resolve(spell);
+                var strip = SpellBoltModelBuilder.CreateStrip(modelRoot.transform, SpellBeam.BoltSegments,
+                    SkillFx.SharedSpriteMaterial(bl.Core), SpellBeam.BoltWidthFor(spell.Radius),
+                    SpellBeam.BoltJitterFor(spell.Radius));
+                strip.Rebuild(new Vector3(0f, 0.2f, 0.4f), new Vector3(0f, 0.2f, 0.4f + spell.Range));
+            }
             else if (SpellBeam.ConeFullAngleDegrees(spell) > 0f)
             {
                 // 1is: mounts SpellBeamModelBuilder.BuildFunnelVisual — the Great Tornado silhouette in
