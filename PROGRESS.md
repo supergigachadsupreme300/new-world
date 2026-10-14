@@ -106,6 +106,51 @@ look code twice:
   each tick should drop a long jagged bolt from the cloud onto a foe; the ground ring/flash and damage
   unchanged. Confirm Stormcall is visually unchanged (still crossed bars, no cloud).
 
+## 1l80. Follow-up compile fix: `SpellData.Type` not `.DamageType`, and `List`→`HashSet` in `ResolveChain`
+
+Three console errors, two of them the same mistake: the field is `SpellData.Type`, not `.DamageType`
+(1l75's SpellBeam branch and its QA bench branch both wrote `spell.DamageType`). The third is 1l78's
+ride-along: `NearestCombatVictim` takes a `HashSet<Transform>` but `ResolveChain` passed a
+`List<Transform>`.
+- `SpellBeam.cs`: `_spell.DamageType` → `_spell.Type`.
+- `NewWorldTestGround.cs`: `spell.DamageType` → `spell.Type`.
+- `SpellCaster.Cast.cs`: `new List<Transform>` → `new HashSet<Transform>` in `ResolveChain`.
+- Swept the whole tree for `\.DamageType` (rule 3): the only survivors are the **comment/doc** mentions
+  of `SpellStorm`'s precedent, which named a symbol that does not exist — `strike.DamageType`. The real
+  precedent is `SpellStorm._type == DamageType.Lightning` where `_type = spell.Type` (SpellStorm.cs:41/
+  72/247), so 1l75's SpellBeam comment, `game-design.md`, `PROGRESS.md §1l75` and `THINKING.md §1l75`
+  are corrected to name it (rule 8 — a comment naming an identifier is a copy of it).
+
+### 1l80-status
+- [x] Three compile errors fixed; tree swept for `\.DamageType`; doc/comment copies re-pointed.
+- [x] `tools\StaticChecks.ps1` → 0 candidates. No build (rule 3).
+- [x] `skills: none applied` (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** project compiles; a Lightning beam still draws as the jagged bolt
+  and the QA pedestal still matches.
+
+## 1l79. Static Nova: Sky Beam becomes a caster-centred Zone (testing.md #10)
+
+- **Before:** Sky Beam (`magic_lightning_fury_beam`) was a channeled `Beam` with `channelDrainPerSecond`.
+  **After:** a totally different spell — **Static Nova**, a `Zone` with `centerOnCaster: true`, radius
+  2.8, Stagger, no channel drain. `SpellCaster.ResolveZone` now snaps the center onto the ground under
+  the **caster** (shared `GroundUnder`) when `spell.CenterOnCaster`, so the blast erupts around the
+  player instead of at the aim point. Spell id unchanged.
+- `PlayerController.Combat.cs`: the AoE preview disc also anchors under the player for a `CenterOnCaster`
+  spell (`TryAoeTarget`), so the marker matches where the nova lands rather than where the camera points.
+- Benched-by-existing: the CenterOnCaster pedestal branch shipped in 1l73 already renders it, so no new
+  QA lane was needed.
+
+### 1l79-status
+- [x] `SkillCatalog.Magic.cs`: row → `Zone`, `centerOnCaster: true`, radius 2.8, `channelDrainPerSecond`
+  dropped.
+- [x] `SpellCaster.Cast.cs`: `ResolveZone` caster-centred branch.
+- [x] `PlayerController.Combat.cs`: `CenterOnCaster` preview anchor.
+- [x] Docs: this entry + `THINKING.md` §1l79, `game-design.md`, `magic-skills.md`.
+- [x] `tools\StaticChecks.ps1` → 0 candidates. No build (rule 3).
+- [x] `skills: none applied` (rule 15).
+- [ ] **PLAY-TEST (user, Unity):** cast Static Nova — the ring erupts under the player (not the aim
+  point), radius ~2.8, staggers in the blast, and the armed preview disc sits at the feet.
+
 ## 1l78. Leap Bolt teleports the player (testing.md #9)
 
 - **Before:** Leap Bolt was a plain `Projectile` bolt. **After:** a **self-movement** cast — an
@@ -143,7 +188,7 @@ look code twice:
 - **Before:** every `SpellDelivery.Beam` drew the same cylinder line body (or cone funnel). **After:**
   a `DamageType.Lightning` beam swaps the cylinder for a `BoltStrip` — the 1l73 builder's fixed set of
   cube segments laid along the beam's local Y and re-shuffled in place every `BoltJitterInterval`
-  (0.07 s). Keyed on the school, matching `SpellStorm`'s `strike.DamageType == Lightning` precedent,
+  (0.07 s). Keyed on the school, matching `SpellStorm`'s `_type == DamageType.Lightning` `_type = spell.Type` precedent,
   so the two remaining lightning beams (Arc Storm, Storm Pulse) inherit it and a future one will too;
   every other school's line body is byte-identical.
 - `PulseVisual` still re-aims `_body` (`FromToRotation(up, Direction)`), and the strip's cubes ride

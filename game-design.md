@@ -1830,6 +1830,7 @@ A spell is a data asset carrying:
 - **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **selfTeleport** (1l78: Instant delivery moves the CASTER instead — e.g. **Leap Bolt**: the player is teleported up to `Range` along the flat look, cleared of obstructions, and the ground under the landing is found with the shared `GroundUnder` probe. A jagged bolt links where the caster WAS to where they land, and everything within `Radius` at the landing takes the hit. The one delivery that moves the player.)
+- **centerOnCaster** (1l73/1l79: a Zone/Storm bursts **under the caster** instead of the aim point — e.g. **Static Nova** (was Sky Beam): a `Zone`, `centerOnCaster`, radius 2.8, Stagger, no channel drain. `ResolveZone` ground-snaps the centre with `GroundUnder`, and the armed AoE preview disc follows it under the feet.)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
 - **summonFallingRock** (sky spells: a rock formation drops from the sky onto the target and the
@@ -2010,8 +2011,8 @@ a school read distinctly instead of feeling like copies:
   throb — only the body's scale is frozen.
   **1l75: a Lightning beam draws as a jagged bolt, not a line.** `SpellBeam` swaps its cylinder for a
   re-jittering `BoltStrip` (12 segments, re-shuffled every 0.07 s in place) whenever
-  `spell.DamageType == Lightning` — the school's identity, keyed the same way `SpellStorm`'s
-  per-strike extra bolt is, so every future lightning beam inherits it and every other school keeps
+  `spell.Type == Lightning` — the school's identity, keyed the same way `SpellStorm`'s
+  per-strike extra bolt is (its `_type == DamageType.Lightning`), so every future lightning beam inherits it and every other school keeps
   the cylinder. Width and jitter derive from the beam width through `SpellBeam.BoltWidthFor` /
   `BoltJitterFor` — the same functions the QA bench mounts, so the pedestal cannot drift from the
   cast.

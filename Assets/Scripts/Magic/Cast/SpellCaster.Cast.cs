@@ -496,7 +496,7 @@ public partial class SpellCaster
         SpellBoltModelBuilder.BuildBolt(null, pos, point, mat, ChainBoltLife,
             ChainBoltSegments, ChainBoltWidth, ChainBoltJitter);
 
-        var visited = new List<Transform> { victim.transform };
+        var visited = new HashSet<Transform> { victim.transform };
         Vector3 from = point;
         for (int hop = 0; hop < ChainMaxJumps; hop++)
         {

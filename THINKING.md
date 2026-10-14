@@ -1,3 +1,47 @@
+## 1l80. Compile fix — `SpellData.Type`, and the `strike.DamageType` ghost
+
+**H1 (`.DamageType` → `.Type` — CONFIRMED).** `SpellData` has no `DamageType` member; the school is
+`Type` (`DamageType Type = DamageType.Arcane`). 1l75 read it correctly in one head (`SpellStorm` uses
+`spell.Type`) but wrote `spell.DamageType` in the beam branch and the bench branch — same mistake twice,
+which is why the second occurrence was a *sweep* not a patch (rule 3). `\.DamageType` across the tree
+now returns only the Storm-precedent mentions.
+
+**H2 (the precedent I cited did not exist — CONFIRMED by grep).** 1l75's comment (and three docs) cited
+`SpellStorm`'s `strike.DamageType == DamageType.Lightning`. There is no `strike` in `SpellStorm`; the
+real test is `_type == DamageType.Lightning` with `_type = spell.Type`. So the comment was a copy of a
+symbol that never existed — it survived grep for `.DamageType` only because I had typed it myself.
+Corrected in the comment, `game-design.md`, `PROGRESS.md §1l75`, `THINKING.md §1l75` (rule 8).
+
+**H3 (`List`→`HashSet` — CONFIRMED).** `NearestCombatVictim's` `visited` parameter is `HashSet<Transform>`
+(1l76); `ResolveChain` declared it as `List<Transform>`. A `.Contains` on each is a drop-in here, so this
+is a constructor-type mismatch, not a behavioural one (rule 14's "an enum/field with no reader" cousin —
+the addressing rule is what the type carries).
+
+**Status: fixed, awaiting the user's Unity compile to confirm.** No build here (rule 3).
+
+## 1l79. Static Nova: Sky Beam becomes a caster-centred Zone (testing.md #10)
+
+**H1 (#10 is a redesign, not a rename — CHOSE TOTALLY DIFFERENT SPELL).** "change sky beam spell into
+something else, a total different spell." Sky Beam was a `Beam` with a channel drain; the smallest
+honest "different spell" reuses the existing `CenterOnCaster` axis (1l73) to make it a **nova** — a
+radial burst under the caster. The id (`magic_lightning_fury_beam`) stays, since ids are the L2 fork /
+save keys (rule 8), so the fork survives the redesign.
+
+**H2 (centre under the CASTER, ground-snapped — CONFIRMED by mirroring 1l78).** A nova is centred on the
+player, so `ResolveZone` needs `GroundUnder(transform.root.position, ...)` — exactly the probe 1l78
+added for Leap Bolt. Rather than a second spelling, the same `_groundProbeBuffer`/`GroundUnder` pair is
+used (rule 8).
+
+**H3 (preview must anchor under the player too or it lies — CONFIRMED).** `TryAoeTarget` projected the
+camera's aim point for every Zone; a `CenterOnCaster` zone would then show its disc out in front while
+the real blast happens at the feet. Added the caster-centred branch so the read matches the cast.
+
+**Dead ends.** (i) A new `SpellDelivery.Nova` — unnecessary; `CenterOnCaster` already classifies it and
+is a total predicate. (ii) Keeping the channel drain — a nova is instantaneous, the channel is the
+spell it replaced.
+
+**Status: OPEN until play-test.** Ring under the caster, radius 2.8, staggers; preview at the feet.
+
 ## 1l78. Leap Bolt teleports the player (testing.md #9)
 
 **H1 (a movement skill is an Instant self-cast — CHOSE INSTANT).** `SelfBuff` (Wind Walk) already rides
@@ -123,7 +167,7 @@ The strip runs (0,−L/2,0)→(0,L/2,0) in `_body` local; `PulseVisual` aims `_b
 re-jitters the strip inside that frame's aim. No second orientation path.
 
 **H2 (school vs per-spell flag — CHOSE SCHOOL).** `SpellStorm` already branches on
-`strike.DamageType == DamageType.Lightning` for its extra bolt; mirroring that keeps the lightning
+`_type == DamageType.Lightning` (`_type = spell.Type`) for its extra bolt; mirroring that keeps the lightning
 identity in one place and lets the two remaining lightning beams (Arc Storm, Storm Pulse) inherit it.
 A per-spell flag (`BeamJaggedBolt`) would need re-adding for every future lightning beam and let the
 school drift — the earlier sketch's flag is deliberately not shipped.
@@ -141,7 +185,7 @@ would have kept reporting a shapes look after the live beam became a bolt — ru
 **Dead ends.** (i) Putting jitter in the builder (`CreateStrip` randomising once) — wrong: a still bolt
 is not lightning; the re-shuffle is the effect. (ii) Re-jittering by distance travelled — that's for
 trails along a path (rule 19); a stationary channel wants a fixed cadence, which is what 0.07 s is.
-(iii) Keying on `spell.Radius` instead of `spell.DamageType` — the two lightning beams could have been
+(iii) Keying on `spell.Radius` instead of `spell.Type` — the two lightning beams could have been
 caught by a radius floor, but that is a coincidental property, not the identity.
 
 **Status: OPEN until play-test.** `SpellBeam` cyan-strip branch + bench branch shipped; verify the

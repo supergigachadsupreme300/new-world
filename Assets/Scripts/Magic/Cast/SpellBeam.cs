@@ -509,11 +509,11 @@ public class SpellBeam : MonoBehaviour
             // a plain _body root. PulseVisual keeps re-aiming that root (`FromToRotation(up,
             // Direction)`), and the strip's cubes ride along local Y (half-length each way), so the
             // per-frame aim stays exact without the strip knowing the beam exists. Keying on the
-            // DAMAGE TYPE is the SpellStorm precedent (its per-strike extra-bolt test is
-            // `strike.DamageType == DamageType.Lightning`); a per-spell flag would need re-adding for
-            // every future lightning beam and would let the school's identity drift. Every other
-            // school keeps the line body unchanged.
-            if (_spell != null && _spell.DamageType == DamageType.Lightning)
+            // DAMAGE TYPE is the SpellStorm precedent (it copies `_type = spell.Type` and its
+            // per-strike FX test is `_type == DamageType.Lightning`, SpellStorm.cs); a per-spell flag
+            // would need re-adding for every future lightning beam and would let the school's identity
+            // drift. Every other school keeps the line body unchanged.
+            if (_spell != null && _spell.Type == DamageType.Lightning)
             {
                 var boltRoot = new GameObject("BoltBody");
                 boltRoot.transform.SetParent(transform, false);

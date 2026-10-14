@@ -2001,7 +2001,7 @@ private static string Describe(in SpellLook look)
             // claims them — without this branch they fall to the generic orb, a visual with no
             // acceptance readout (rule 13). Static strip, same width/jitter ladders as the live beam
             // via SpellBeam.BoltWidthFor/BoltJitterFor, laid along local Z so it reads as a beam.
-            else if (spell.DamageType == DamageType.Lightning && spell.Delivery == SpellDelivery.Beam)
+            else if (spell.Type == DamageType.Lightning && spell.Delivery == SpellDelivery.Beam)
             {
                 var bl = SpellLook.Resolve(spell);
                 var strip = SpellBoltModelBuilder.CreateStrip(modelRoot.transform, SpellBeam.BoltSegments,
