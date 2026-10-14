@@ -2050,7 +2050,11 @@ a school read distinctly instead of feeling like copies:
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`
   (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
   visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard,
-  Hail Lance, Avalanche, Eclipse.
+  Hail Lance, Avalanche, Eclipse. **1l77**: a **storm-cloud** storm (`StormCloud`, Devastation) mounts
+  a dark cloud (`MapBuilder.BuildCloud`, tinted `SpellStorm.StormCloudTint`) `StormCloudHeight` (45 m)
+  above the area and draws each strike as a long multi-segment `SpellBoltModelBuilder` bolt from that
+  cloud down to the strike point, in place of the crossed bars — the cloud is the spell's identity.
+  The cloud is a child of the storm, so it lives exactly as long as the storm.
 - **Chain** — 1l76 (testing.md #7): an instant strike that **bounces between foes**. `SpellCaster`
   hits whatever the aim ray meets if it is a combatant, else the nearest combatant within `Range`
   (so a cast aimed into a crowd still starts on someone); then up to `ChainMaxJumps` (2) leaps to the

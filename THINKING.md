@@ -1,3 +1,39 @@
+## 1l77. Devastation mounts a storm cloud and strikes down long bolts (testing.md #8)
+
+**H1 (flag-scoped, not school-scoped — CHOSE FLAG).** The task names Devastation only. Lightning storms
+share `_type == DamageType.Lightning`, and 1l75 keyed the beam bolt on the school — but there the school
+*is* the identity of every beam (a lightning beam should never be a smooth cylinder). Here the *cloud*
+is a per-spell staging choice: Stormcall is also a lightning storm and the user did not ask for it to
+gain a cloud. So the cloud + sky-bolt look is gated on `StormCloud`, which only Devastation sets, and
+Stormcall is byte-identical. A school-wide change would have silently restyled a spell the task never
+mentioned — the class of overreach rule 13/20 warn about.
+
+**H2 (one cloud, many bolts — CONFIRMED against #8's wording).** "add a cloud on top then creating
+long, multiple segment lightning striking down" reads as ONE cloud and repeated downward strokes, not a
+cloud per strike. So the cloud is mounted once in `Initialize` (parented to the storm, lifetime =
+duration) and only the bolt is per-strike.
+
+**H3 (mirror the proven BuildCloud use — CONFIRMED by grep).** `RandomEventManager` (L789-791) is the
+existing local use: `BuildCloud(root, cloudPos, 5f)` then walk `GetComponentsInChildren<Renderer>()` and
+set `.material.color`. I copied that exact shape (rule 3: an API used for the first time in a file is
+verified against the project's own existing usage). `BuildCloud` has no colour argument, so the tint is
+a post-build Renderer walk — that IS the local idiom.
+
+**H4 (the bench would have drifted — CONFIRMED).** The 1l73 bench branch hard-coded the tint literal.
+Naming `SpellStorm.StormCloudTint` and pointing the bench at it keeps the runtime and the acceptance
+readout on one colour (rule 13). Left the bench's proxy height (2.9 on the pedestal) alone — the world
+height (45) is not meaningful at pedestal scale, and a documented proxy is fine.
+
+**Dead ends.** (i) Recolouring via a shared material vs per-renderer `.material.color` — the local
+idiom (RandomEventManager) uses `.material`; matching it avoids a second pattern. (ii) Drawing the
+crossed bars AND the bolt — #8 asks for the bolt *instead*; two flashes would double the read. (iii)
+School-gating the bolt (as 1l75 did for beams) — rejected in H1: it would restyle Stormcall. (iv)
+Cloud scale from Radius — a fixed 5 (the proven value) is enough; the cloud's size is atmosphere, not a
+gameplay magnitude.
+
+**Status: OPEN until play-test.** Cloud + sky-bolt + catalog flag shipped; verify the cloud's height,
+the downward bolt per tick, and Stormcall unchanged.
+
 ## 1l76. Chain Lightning bounces between foes (testing.md #7)
 
 **H1 (chain is a delivery, not a projectile flag — CHOSE DELIVERY).** The cheap route was to keep

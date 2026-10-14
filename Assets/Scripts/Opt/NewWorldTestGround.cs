@@ -2068,7 +2068,7 @@ private static string Describe(in SpellLook look)
                 var wl = SpellLook.Resolve(spell);
                 var cloud = MapBuilder.BuildCloud(modelRoot.transform, new Vector3(0f, 2.9f, 0f), 1.6f);
                 foreach (var r in cloud.GetComponentsInChildren<Renderer>())
-                    r.material.color = new Color(0.15f, 0.15f, 0.18f);
+                    r.material.color = SpellStorm.StormCloudTint;
                 SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
                     new Vector3(0f, 2.3f, 0f), new Vector3(0f, 0.05f, 0f),
                     SkillFx.SharedSpriteMaterial(wl.Core), 1000f, segments: 8,

@@ -22,6 +22,15 @@ public class SpellStorm : MonoBehaviour
     public int StrikesPerTick = 2;
     public float StrikePowerMultiplier = 0.8f;
 
+    /// <summary>1l77: how high above the area a <see cref="SpellData.StormCloud"/> storm (Devastation)
+    /// mounts its dark cloud — the source every strike's bolt falls FROM. Visual only: the bolt is
+    /// segments with no collider, so this is a picture height, not a projectile runway.</summary>
+    public const float StormCloudHeight = 45f;
+
+    /// <summary>1l77: the storm cloud's dark tint. Public so the QA bench mounts the SAME colour
+    /// rather than re-spelling it (rule 13).</summary>
+    public static readonly Color StormCloudTint = new Color(0.15f, 0.15f, 0.18f);
+
     private SpellCaster _caster;
     private SpellData _spell;
     private float _power;
@@ -30,6 +39,7 @@ public class SpellStorm : MonoBehaviour
     private float _tick;
     private Color _color;
     private DamageType _type;
+    private bool _stormCloud;
     private readonly Collider[] _strikeBuffer = new Collider[128];
 
     /// <summary>1ie/1ih: the storm's resolved look, cached at Initialize.</summary>
@@ -41,6 +51,7 @@ public class SpellStorm : MonoBehaviour
         _spell = spell;
         _power = power;
         _casterRoot = caster != null ? caster.transform.root : null;
+        _stormCloud = spell != null && spell.StormCloud;
         radiusMult = Mathf.Max(radiusMult, 0.01f);
         // 1ie: the storm's body colour and its spawn ring both come from the per-spell look, so a
         // lightning storm and a frost storm are told apart by their Core hue as well as by
@@ -74,6 +85,20 @@ public class SpellStorm : MonoBehaviour
         // and a frozen field has none.
         if (_look.StormBodyModel == StormBody.FrozenField)
             SpellZoneModelBuilder.BuildFrozenField(transform, Radius, _color, _look.Edge);
+
+        // 1l77: a StormCloud storm (Devastation, testing.md #8) mounts a dark cloud high above the
+        // area; every strike then falls as a long jagged bolt from that cloud down to the strike
+        // point, so the spell reads as a sky-fury instead of ground pings. The cloud is parented to
+        // the storm's own transform, so it lives exactly as long as the storm and needs no lifetime
+        // of its own. The dark tint + Renderer walk mirror RandomEventManager's rain cloud (the
+        // proven local use of MapBuilder.BuildCloud — rule 3).
+        if (_stormCloud)
+        {
+            Vector3 cloudPos = transform.position + Vector3.up * StormCloudHeight;
+            var cloud = MapBuilder.BuildCloud(transform, cloudPos, 5f);
+            foreach (var r in cloud.GetComponentsInChildren<Renderer>())
+                r.material.color = StormCloudTint;
+        }
 
         SkillFx.RingFlash(transform.position, Vector3.up, _color, Radius, 0.5f, _look.Scale);
     }
@@ -221,11 +246,24 @@ public class SpellStorm : MonoBehaviour
 
         if (_type == DamageType.Lightning)
         {
-            // 1jd: the crossed bolt pair moved to SpellStormModelBuilder (Models/Magic), together with
-            // the BoltFader that owns its lifetime — the fader has to travel with the shape it fades or
-            // the bolts would stand in the world forever. The per-strike flash and ring below are NOT
-            // part of that model: they are the shared impact families and they stay here.
-            SpellStormModelBuilder.BuildLightningBolt(at, SkillFx.SharedSpriteMaterial(c));
+            if (_stormCloud)
+            {
+                // 1l77: Devastation's strike is a long multi-segment bolt from the mounted cloud down
+                // to the strike point — the cloud is the spell's identity, so it does NOT draw the
+                // crossed-bar flash the other lightning storms use. Pure visual (no collider); the
+                // 0.5 s lifetime matches the SkyStrikeBolt one-shot (Rule 13: one bolt, one look).
+                Vector3 cloud = transform.position + Vector3.up * StormCloudHeight;
+                SpellBoltModelBuilder.BuildBolt(null, cloud, at, SkillFx.SharedSpriteMaterial(c),
+                    0.5f, segments: 12, width: 0.2f, jitterAmplitude: 0.7f);
+            }
+            else
+            {
+                // 1jd: the crossed bolt pair moved to SpellStormModelBuilder (Models/Magic), together with
+                // the BoltFader that owns its lifetime — the fader has to travel with the shape it fades or
+                // the bolts would stand in the world forever. The per-strike flash and ring below are NOT
+                // part of that model: they are the shared impact families and they stay here.
+                SpellStormModelBuilder.BuildLightningBolt(at, SkillFx.SharedSpriteMaterial(c));
+            }
         }
 
         // 1ih: the per-strike flash is now the shared per-spell impact family instead of a

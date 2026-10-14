@@ -77,6 +77,33 @@ look code twice:
   a cluster (arc caster→foe→foe→foe, each staggering); confirm a chain fired between the player and a
   wall does not leap onto the player, and that the same foe is never hit twice in one cast.
 
+## 1l77. Devastation mounts a storm cloud and strikes down long bolts (testing.md #8)
+
+- **Before:** Devastation was a plain `SpellDelivery.Storm` — repeated ground pings with the shared
+  crossed-bar Lightning flash. **After:** a `StormCloud` storm mounts a **dark cloud** 45 m above the
+  area (`MapBuilder.BuildCloud`, tinted `SpellStorm.StormCloudTint` `(0.15,0.15,0.18)`, parented to the
+  storm so it lives exactly as long as the storm) and draws **each strike as a long multi-segment
+  `SpellBoltModelBuilder` bolt from the cloud down to the strike point**, replacing the crossed bars.
+  The impact flash + ground ring are unchanged.
+- Scoped to the flag, not the school: `SpellStorm._stormCloud` gates the cloud AND the sky-bolt body, so
+  **Stormcall** (a lightning storm with no flag) keeps its crossed-bar flash. Only Devastation changes.
+- The tint lives in one place: `SpellStorm.StormCloudTint` (public), which the QA bench now references
+  instead of re-spelling the literal (rule 13). `StormCloudHeight` is a public const beside it.
+- Catalog: `magic_lightning_fury_devastation_spell` gained `stormCloud: true`. Spell id unchanged.
+
+### 1l77-status
+- [x] `SpellStorm.cs`: `StormCloudHeight`/`StormCloudTint` + `_stormCloud` field, cloud build in
+  `Initialize`, sky-bolt branch in `SpawnStrikeFx`.
+- [x] `SkillCatalog.Magic.cs`: Devastation row `stormCloud: true`.
+- [x] `NewWorldTestGround.cs`: bench cloud tint now reads `SpellStorm.StormCloudTint`.
+- [x] Docs: `game-design.md` §3.8 Storm, `magic-skills.md` Storm row / delivery-fields line /
+  Devastation row, this entry + `THINKING.md` §1l77.
+- [x] Verified by grep + reread (no build, rule 3) + `tools\StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` (rule 15) — C# storm FX; no installed skill governs it.
+- [ ] **PLAY-TEST (user, Unity):** cast Devastation — a dark cloud should sit high above the target and
+  each tick should drop a long jagged bolt from the cloud onto a foe; the ground ring/flash and damage
+  unchanged. Confirm Stormcall is visually unchanged (still crossed bars, no cloud).
+
 ## 1l75. Lightning beams draw as a re-jittering jagged bolt (testing.md #6)
 
 - **Before:** every `SpellDelivery.Beam` drew the same cylinder line body (or cone funnel). **After:**
