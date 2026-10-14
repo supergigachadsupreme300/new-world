@@ -588,6 +588,13 @@ public partial class SpellCaster
         // this spell itself reared) so a repeat cast targets the intended ground, not the wall face.
         Vector3 center = TerrainDeformer.ResolveGroundTarget(pos, fwd, Mathf.Max(range, 0.1f));
 
+        // 1l79: a CenterOnCaster zone (Static Nova) bursts from the CASTER, not the aim point — it is
+        // a ring of static that erupts around the player. Snap the center onto the ground under the
+        // caster with the shared probe (skipping the player's own colliders), so the nova sits on the
+        // floor they stand on regardless of where the camera points.
+        if (spell != null && spell.CenterOnCaster)
+            center = GroundUnder(transform.root.position, transform.root, _groundProbeBuffer);
+
         // 1l74: a SkyStrikeBolt delivery (Lightning Strike) is an instant zone blast announced by a
         // single tall jagged bolt from the sky down onto the impact center — the bolt IS the cast,
         // so it renders before the impact spawns its ring and ships with the same resolved tint

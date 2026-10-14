@@ -745,6 +745,16 @@ public partial class PlayerController
         if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
             center = groundHit.point;
 
+        // 1l79: a CenterOnCaster zone (Static Nova) previews the blast UNDER the player, not where the
+        // camera points — mirror ResolveZone's ground-under-the-caster centre rather than the aim
+        // point, so the marker sits at the caster's feet however the view is turned.
+        if (spell.CenterOnCaster)
+        {
+            center = transform.position;
+            if (Physics.Raycast(center + Vector3.up * 0.1f, Vector3.down, out RaycastHit selfHit, 30f))
+                center = selfHit.point;
+        }
+
         var caster = SpellCasterRef;
         float sizeBonus = caster != null ? caster.ChargeSizeBonus : 0.8f;
         radius = spell.Radius * (1f + charge * sizeBonus);
