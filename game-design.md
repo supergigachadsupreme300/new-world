@@ -1829,6 +1829,7 @@ A spell is a data asset carrying:
 - range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell) / **beam** / **summon** / **storm** (see §3.8.1 Delivery Behaviors)
 - **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
+- **selfTeleport** (1l78: Instant delivery moves the CASTER instead — e.g. **Leap Bolt**: the player is teleported up to `Range` along the flat look, cleared of obstructions, and the ground under the landing is found with the shared `GroundUnder` probe. A jagged bolt links where the caster WAS to where they land, and everything within `Radius` at the landing takes the hit. The one delivery that moves the player.)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
 - **summonFallingRock** (sky spells: a rock formation drops from the sky onto the target and the

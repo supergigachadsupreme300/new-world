@@ -65,7 +65,9 @@ look code twice:
 
 ### 1l76-status
 - [x] `SpellCaster.Cast.cs`: `Chain` dispatch case + `ResolveChain`/`FindChainTarget`/
-  `NearestChainVictim`/`ChainVictim` + six consts.
+  `NearestCombatVictim`/`CombatVictim` + six consts. (1l78 renamed the predicate `ChainVictim` →
+  `CombatVictim` and the helper `NearestChainVictim` → `NearestCombatVictim`, since Leap Bolt's landing
+  zap now shares them.)
 - [x] `SkillCatalog.cs`: `magic_chain_spell` row → `Chain`, `deliveryRange: 10f`, shape dropped, desc.
 - [x] Docs: `game-design.md` §3.8.1 (Chain bullet + "four richer deliveries"), `magic-skills.md`
   (Chain delivery row, delivery-fields line, `magic_chain` skill-table row, Chain Lightning section),
@@ -103,6 +105,38 @@ look code twice:
 - [ ] **PLAY-TEST (user, Unity):** cast Devastation — a dark cloud should sit high above the target and
   each tick should drop a long jagged bolt from the cloud onto a foe; the ground ring/flash and damage
   unchanged. Confirm Stormcall is visually unchanged (still crossed bars, no cloud).
+
+## 1l78. Leap Bolt teleports the player (testing.md #9)
+
+- **Before:** Leap Bolt was a plain `Projectile` bolt. **After:** a **self-movement** cast — an
+  `Instant` delivery with `selfTeleport: true`. `SpellCaster.ResolveTeleport` (branch at the top of
+  `ResolveDirect`) flattens the look, teleports the player up to `Range` (8) along it, **stopping
+  `LeapBoltWallClearance` (1 m) short of an obstruction**, and snaps the landing onto real ground with
+  the shared `GroundUnder` probe (skipping the player's own colliders) — so the leap never lands inside
+  a wall. A jagged bolt then links where the caster **was** to where they **land**, and everything
+  within `Radius` (1.5) at the landing takes the hit + a `RingFlash` (testing.md #9).
+- Reuses the 1l76 combatant predicate (renamed `ChainVictim`→`CombatVictim`, helper
+  `NearestChainVictim`→`NearestCombatVictim`, now that two deliveries share it) so the landing zap
+  never hits the caster or an ally. New `SpellCaster._groundProbeBuffer` (`RaycastHit[8]`) owns the
+  downward probe's buffer (GroundUnder takes the caller's; one buffer, one owner).
+- Catalog: `magic_chain_leap_spell` `Projectile`→`Instant`, `deliveryRange: 8f`, `deliveryRadius: 1.5f`,
+  `selfTeleport: true`, `projectileShape` dropped, description updated. Spell id unchanged.
+- Bench: added the missing `SelfTeleport` pedestal branch (1l73 shipped branches for Chain / sky strike
+  / cloud / nova but not this flag) — a parked diagonal bolt using the same `LeapBolt*` consts.
+
+### 1l78-status
+- [x] `SpellCaster.Cast.cs`: five `LeapBolt*` consts, `SelfTeleport` branch in `ResolveDirect`,
+  `ResolveTeleport`, `ChainVictim`→`CombatVictim` / `NearestChainVictim`→`NearestCombatVictim` rename.
+- [x] `SpellCaster.cs`: `_groundProbeBuffer` field.
+- [x] `SkillCatalog.Magic.cs`: Leap Bolt row → Instant + flags/range/radius.
+- [x] `NewWorldTestGround.cs`: `SelfTeleport` bench branch.
+- [x] Docs: `game-design.md` §3.8 fields (selfTeleport), `magic-skills.md` delivery-fields line,
+  1l76-status symbol rename, this entry + `THINKING.md` §1l78.
+- [x] Verified by grep + reread (no build, rule 3) + `tools\StaticChecks.ps1` → 0 candidates.
+- [x] `skills: none applied` (rule 15) — C# movement/FX; no installed skill governs it.
+- [ ] **PLAY-TEST (user, Unity):** cast Leap Bolt — the player should hop ~8 m along the look, a bolt
+  should strung between the old and new spots, foes within 1.5 m of the landing should stagger. Confirm
+  facing a wall does not teleport into it, and looking straight down still hops forward (flattened aim).
 
 ## 1l75. Lightning beams draw as a re-jittering jagged bolt (testing.md #6)
 

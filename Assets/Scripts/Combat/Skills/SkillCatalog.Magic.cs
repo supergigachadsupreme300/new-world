@@ -152,7 +152,7 @@ public static partial class SkillCatalog
             S("magic_chain_arc", "Arc Storm", Spell("magic_chain_arc_spell", "Arc Storm", DamageType.Lightning, 34f, 24f, SpellDelivery.Beam, 6f, deliveryRange: 14f, deliveryRadius: 1.1f, statusEffect: StatusEffectType.Stagger, channelDrainPerSecond: 10f), "Hold a crackling arc across foes, staggering everything it passes.", Focus(24f), DamageType.Lightning, true),
             S("magic_chain_static", "Static Field", Perk(PassivePerkType.CritChanceFlat, 3f), "Static crackles on your strikes — +3% crit chance.", passive: true),
             S("magic_chain_overload", "Thunderstorm", Spell("magic_chain_overload_spell", "Thunderstorm", DamageType.Lightning, 36f, 26f, SpellDelivery.Storm, 7f, deliveryRange: 9f, deliveryRadius: 3f, duration: 3f, statusEffect: StatusEffectType.Stagger), "Summon a thunderstorm that repeatedly strikes foes with lightning.", Focus(26f), DamageType.Lightning, true),
-            S("magic_chain_leap", "Leap Bolt", Spell("magic_chain_leap_spell", "Leap Bolt", DamageType.Lightning, 30f, 18f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Stagger, projectileShape: ProjectileShape.Bolt), "A bolt that leaps from target to target, buzzing.", Focus(18f), DamageType.Lightning, true),
+            S("magic_chain_leap", "Leap Bolt", Spell("magic_chain_leap_spell", "Leap Bolt", DamageType.Lightning, 30f, 18f, SpellDelivery.Instant, 4f, deliveryRange: 8f, deliveryRadius: 1.5f, statusEffect: StatusEffectType.Stagger, selfTeleport: true), "Leap forward on a bolt of lightning and zap foes where you land (a bolt links where you were to where you land).", Focus(18f), DamageType.Lightning, true),
         };
 
         /* magic_lightning_volt children */

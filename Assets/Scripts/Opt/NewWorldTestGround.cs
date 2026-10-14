@@ -2051,6 +2051,17 @@ private static string Describe(in SpellLook look)
                     new Vector3(0f, 0f, 0f), new Vector3(0f, 0.15f, 1.15f),
                     SkillFx.SharedSpriteMaterial(cl.Core), 1000f);
             }
+            else if (spell.SelfTeleport)
+            {
+                // 1l78: Leap Bolt's drawn identity is the bolt strung between where the caster WAS and
+                // where they land — parked here as a diagonal across the pedestal (large lifetime) so
+                // the shape reads without casting. Same consts the live leap uses.
+                var ll = SpellLook.Resolve(spell);
+                SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
+                    new Vector3(0f, 0.05f, -0.9f), new Vector3(0f, 0.05f, 1.25f),
+                    SkillFx.SharedSpriteMaterial(ll.Core), 1000f, segments: SpellCaster.LeapBoltSegments,
+                    width: SpellCaster.LeapBoltWidth, jitterAmplitude: SpellCaster.LeapBoltJitter);
+            }
             else if (spell.SkyStrikeBolt)
             {
                 // 1l74: a single tall bolt from above the pedestal down to its top, the exact shape

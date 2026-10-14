@@ -52,6 +52,9 @@ public partial class SpellCaster : MonoBehaviour
     private readonly List<string> _cooldownKeys = new List<string>();
     // Reused burst-damage overlap buffer (ResolveBurst below).
     private readonly Collider[] _overlapBuffer = new Collider[128];
+    // 1l78: reused downward ground probe for the Leap Bolt teleport (GroundUnder takes the caller's
+    // buffer). Owned here — not shared with SpellSummon's — because a mutable buffer has one owner.
+    private readonly RaycastHit[] _groundProbeBuffer = new RaycastHit[8];
 
     /// <summary>Spell id whose Vortex delivery is the Great Tornado (old environmental tornado model + function).</summary>
     private const string GreatTornadoSpellId = "magic_tornado_spell";

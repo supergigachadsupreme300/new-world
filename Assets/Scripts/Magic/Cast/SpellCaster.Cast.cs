@@ -238,6 +238,15 @@ public partial class SpellCaster
     public const float ChainBoltJitter = 0.55f;
     public const float ChainBoltLife = 0.4f;
 
+    /// <summary>1l78: Leap Bolt's drawn shape — the bolt strung between where the caster was and where
+    /// they land — plus how far short of an obstruction the leap stops (so it never lands inside a
+    /// wall). Named/public for the docs and the QA bench, like the Chain pair above.</summary>
+    public const int LeapBoltSegments = 12;
+    public const float LeapBoltWidth = 0.2f;
+    public const float LeapBoltJitter = 0.6f;
+    public const float LeapBoltLife = 0.5f;
+    public const float LeapBoltWallClearance = 1f;
+
     /// <summary>1jt: snap a world XZ down onto the ground beneath it, skipping <paramref name="skipRoot"/>
     /// and its whole hierarchy. THE ONE downward ground probe for cast placement.
     /// <para><b>Why it lives here and not in each caller.</b> <see cref="SpellSummon.FollowCaster"/>
@@ -387,6 +396,8 @@ public partial class SpellCaster
 
     private DamageResult ResolveDirect(float power, SpellData spell, Vector3 pos, Vector3 fwd, float range)
     {
+        if (spell.SelfTeleport)
+            return ResolveTeleport(power, spell, fwd, range);
         if (spell.SelfBuff)
         {
             // Self-buff: grant the caster (the player) a timed effect — e.g. flight for the
@@ -415,6 +426,59 @@ public partial class SpellCaster
         return new DamageResult();
     }
 
+    /// <summary>1l78: Leap Bolt (testing.md #9) — a self-movement cast. The player is teleported up to
+    /// <paramref name="range"/> along the flat look (stopping <see cref="LeapBoltWallClearance"/> short
+    /// of an obstruction) and the ground under that point is found with the shared
+    /// <see cref="GroundUnder"/> probe, so the leap never lands inside geometry. A jagged bolt connects
+    /// where the player WAS to where they NOW are, and everything within the spell's radius at the
+    /// landing takes the hit. This is the ONE delivery that moves the caster; every other branch is a
+    /// projection away from them.</summary>
+    private DamageResult ResolveTeleport(float power, SpellData spell, Vector3 fwd, float range)
+    {
+        Transform root = transform.root;
+        Vector3 from = root.position;
+
+        // Flatten the aim so a leap never teleports straight up/down; fall back to the body's own
+        // forward when the look is near-vertical (a caster staring at their feet should still hop).
+        Vector3 flat = new Vector3(fwd.x, 0f, fwd.z);
+        if (flat.sqrMagnitude < 0.0001f) flat = new Vector3(root.forward.x, 0f, root.forward.z);
+        if (flat.sqrMagnitude < 0.0001f) flat = Vector3.forward;
+        flat.Normalize();
+
+        float reach = Mathf.Max(range, 1f);
+        Vector3 dest = from + flat * reach;
+        // Stop short of a wall so the landing is never inside it; the ground probe below then drops
+        // the (now clear) point onto real ground.
+        if (Physics.Raycast(from + Vector3.up * 1f, flat, out RaycastHit wall, reach))
+            dest = wall.point - flat * LeapBoltWallClearance;
+        dest = GroundUnder(dest, root, _groundProbeBuffer);
+
+        var pc = root.GetComponent<PlayerController>();
+        if (pc != null) pc.TeleportTo(dest);
+
+        // Lightning connects where the caster WAS to where they NOW are (testing.md #9).
+        var look = SpellLook.Resolve(spell);
+        Material mat = SkillFx.SharedSpriteMaterial(look.Core);
+        SpellBoltModelBuilder.BuildBolt(null, from, dest, mat, LeapBoltLife,
+            LeapBoltSegments, LeapBoltWidth, LeapBoltJitter);
+
+        // Landing zap: everything within the spell radius at the destination takes the hit.
+        var total = new DamageResult { HitTargets = true };
+        float radius = Mathf.Max(spell.Radius, 0.1f);
+        int count = Physics.OverlapSphereNonAlloc(dest, radius, _overlapBuffer);
+        for (int i = 0; i < count; i++)
+        {
+            var col = _overlapBuffer[i];
+            GameObject victim = col != null ? CombatVictim(col.gameObject) : null;
+            if (victim == null) continue;
+            var r = ApplyHit(spell, power, victim);
+            total.TotalDamage += r.TotalDamage;
+            total.HitTargets |= r.HitTargets;
+        }
+        SkillFx.RingFlash(dest, Vector3.up, look.Core, radius, 0.4f, look.Scale);
+        return total;
+    }
+
     /// <summary>1l76: Chain Lightning (testing.md #7). One instant strike on the aimed (or nearest)
     /// combatant, then up to <see cref="ChainMaxJumps"/> leaps outward to the nearest un-hit
     /// combatant within <see cref="ChainJumpRadius"/> of the last victim. Every victim takes FULL
@@ -436,7 +500,7 @@ public partial class SpellCaster
         Vector3 from = point;
         for (int hop = 0; hop < ChainMaxJumps; hop++)
         {
-            victim = NearestChainVictim(from, ChainJumpRadius, visited, out point);
+            victim = NearestCombatVictim(from, ChainJumpRadius, visited, out point);
             if (victim == null) break;
 
             var step = ApplyHit(spell, power, victim);
@@ -459,20 +523,20 @@ public partial class SpellCaster
         point = Vector3.zero;
         if (Physics.Raycast(pos, fwd, out RaycastHit hit, Mathf.Max(range, 0.1f)))
         {
-            GameObject victim = ChainVictim(hit.collider.gameObject);
+            GameObject victim = CombatVictim(hit.collider.gameObject);
             if (victim != null)
             {
                 point = victim.transform.position;
                 return victim;
             }
         }
-        return NearestChainVictim(pos, Mathf.Max(range, 0.1f), null, out point);
+        return NearestCombatVictim(pos, Mathf.Max(range, 0.1f), null, out point);
     }
 
     /// <summary>1l76: nearest un-visited combatant within <paramref name="radius"/> of
     /// <paramref name="center"/>. <paramref name="visited"/> holds the roots already struck this
     /// cast, so a chain cannot ping-pong between two foes forever.</summary>
-    private GameObject NearestChainVictim(Vector3 center, float radius, HashSet<Transform> visited, out Vector3 point)
+    private GameObject NearestCombatVictim(Vector3 center, float radius, HashSet<Transform> visited, out Vector3 point)
     {
         point = Vector3.zero;
         GameObject best = null;
@@ -481,7 +545,7 @@ public partial class SpellCaster
         for (int i = 0; i < count; i++)
         {
             var col = _overlapBuffer[i];
-            GameObject victim = col != null ? ChainVictim(col.gameObject) : null;
+            GameObject victim = col != null ? CombatVictim(col.gameObject) : null;
             if (victim == null) continue;
             if (visited != null && visited.Contains(victim.transform)) continue;
             float sq = (victim.transform.position - center).sqrMagnitude;
@@ -495,11 +559,12 @@ public partial class SpellCaster
         return best;
     }
 
-    /// <summary>1l76: the combatant a chain collider resolves to — the object itself if damageable,
-    /// else its root — or null for the caster, allies, and non-combatants. Mirrors the Beam's
-    /// friendly skip (Player/Companion tags) so a chain never leaps onto your own side, and reuses
-    /// <see cref="IDamageable"/> as the same "real combatant" predicate the other deliveries use.</summary>
-    private GameObject ChainVictim(GameObject go)
+    /// <summary>1l76/1l78: the combatant a delivery collider resolves to — the object itself if
+    /// damageable, else its root — or null for the caster, allies, and non-combatants. Used by both
+    /// Chain Lightning's leaps and Leap Bolt's landing zap, so there is ONE friendly-skip predicate.
+    /// Mirrors the Beam's skip (Player/Companion tags) and reuses <see cref="IDamageable"/> as the
+    /// same "real combatant" test the other deliveries use.</summary>
+    private GameObject CombatVictim(GameObject go)
     {
         if (go == null) return null;
         GameObject victim;

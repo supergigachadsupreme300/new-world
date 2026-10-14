@@ -1,3 +1,44 @@
+## 1l78. Leap Bolt teleports the player (testing.md #9)
+
+**H1 (a movement skill is an Instant self-cast — CHOSE INSTANT).** `SelfBuff` (Wind Walk) already rides
+`SpellDelivery.Instant` and is handled at the top of `ResolveDirect`. Leap Bolt is the same shape of
+thing — a self-targeted cast with no projectile — so it becomes `Instant` + `SelfTeleport`, and its
+branch sits beside `SelfBuff` in `ResolveDirect`. Leaving it `Projectile` would have meant a bolt that
+flies at a foe AND teleports you, which is two spells.
+
+**H2 (teleport from the body ROOT, not the cast hand — CONFIRMED by rereading SelfBuff).** #9 says
+"connecting the two position after and before teleport" — the *player's* positions. `SelfBuff` applies
+to `transform.root`'s `PlayerController`, so I read/write the root too. Using the cast origin (the hand,
+offset forward/sideways) would have made the landing offset by that hand vector and the drawn bolt
+start from the hand, not where the body stood.
+
+**H3 (one downward ground probe — reuse `GroundUnder`).** `GroundUnder` is already "THE ONE downward
+ground probe for cast placement" (1jt), used by the summon halo/familiar. Re-deriving a raycast here
+would be rule 8's second spelling. It takes the caller's buffer, so SpellCaster gets its own
+`_groundProbeBuffer` (one buffer, one owner — its own docstring warns against sharing).
+
+**H4 (the bench had a hole — CONFIRMED).** 1l73 shipped bench branches for Chain, SkyStrikeBolt,
+StormCloud and CenterOnCaster — but **not** SelfTeleport, so Leap Bolt would have kept showing the
+generic orb (rule 13: a visual with no acceptance readout). Added one now, parked as a diagonal using
+the real `LeapBolt*` consts.
+
+**H5 (rename the shared predicate — CONFIRMED as a consistency fix).** The landing zap needs "a real
+combatant, not the caster or an ally" — exactly `ChainVictim`. Rather than a second copy, I renamed it
+`CombatVictim` (and `NearestChainVictim` → `NearestCombatVictim`), since a delivery-shared predicate
+should not carry one delivery's name. That rename is why the 1l76 docs are touched in this commit
+(rule 8: a comment that names an identifier is a copy of it).
+
+**Dead ends.** (i) Clamp by a SphereCast/clearance radius — a simple 1 m short-stop on the wall ray is
+enough and matches the summary. (ii) `TeleportTo` a point at aim height without ground snapping — the
+player would float/sink; `GroundUnder` fixes Y and also skips the player's colliders. (iii) Keep
+`projectileShape` — Instant has no projectile body, so the axis is dropped (rule 13: a field must not
+claim a shape that is not drawn). (iv) A `SelfTeleport` damage on the caster — none; it is movement
+plus a landing zap on OTHERS.
+
+**Status: OPEN until play-test.** Leap + bolt + landing zap shipped; verify the hop distance, the
+wall stop, the flattened aim, and `TeleportTo` not tripping the physics fail-net (it records the
+destination as last-safe before the check).
+
 ## 1l77. Devastation mounts a storm cloud and strikes down long bolts (testing.md #8)
 
 **H1 (flag-scoped, not school-scoped — CHOSE FLAG).** The task names Devastation only. Lightning storms
@@ -55,7 +96,7 @@ gets the same Stagger/knockback/status path the direct bolt had — no second da
 **H4 (why a `visited` set matters — the ping-pong).** Without excluding already-hit roots, "nearest
 un-visited within 5 m" of two adjacent foes is always the *other* one, so a 2-jump chain would hit foe
 A, foe B, then foe A again — silently triple-hitting and reading as a bug. Excluding visited roots
-makes each cast touch distinct victims. (`NearestChainVictim` skips `transform.root` and the
+makes each cast touch distinct victims. (`NearestCombatVictim` skips `transform.root` and the
 Player/Companion tags too, mirroring `SpellBeam`'s friendly skip, so a chain between the player and a
 wall cannot leap back onto the caster.)
 
