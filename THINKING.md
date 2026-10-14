@@ -1,3 +1,23 @@
+## 1l84. Leap direction from WASD, not the camera
+
+**H1 (the leap used the camera look — CONFIRMED).** `ResolveTeleport` flattened `fwd`, which for an
+Instant cast is derived from the camera aim in `Execute`. So holding W but looking sideways leapt where
+the mouse pointed, which is what the report is about.
+
+**H2 (the input is in the BODY frame).** `PlayerController.MoveInput` is the raw stick/WASD vector and
+`PlayerController.Movement` turns it into world motion with `transform.TransformDirection(new Vector3(x,
+0, y))`. So reusing `TransformDirection` on the SAME transform reproduces the walk direction exactly — no
+new frame convention, no camera-vs-body mismatch (rule 8: copy the addressing rule, do not re-derive it).
+
+**Decision.** Leaps along `root.TransformDirection(MoveInput)`; with no input, keep the old flat-look
+fallback (then body forward), so a no-key tap still does something rather than jumping in place or doing
+nothing. `MoveInput` is already normalized, so no renormalize needed.
+
+**Rejected.** Reading the raw keyboard directly — `MoveInput` already resolves mobile sticks, dialog
+blocking and normalization; a second reader would be a second spelling (rule 13).
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l83. Beam root at the muzzle
 
 **H1 (the beam snaps to the caster ROOT — CONFIRMED by reading both writers).** `SpellBeam.Update` wrote

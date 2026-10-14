@@ -106,6 +106,19 @@ look code twice:
   each tick should drop a long jagged bolt from the cloud onto a foe; the ground ring/flash and damage
   unchanged. Confirm Stormcall is visually unchanged (still crossed bars, no cloud).
 
+## 1l84. Leap Bolt teleports along the WASD input direction
+
+- **Report:** "the lightning leap skill should teleport to the direction that the player is choosing
+  based on WASD keys."
+- **Before:** `ResolveTeleport` flattened the CAST LOOK (`fwd`, the camera aim) and leapt that way, so
+  the leap went wherever the camera pointed, ignoring the movement keys.
+- **Fix:** `ResolveTeleport` now reads `PlayerController.MoveInput` and leaps along
+  `root.TransformDirection(new Vector3(mi.x, 0f, mi.y))` — the SAME transform movement uses in
+  `PlayerController.Movement`, so the leap goes exactly where the character would walk (W forward, A
+  left, W+A diagonal, etc.). No move key held ⇒ fall back to the flat camera look, then the body
+  forward. Wall-clear + `GroundUnder` landing probe unchanged.
+- Docs: `game-design.md` `selfTeleport` bullet (1l84), this entry + `THINKING.md §1l84`.
+
 ## 1l83. Beam/funnel/lightning root at the muzzle, not the caster's feet
 
 - **Report:** "the funnel, beam, arcstorm model are placed too low, the magic looks like it launched

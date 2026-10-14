@@ -435,8 +435,10 @@ public partial class SpellCaster
     }
 
     /// <summary>1l78: Leap Bolt (testing.md #9) — a self-movement cast. The player is teleported up to
-    /// <paramref name="range"/> along the flat look (stopping <see cref="LeapBoltWallClearance"/> short
-    /// of an obstruction) and the ground under that point is found with the shared
+    /// <paramref name="range"/> in the direction they are CHOOSING on WASD (1l84: `PlayerController.
+    /// MoveInput` through the body's own `TransformDirection` — the walk direction; flat-look fallback
+    /// when no move key is held), stopping <see cref="LeapBoltWallClearance"/> short of an obstruction,
+    /// and the ground under that point is found with the shared
     /// <see cref="GroundUnder"/> probe, so the leap never lands inside geometry. A jagged bolt connects
     /// where the player WAS to where they NOW are, and everything within the spell's radius at the
     /// landing takes the hit. This is the ONE delivery that moves the caster; every other branch is a
@@ -446,9 +448,22 @@ public partial class SpellCaster
         Transform root = transform.root;
         Vector3 from = root.position;
 
+        // 1l84: leap in the direction the player is CHOOSING on WASD, not where the camera looks.
+        // PlayerController.MoveInput is in the body frame and movement is transform.TransformDirection
+        // (PlayerController.Movement), so this is exactly the direction the character would walk. With
+        // no move key held, fall back to the (flattened) camera look so a no-input tap still hops
+        // forward rather than in place.
+        var pc = root.GetComponent<PlayerController>();
+        Vector3 flat = Vector3.zero;
+        if (pc != null)
+        {
+            Vector2 mi = pc.MoveInput;
+            if (mi.sqrMagnitude > 0.0001f)
+                flat = root.TransformDirection(new Vector3(mi.x, 0f, mi.y));
+        }
         // Flatten the aim so a leap never teleports straight up/down; fall back to the body's own
         // forward when the look is near-vertical (a caster staring at their feet should still hop).
-        Vector3 flat = new Vector3(fwd.x, 0f, fwd.z);
+        if (flat.sqrMagnitude < 0.0001f) flat = new Vector3(fwd.x, 0f, fwd.z);
         if (flat.sqrMagnitude < 0.0001f) flat = new Vector3(root.forward.x, 0f, root.forward.z);
         if (flat.sqrMagnitude < 0.0001f) flat = Vector3.forward;
         flat.Normalize();
@@ -461,7 +476,6 @@ public partial class SpellCaster
             dest = wall.point - flat * LeapBoltWallClearance;
         dest = GroundUnder(dest, root, _groundProbeBuffer);
 
-        var pc = root.GetComponent<PlayerController>();
         if (pc != null) pc.TeleportTo(dest);
 
         // Lightning connects where the caster WAS to where they NOW are (testing.md #9).
