@@ -624,11 +624,10 @@ public partial class SpellCaster
 
         // The floor body comes from the same builder the QA pedestal uses (rule 13): the spell's
         // ProjectileShape.Wave is display-only since 1l87, so this is its only reader on the body path.
-        MagicProjectileModelBuilder.AttachDefaultProjectileVisual(go, SpellLook.Resolve(spell));
-
-        // Charge scales the whole wave body, exactly as it did when the wave rode the projectile path.
-        if (charge > 0f)
-            go.transform.localScale *= sizeScale;
+        // 1l88: charge is handed to the builder as a block-count extent instead of scaling the body —
+        // a charged wave is a bigger floor of the SAME cubes, not a scaled-up one. The QA pedestal
+        // (CreateProjectileDisplay) still builds at extent 1, so it draws the base floor unchanged.
+        MagicProjectileModelBuilder.AttachDefaultProjectileVisual(go, SpellLook.Resolve(spell), waveExtent: sizeScale);
 
         go.AddComponent<SpellWave>().Initialize(spell, power, fwd, this, sizeScale);
         return new DamageResult();

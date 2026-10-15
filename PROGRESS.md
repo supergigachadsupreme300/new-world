@@ -1,3 +1,45 @@
+## 1l89. Fire Wave floor: flush blocks, and charge adds blocks instead of scaling them
+
+**"the wave block should not have gaps between, and make the blocks smaller and fitter, increase amount
+of blocks, and when charging the firewave skill instead of increase the block side, increase the amount
+of blocks to all the sides instead."**
+
+Follow-up on the 1l88 floor look. Three changes, all in the shared Wave floor body (Fire Wave and
+Frozen Touch still share it) and the caster's spawn path.
+
+- **No gaps between blocks** — `MagicProjectileModelBuilder.Wave` sized every cube with
+  `Mathf.Min(sx, sz) * fill`, so the cubes were square in a rectangular pitch and left a gutter on the
+  larger axis (1l88's `fill 0.62` left ~0.11 m). The cube is now sized per axis
+  (`cellX = sx * 1.01`, `cellZ = sz * fill`) with `fill = 1.01`, so adjacent cubes meet with a hair of
+  overlap and the floor reads as one packed surface.
+- **Smaller + more blocks** — the lattice is bumped from 7 × 14 to a 12 × 24 grid over the same
+  3.4 × 7 m footprint, so a block is ~0.28 × 0.29 m (was ~0.30) and there are ~2.9× as many. The
+  wavelength is carried with the extent so crest spacing holds.
+- **Charge grows the COUNT, not the size** — `MagicProjectileModelBuilder.Wave` takes an `extent`
+  argument, forwarded through `AttachDefaultProjectileVisual`/`BuildProjectileBody` (default 1, so every
+  other shape and the QA pedestal are unchanged). `ResolveWave` passes its charge `sizeScale` as that
+  extent and **no longer does `go.transform.localScale *= sizeScale`**, so a charged wave is a wider,
+  longer floor of the SAME cubes rather than a scaled-up body. A `WaveCellCap` (1400 cells) bounds the
+  count so an unbounded hold-to-overcharge cannot spawn an unbounded floor; past the cap the cubes grow
+  instead. Full charge (sizeScale 2.2) is 26 × 53 = 1378 cells, just under the cap.
+- Files: `Models/Magic/MagicProjectileModelBuilder.cs` (`AttachDefaultProjectileVisual`,
+  `BuildProjectileBody`, `Wave`), `Magic/Cast/SpellCaster.Cast.cs` (`ResolveWave`).
+- `ResolveWave`'s `charge` parameter is now unused (kept for signature symmetry with the `Execute`
+  dispatch, as `ResolveZone` already was).
+- Docs: `game-design.md` (§3.8.1 "Ground waves" + the Wave shape row).
+
+### 1l89-status
+
+- **Done** — flush per-axis cube sizing, 12 × 24 base lattice, extent-based block count, cap; docs
+  updated. Committed `1l89`.
+- **Verification** — grep + reread (no build, rule 3): `tools\StaticChecks.ps1` → 0 candidates
+  (`MagicProjectileModelBuilder.cs` braces 39/39, parens 292/292); every `AttachDefaultProjectileVisual`
+  caller checked to pass ≤3 positional args so `waveExtent` defaults to 1; only the `Wave` switch arm
+  passes it.
+- **Pending play-test (Unity)** — Fire Wave / Frozen Touch floor now shows flush blocks with no gutters;
+  a CHARGED cast is a bigger field of the same-size cubes (not bigger cubes); the QA spell pedestal
+  still shows the base floor; confirm the wider charged floor still tracks the wider band.
+
 ## 1l88. Fire Wave: smaller floor cubes, slower, longer, random ride height
 
 **"make the particle in firewaver smaler, wave move slower, the wave should be longer and wave should

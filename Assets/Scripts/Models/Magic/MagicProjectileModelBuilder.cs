@@ -91,8 +91,14 @@ internal static class MagicProjectileModelBuilder
     ///
     /// Renderer-only: the root keeps no collider so SpellEffect's flight raycast never self-hits.
     /// Static — the visual has no instance state beyond the per-spell colour and scale.
+    ///
+    /// <para><b>1l88: <paramref name="waveExtent"/> is a Wave-only escape hatch.</b> A charged wave
+    /// grows its block COUNT through the floor's extent rather than scaling the whole body up, so
+    /// <c>ResolveWave</c> passes its charge size scale here instead of touching <c>go.localScale</c>.
+    /// Every other shape ignores it (defaults to 1).</para>
     /// </summary>
-    internal static void AttachDefaultProjectileVisual(GameObject go, in SpellLook look, bool rockBody = false)
+    internal static void AttachDefaultProjectileVisual(GameObject go, in SpellLook look, bool rockBody = false,
+        float waveExtent = 1f)
     {
         Color color = look.Core;
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
@@ -102,7 +108,7 @@ internal static class MagicProjectileModelBuilder
         // DisplayShape is display-only by contract: an authored spell.Shape won inside Resolve, and
         // the deterministic pick never returns Missile (that value also means homing). The root
         // SpellEffect still reads spell.Shape for _homing, untouched.
-        var body = BuildProjectileBody(look.DisplayShape, shader, color, rockBody);
+        var body = BuildProjectileBody(look.DisplayShape, shader, color, rockBody, waveExtent);
         body.SetParent(go.transform, false);
         float s = Mathf.Max(0.2f, look.Scale);
         if (Mathf.Abs(s - 1f) > 0.001f)
@@ -114,8 +120,10 @@ internal static class MagicProjectileModelBuilder
     /// uses it any more — the meteor-line slot is now Flamethrower, a Beam with no projectile body at
     /// all — but the parameter stays, because it is a property of the <see cref="Comet"/> shape rather
     /// than of any one spell, and removing it would mean deleting the boulder body a future sky-rock
-    /// projectile may want.</summary>
-    private static Transform BuildProjectileBody(ProjectileShape shape, Shader shader, Color color, bool rockBody = false)
+    /// projectile may want. <paramref name="waveExtent"/> is forwarded to <see cref="Wave"/> only
+    /// (1l88: charge grows the wave's block count); every other branch ignores it.</summary>
+    private static Transform BuildProjectileBody(ProjectileShape shape, Shader shader, Color color, bool rockBody = false,
+        float waveExtent = 1f)
     {
         switch (shape)
         {
@@ -132,7 +140,7 @@ internal static class MagicProjectileModelBuilder
             case ProjectileShape.Hand: return Hand("ChillTouch", shader, color);
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
-            case ProjectileShape.Wave: return Wave("FireWave", shader, color);
+            case ProjectileShape.Wave: return Wave("FireWave", shader, color, waveExtent);
             default: return Cluster("Orb", shader, color, 0.24f, 5, 0.10f, 0.03f); // fireball + generic orbs
         }
     }
@@ -547,31 +555,55 @@ internal static class MagicProjectileModelBuilder
     /// geometry, so a crest actually rolls across the floor as the wave sweeps. The body stays
     /// static by construction: the ripple component has no <c>Update</c>, so the QA pedestal this
     /// builder also feeds draws the floor motionless.</para>
-    /// <para>1l88: the cells are SHRUNK (fill 0.92 -> 0.62, thickness 0.18 -> 0.12) so the floor reads
-    /// as a scatter of small cubes rather than a solid slab, and the floor is stretched again
-    /// front-to-back (rows 9 -> 14, depth 4.2 -> 7 m) so the wave is longer. The wavelength is carried
-    /// with the stretch (2 -> 2.6 m) so the longer run still shows about three crests.</para>
+    /// <para>1l88: the cubes are packed FLUSH to their pitch (fill 1.01, so they meet with a hair of
+    /// overlap and show no gutter — 1l86's fill 0.62 left a ~0.11 m gap between them) and there are
+    /// more of them (12 x 24 over the same footprint, ~0.28 m cubes, vs 7 x 14 x ~0.30 m).</para>
+    /// <para><b><paramref name="extent"/> scales the block COUNT, not the block size</b> (1l88): a
+    /// charged wave is a WIDER, LONGER floor of the same cubes, not a scaled-up copy. `ResolveWave`
+    /// passes its charge size scale here and no longer touches <c>go.localScale</c>, so the cubes stay
+    /// a constant size at every charge. The count is capped (1400 cells); past the cap the cubes grow
+    /// instead, so an unbounded hold-to-overcharge cannot spawn an unbounded floor.</para>
     /// </summary>
-    private static Transform Wave(string name, Shader shader, Color color)
+    private static Transform Wave(string name, Shader shader, Color color, float extent = 1f)
     {
         var root = new GameObject(name).transform;
 
-        // Spans the wave's delivery radius. 1l86: the floor is longer front-to-back (rows 5 -> 9,
-        // depth 2 -> 4.2 m) so the sweep reads as a broad rolling wall rather than a shallow lip.
-        // 1l88 ("make the particle smaller, the wave should be longer"): the cubes are smaller
-        // (fill 0.62, thickness 0.12) and the run is longer (14 rows over 7 m), with the wavelength
-        // stretched so the longer floor does not chop.
-        const int cols = 7;
-        const int rows = 14;
-        const float width = 3.4f;
-        const float depth = 7f;
+        // Base lattice (extent 1): 12 x 24 cubes over the wave's 3.4 x 7 m footprint, so a block is
+        // ~0.28 x 0.29 m and packed flush (fill 1.01) rather than gapped.
+        const int baseCols = 12;
+        const int baseRows = 24;
+        const float baseWidth = 3.4f;
+        const float baseDepth = 7f;
         const float thickness = 0.12f;
         const float amplitude = 0.16f;
         const float speed = 7f;
         const float wavelength = 2.6f;
+        const float fill = 1.01f;
+        const int waveCellCap = 1400;
+
+        // Charge/radius extent grows the floor AND the count together, so the pitch — and therefore
+        // the block size — stays fixed while a charged wave is simply larger. Clamped so a pathological
+        // multiplier cannot overflow the cell-count arithmetic below.
+        extent = Mathf.Clamp(extent, 0.05f, 64f);
+        int cols = Mathf.Max(1, Mathf.RoundToInt(baseCols * extent));
+        int rows = Mathf.Max(1, Mathf.RoundToInt(baseRows * extent));
+        float width = baseWidth * extent;
+        float depth = baseDepth * extent;
+
+        // Safety valve: above the cap, stop adding cubes and let them grow instead. At the full charge
+        // (sizeScale 2.2) the floor is 26 x 53 = 1378 cells, just under the cap, so the count path is
+        // untouched for ordinary casts; only a heavy overcharge falls back to a larger cube.
+        if (cols * rows > waveCellCap)
+        {
+            float shrink = Mathf.Sqrt((float)waveCellCap / (cols * rows));
+            cols = Mathf.Max(1, Mathf.RoundToInt(cols * shrink));
+            rows = Mathf.Max(1, Mathf.RoundToInt(rows * shrink));
+        }
+
         float sx = width / cols;
         float sz = depth / rows;
-        float cell = Mathf.Min(sx, sz) * 0.62f;
+        float cellX = sx * fill;
+        float cellZ = sz * fill;
 
         // The floor's rest colour; the ripple lerps each cell up toward the school colour on the crest.
         Color trough = Color.Lerp(color, Color.black, 0.55f);
@@ -587,7 +619,7 @@ internal static class MagicProjectileModelBuilder
                 float z = (iz + 0.5f) * sz - depth * 0.5f;
                 var cube = Primitive(PrimitiveType.Cube, "WaveCell_" + n, root);
                 cube.localPosition = new Vector3(x, 0f, z);
-                cube.localScale = new Vector3(cell, thickness, cell);
+                cube.localScale = new Vector3(cellX, thickness, cellZ);
                 Materialize(cube, shader, trough);
                 mats[n] = cube.GetComponent<MeshRenderer>().material;
                 cells[n] = cube;
@@ -597,7 +629,7 @@ internal static class MagicProjectileModelBuilder
         }
 
         root.gameObject.AddComponent<WaveRipple>().Configure(
-            cells, restY, mats, trough, color, amplitude, speed, wavelength);
+            cells, restY, mats, trough, color, amplitude, speed, wavelength * extent);
         return root;
     }
 }

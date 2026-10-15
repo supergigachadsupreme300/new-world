@@ -1,3 +1,38 @@
+## 1l89. Fire Wave floor: flush blocks, charge adds blocks
+
+Follow-up to 1l88 (already committed). New task id because rule 1 forbids amending: enumerate
+`PROGRESS.md`'s `^## 1..` headings → top was `1l88`, so this is `1l89`.
+
+**Q — "the wave block should not have gaps between".** *H (the gap is the shared `cell` used on both
+axes — CONFIRMED by reading the builder).* `Wave` sized each cube as
+`cell = Mathf.Min(sx, sz) * fill` and used it for BOTH local X and Z. With `sx ≈ 0.24` and `sz ≈ 0.29`
+(different pitches), the cube is the min on both axes, so the wider axis shows a `sz - cell` gutter —
+~0.11 m at 1l88's `fill 0.62`. Fix: size per axis (`cellX = sx * fill`, `cellZ = sz * fill`) and raise
+`fill` to 1.01 so neighbours overlap by a hair and no hairline seam shows. This is the *real* mechanism;
+the fill number alone (0.62) was a second, smaller cause and would not have closed the gap.
+
+**Q — "make the blocks smaller and fitter, increase amount of blocks".** *H (raise the lattice
+resolution — CONFIRMED arithmetically).* Block size is the pitch `footprint / count`. To be smaller than
+1l88's ~0.30 on BOTH axes the base count must exceed `3.4 / 0.30 ≈ 11.3` and `7 / 0.30 ≈ 23.3`, so the
+base lattice becomes 12 × 24 (~0.28 × 0.29 m, ~2.9× the cubes). "Fitter" is the flush fill above.
+
+**Q — "charge adds blocks to all sides instead of increasing block size".** *H (the size ladder scaled
+the whole body — CONFIRMED).* `ResolveWave` did `go.transform.localScale *= sizeScale` after building the
+body, so a charged wave was a scaled-up copy (bigger cubes). Fix: `Wave` takes an `extent` argument that
+multiplies the floor's WIDTH, DEPTH, COLS and ROWS together (pitch fixed ⇒ cube size fixed, count up),
+and `ResolveWave` passes `sizeScale` as that extent and no longer touches `go.localScale`. Threaded
+through `AttachDefaultProjectileVisual` and `BuildProjectileBody`, defaulting to 1 so the QA pedestal
+(`CreateProjectileDisplay`) and every non-wave shape are byte-for-byte unchanged.
+
+**Concern — the count is unbounded input.** *H (cap the cells — CONFIRMED as the smallest safe guard).*
+`charge` has no upper cap (`SpellCaster.cs`), so `sizeScale` can be large and the cell count grows as the
+square of it (288 → 1378 at sizeScale 2.2; thousands beyond), and each cell allocates its own `Material`.
+A `waveCellCap` of 1400 stops the count there and grows the cube instead — a bounded write for an
+unbounded input. Recorded as a perf play-test item, not a verified result.
+
+**Verdicts:** gap mechanism (shared `cell`) CONFIRMED; count-scaling ladder CONFIRMED; cell cap
+CONFIRMED. **Status: OPEN until play-test.** No build (rule 3); StaticChecks → 0 candidates.
+
 ## 1l88. Fire Wave: smaller cubes, slower, longer, random ride height
 
 **Q — "make the particle in firewaver smaller".** *H (the "particles" are the voxel floor cubes —
