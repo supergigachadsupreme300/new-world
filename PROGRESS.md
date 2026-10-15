@@ -1,3 +1,23 @@
+## 1l95. TerrainShape.Spikes: discrete spires, charge scales height + density
+
+**Needle Field** (`magic_earth_spires_needles`, `TerrainShape.Spikes`) produced a smooth mound instead of spikes. Root cause: the profile blended `fall^2 -> smootherstep` with an accent that `Min(target, baseY + lift)` clamped away (near-certainly entirely at the centre), so it never read as needles.
+
+**Fix (1l95):**
+- **Discrete spires.** Each `TerrainShape.Spikes` deform now raises a HASHED SUBSET of corners to tip height (`SpikeBaseLift * shapeScale`) while every corner in reach also takes a light apron (`s * SpikeMound`). A tip is a single raised corner among apron-height neighbours, so the mesh draws a ~2 m-base pyramid - the sharpest the 1 m corner lattice allows. The old capped accent block was deleted.
+- **Charge scaling (height + density).** The growth parameter was renamed `wallGrowth` -> `shapeGrowth` (Wall + Spikes now share one name for the one ladder, rule 13). For Spikes, `shapeScale = Max(0.01f, shapeGrowth)` scales the tip height (base 2.6 m) AND the tip density (`Min(SpikeMaxDensity, SpikeDensity * shapeScale)`, so overcharge never becomes a solid wall of stone). **Field width stays the authored delivery dish** - the 1cv width cap is NOT re-opened for Spikes; the Wall (1l93) remains the sole width-growth exception.
+- **API/threading.** `WorldStreamer.DeformAt`, `DeformWallRise`, `WallRiseRoutine` and `TerrainDeformer.Apply`, `RaiseWallSequential` all take `shapeGrowth` (default `1f`, so every other caller is unchanged). `SpellCaster.ResolveZoneImpact` now passes `shapeGrowth: sizeScale` for the `Spikes` branch as well as `Wall`; `ResolveSummon` (golems) and `SpellStorm` stay at the default `1f`.
+- **Still idempotent.** Tip placement/height come from a deterministic per-corner hash (`SpikeHash01`, mixed with `Seed`), the cap `Min(target, baseY + lift)` is never hit by a tip (jitter is [0.8, 1.0] x lift) and the shared `Max(current, target)` write is untouched.
+
+**Files:** `World/Streaming/WorldStreamer.Deform.cs` (consts, Spikes raise branch, `SpikeHash01`, `wallGrowth`->`shapeGrowth` rename), `World/Terrain/TerrainDeformer.cs` (`Apply`/`RaiseWallSequential` gain `shapeGrowth`), `Magic/Cast/SpellCaster.Cast.cs` (Spikes branch + comment), `game-design.md` (§3.8: Spikes wording, two-exception block, cap note).
+
+### 1l95-status
+- **Done** - implementation and docs complete.
+- **Verification** - grep + reread, no build (rule 3): `tools\StaticChecks.ps1` -> **0 candidates**. Call sites re-checked (all `DeformAt`/`Apply`/`RaiseWallSequential` arities), the Wall sequential-rise path (`build`/`buildFront`) untouched, keep-out ring + idempotent `Max` write intact.
+- **Affected casts** - Zone Spikes: Needle Field (561, dish 3.4), Spire Field (111, 3.0), Spike Burst (559, 3.0), Crystal Field (563, 3.0). Spikes-shaped **golem summons** (113/579/581/583) keep `shapeGrowth = 1f` - unchanged, since they have no charge ladder.
+- **Caveat (stated, not discovered in play)** - terrain deform cannot make a needle-thin shard: the minimum is a single-corner pyramid on a 1 m lattice (about a 2 m base, ~69 deg at the tip). Adjacent hash-selected tips can merge into a wider spire.
+- **Pending play-test** - cast each of the four Zone Spikes spells (expect discrete ~2.6 m spires on a light apron, not a lump); overcharge one (expect taller AND denser, same field size); cast a Spikes golem (expect unchanged); Earth Wall and the other shapes unchanged.
+
+`skills: none applied` (rule 15) - a C#/terrain code edit with no DCC artifact.
 ## 1l94. Earth Wall face: read-only wall-face audit lane (rule 7 measurement, H)
 
 **"look the mesh is bug, the player can see below"** (task `testing.md` + report), with rule 7's
@@ -5408,7 +5428,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-15 (1l94). Read this first in a new session; then continue with the
+Last updated: 2026-10-15 (1l95). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

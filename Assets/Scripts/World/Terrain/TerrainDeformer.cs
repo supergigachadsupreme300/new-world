@@ -10,14 +10,17 @@ public static class TerrainDeformer
     /// <summary>Raise/lower the terrain according to the spell's shape at a world-space ground point.
     /// <paramref name="dir"/> orients directional shapes (the Wall ridge follows the cast axis).
     /// <paramref name="emitDebris"/> suppresses the Crater excavation's cube-debris burst — magic
-    /// projectile impacts pass false and play their own exploding sphere blast instead (1gb).</summary>
+    /// projectile impacts pass false and play their own exploding sphere blast instead (1gb).
+    /// <paramref name="shapeGrowth"/> is the caster's charge size ladder
+    /// (<c>SpellCaster.SizeScale(charge)</c>), consumed by the Wall (1l93) and Spikes (1l95) shapes
+    /// only; it defaults to 1 so every non-zone caller is unchanged.</summary>
     public static void Apply(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default,
-        bool emitDebris = true)
+        bool emitDebris = true, float shapeGrowth = 1f)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
         var streamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (streamer == null) return;
-        streamer.DeformAt(center, radius, shape, dir, emitDebris);
+        streamer.DeformAt(center, radius, shape, dir, emitDebris, shapeGrowth: shapeGrowth);
     }
 
     /// <summary>1l91: rear a Wall shape SEQUENTIALLY — the ridge claws up out of the ground in a few
@@ -25,16 +28,16 @@ public static class TerrainDeformer
     /// every raised Wall-shape cast (Earth Wall, Landslide); <paramref name="dir"/> orients the ridge
     /// exactly as <see cref="Apply"/>. Routed through here so the spell layer never resolves the
     /// <see cref="WorldStreamer"/> itself.
-    /// <para>1l93: <paramref name="wallGrowth"/> is the caster's charge size ladder
+    /// <para>1l93: <paramref name="shapeGrowth"/> is the caster's charge size ladder
     /// (<c>SpellCaster.SizeScale(charge)</c>), scaled onto the ridge's length, thickness and height
     /// by <see cref="WorldStreamer.DeformWallRise"/>. It defaults to 1 so an uncharged Wall — and
     /// every non-zone caller — is unchanged.</para></summary>
-    public static void RaiseWallSequential(Vector3 center, float radius, Vector3 dir, float wallGrowth = 1f)
+    public static void RaiseWallSequential(Vector3 center, float radius, Vector3 dir, float shapeGrowth = 1f)
     {
         if (radius <= 0f) return;
         var streamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (streamer == null) return;
-        streamer.DeformWallRise(center, radius, dir, wallGrowth);
+        streamer.DeformWallRise(center, radius, dir, shapeGrowth);
     }
 
     /// <summary>

@@ -705,20 +705,25 @@ public partial class SpellCaster
         //
         // 1l93 EXCEPTION — the Wall shape (Earth Wall, Landslide) now GROWS with charge, at the
         // user's explicit request and after being shown the 1cv risk: `sizeScale` is handed down as
-        // `wallGrowth` and scales the ridge's length, thickness and height, UNBOUNDED with
-        // overcharge. This is the one place the sizeScale reaches a deform width on purpose; every
-        // other shape keeps the dish cap above. A fully overcharged Wall is expected to be very
-        // large (and, at extreme charge, to reach the 1cv "whole chunk" cost) — that is the
-        // accepted behaviour, not a regression.
+        // `shapeGrowth` and scales the ridge's length, thickness and height, UNBOUNDED with
+        // overcharge. 1l95 extends the ladder to the Spikes shape too ("taller and more spike
+        // around"), but ONLY its tip height and tip density — the Spikes FIELD WIDTH stays the dish
+        // cap above, so 1cv's width rule is not re-opened for it. These two shapes are the only
+        // places the sizeScale reaches a deform width (Wall) or a deform shape at all; every other
+        // shape keeps the dish cap and passes the 1f default. A fully overcharged Wall is expected
+        // to be very large (and, at extreme charge, to reach the 1cv "whole chunk" cost) — that is
+        // the accepted behaviour, not a regression.
         float dish = Mathf.Max(spell.Radius > 0f ? spell.Radius : 1.6f, 0.5f);
         float deformRadius = spell.TerrainShape == TerrainShape.Crater ? dish * 0.5f : dish;
         // 1l91: a Wall-shape cast (Earth Wall, Landslide) rears SEQUENTIALLY — the ridge claws up in
         // height steps swept along its length instead of popping to full height. Every other shape
         // (and its idempotent Max write) is unchanged. Damage/knockback below still resolve this
         // frame; only the terrain rise is spread over the animation. 1l93: `sizeScale` grows the
-        // ridge (see the exception note above).
+        // ridge; 1l95: it also grows the Spikes field (height + density only).
         if (spell.TerrainShape == TerrainShape.Wall)
             TerrainDeformer.RaiseWallSequential(center, deformRadius, fwd, sizeScale);
+        else if (spell.TerrainShape == TerrainShape.Spikes)
+            TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd, shapeGrowth: sizeScale);
         else
             TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd);
 

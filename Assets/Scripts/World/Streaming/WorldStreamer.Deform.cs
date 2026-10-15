@@ -36,24 +36,29 @@ public partial class WorldStreamer
     /// </para>
     /// </summary>
     public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default,
-        bool emitDebris = true, float build = 1f, float wallGrowth = 1f)
+        bool emitDebris = true, float build = 1f, float shapeGrowth = 1f)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
 
-        // 1l93: charge growth for the Wall shape. `wallGrowth` is the caster's charge size ladder
-        // (SpellCaster.SizeScale(charge)), handed down from ResolveZoneImpact through
-        // RaiseWallSequential. The ridge's footprint (`radius`, hence BOTH its length and its
-        // thickness) and its lift scale by it, so a fully charged Earth Wall / Landslide is a
-        // proportionally longer, thicker and taller barricade. At charge 0 wallGrowth is 1 and the
-        // wall is byte-identical to the pre-1l93 cast. This is DELIBERATELY unbounded with
-        // overcharge (the user's call, overriding the Wall's slice of 1cv): the sizeScale that 1cv
-        // kept OFF the deform width is re-applied here, on purpose, for the Wall shape ONLY — the
-        // write bounds below derive from the scaled `radius`, so the widened ridge is fully written
-        // rather than clipped. Every non-Wall shape passes the 1f default (only ResolveZoneImpact's
-        // Wall branch supplies a value), so they are untouched.
-        float wallScale = Mathf.Max(0.01f, wallGrowth);
+        // 1l93/1l95: charge growth for the two shapes that take the caster's charge size ladder
+        // (SpellCaster.SizeScale(charge)), handed down from ResolveZoneImpact. `shapeGrowth` drives
+        // Wall (1l93) and Spikes (1l95) ONLY; every other shape passes the 1f default and is
+        // untouched. At charge 0 shapeGrowth is 1 and each shape is byte-identical to its pre-change
+        // cast. The two shapes interpret it differently, so both are stated here:
+        //   Wall (1l93)   -> the ridge's footprint (`radius`, hence BOTH its length and its
+        //                    thickness) and its lift scale by it: a longer, thicker, taller
+        //                    barricade. This is DELIBERATELY unbounded with overcharge (the user's
+        //                    call, overriding the Wall's slice of 1cv): the sizeScale that 1cv kept
+        //                    OFF the deform width is re-applied here on purpose for the Wall ONLY,
+        //                    and the write bounds below derive from the scaled `radius`, so the
+        //                    widened ridge is fully written rather than clipped.
+        //   Spikes (1l95) -> the FIELD WIDTH stays the authored `radius` (1cv is NOT re-opened
+        //                    here); growth instead scales the spike TIP HEIGHT and the tip DENSITY
+        //                    (more spires inside the same dish) — see the Spikes branch in the
+        //                    raise block.
+        float shapeScale = Mathf.Max(0.01f, shapeGrowth);
         if (shape == TerrainShape.Wall)
-            radius *= wallScale;
+            radius *= shapeScale;
 
         // Never raise the ground directly beneath the player's feet: a Wall/ring/pillar rearing
         // up under the capsule embeds it in the rebuilt chunk collider, and the next physics step
@@ -104,14 +109,24 @@ public partial class WorldStreamer
             wallDir = Vector3.right;
         wallDir.Normalize();
 
-        // Ring: a raised annulus with its center left level. Spikes: a smooth mound + sparse
-        // deterministic peaks so the ground reads jagged but never chessboard-y. Wall: a ridge
-        // band across the cast direction (1ga — perpendicular, a left-right barricade; tall
-        // enough to fully block the player). Pillar: a tall column. Crater: a wide dish, dug down.
+        // 1l95: Spikes constants. The field reads as a set of DISCRETE spires, not a mound: each tip
+        // is a single raised corner (a ~2 m-base pyramid — the sharpest a 1 m corner lattice can be),
+        // standing over a light disturbed apron. Charge scales tip height (SpikeBaseLift per unit of
+        // shapeScale) and tip density (up to SpikeMaxDensity, so overcharge never becomes a solid
+        // wall of stone).
+        const float SpikeBaseLift = 2.6f;
+        const float SpikeMound = 0.2f;
+        const float SpikeDensity = 0.14f;
+        const float SpikeMaxDensity = 0.5f;
+
+        // Ring: a raised annulus with its center left level. Spikes: discrete tall spires on a light
+        // apron (1l95). Wall: a ridge band across the cast direction (1ga — perpendicular, a
+        // left-right barricade; tall enough to fully block the player). Pillar: a tall column.
+        // Crater: a wide dish, dug down.
         float lift = shape == TerrainShape.Ring ? 0.9f
             : shape == TerrainShape.Pillar ? 1.8f
-            : shape == TerrainShape.Wall ? 2.6f * wallScale // 1l93: taller with charge
-            : 0.7f; // Spikes
+            : shape == TerrainShape.Wall ? 2.6f * shapeScale // 1l93: taller with charge
+            : SpikeBaseLift * shapeScale; // 1l95: Spikes — tip height, and the raise cap
         // Excavation step per Crater cast/swing (~1.1 m at full influence, feathered at the rim).
         // Unlike the raised shapes (which are IDEMPOTENT and capped), a crater ratchets the floor
         // DOWN by the step every cast: pits dig progressively deeper — through dirt, then stone —
@@ -260,7 +275,7 @@ public partial class WorldStreamer
                         craterCapR * craterCapR - dist * dist)) - craterCapCentre;
                     influence = Mathf.Clamp01(depthBelowGrade / craterCapDepth);
                 }
-                else // Spikes
+                else // Spikes: a light disturbed apron (the spires themselves are discrete tips, below)
                 {
                     float fall = 1f - Mathf.Clamp01(dist / reach);
                     influence = fall * fall;
@@ -374,15 +389,30 @@ public partial class WorldStreamer
                     // also keeps the crest a smooth rounded ridge (never a flat slab), and Max can
                     // never LOWER terrain that already sits above the target.
                     float baseY = TerrainNoiseGenerator.GetHeight(Seed, cx, cz);
-                    float target = baseY + s * lift;
+                    float target;
 
-                    // Spikes: a deterministic few corners jump higher so the field reads jagged.
                     if (shape == TerrainShape.Spikes)
                     {
-                        int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
-                        float r = (raw & 0x7fffffff) / (float)0x7fffffff;
-                        if (r > 0.78f)
-                            target += lift * (0.4f + r * 0.6f) * influence * influence;
+                        // 1l95: discrete spires, not a mound. Every corner takes the light apron; a
+                        // hashed fraction become TIP corners that jump straight to near-spike height.
+                        // A tip is a SINGLE raised corner among apron-height neighbours, which the
+                        // mesh draws as a ~2 m-base pyramid — the sharpest a 1 m corner lattice can
+                        // be (terrain cannot make a needle-thin shard; that would need real geometry).
+                        // The tip height is jittered in [0.8, 1.0] x lift so it never exceeds the
+                        // raise cap below. (The old code ADDED an accent on top of an already-capped
+                        // value and then Min()'d it away — which is exactly why the field read as a
+                        // plain lump and never as spikes.)
+                        target = baseY + s * SpikeMound;
+                        float density = Mathf.Min(SpikeMaxDensity, SpikeDensity * shapeScale);
+                        if (SpikeHash01(cx, cz) > 1f - density)
+                        {
+                            float h = lift * (0.8f + 0.2f * SpikeHash01(cx + 101, cz + 202));
+                            target = baseY + h;
+                        }
+                    }
+                    else
+                    {
+                        target = baseY + s * lift;
                     }
 
                     // Preserve the absolute raise cap (pristine + lift): the target never exceeds it,
@@ -423,17 +453,17 @@ public partial class WorldStreamer
     /// and a repeat cast is unchanged. Falls back to the instant raise when the streamer is not
     /// running (an inactive streamer cannot run the coroutine, but the wall should still build).
     /// </summary>
-    public void DeformWallRise(Vector3 center, float radius, Vector3 dir, float wallGrowth = 1f)
+    public void DeformWallRise(Vector3 center, float radius, Vector3 dir, float shapeGrowth = 1f)
     {
         if (!isActiveAndEnabled)
         {
-            DeformAt(center, radius, TerrainShape.Wall, dir, wallGrowth: wallGrowth);
+            DeformAt(center, radius, TerrainShape.Wall, dir, shapeGrowth: shapeGrowth);
             return;
         }
-        StartCoroutine(WallRiseRoutine(center, radius, dir, wallGrowth));
+        StartCoroutine(WallRiseRoutine(center, radius, dir, shapeGrowth));
     }
 
-    private System.Collections.IEnumerator WallRiseRoutine(Vector3 center, float radius, Vector3 dir, float wallGrowth)
+    private System.Collections.IEnumerator WallRiseRoutine(Vector3 center, float radius, Vector3 dir, float shapeGrowth)
     {
         // A handful of frames is enough to read as "growing"; more only spends more chunk rebuilds
         // (each DeformAt step re-emits the touched region + flushes its save). Six overwrites the
@@ -442,7 +472,7 @@ public partial class WorldStreamer
         const float total = 0.45f;
         for (int i = 1; i <= steps; i++)
         {
-            DeformAt(center, radius, TerrainShape.Wall, dir, build: i / (float)steps, wallGrowth: wallGrowth);
+            DeformAt(center, radius, TerrainShape.Wall, dir, build: i / (float)steps, shapeGrowth: shapeGrowth);
             yield return new WaitForSeconds(total / steps);
         }
     }
@@ -801,6 +831,17 @@ public partial class WorldStreamer
     }
 
     private static long EncodeCorner(int cx, int cz) => ((long)cx << 32) | (uint)cz;
+
+    /// <summary>1l95: deterministic 0..1 hash for the Spikes field — tip placement and tip height
+    /// are stable across casts (so the Max-against-current write stays idempotent). The world
+    /// <see cref="Seed"/> is mixed in so different seeds get different fields, and callers salt the
+    /// coordinates (e.g. <c>cx + 101</c>) to draw independent placement / height values from one
+    /// corner.</summary>
+    private float SpikeHash01(int cx, int cz)
+    {
+        int raw = (cx * 73856093) ^ (cz * 19349663) ^ Seed.GetHashCode();
+        return (raw & 0x7fffffff) / (float)0x7fffffff;
+    }
 
     private float CornerOrBase(int cx, int cz, Dictionary<long, float> newHeights)
     {

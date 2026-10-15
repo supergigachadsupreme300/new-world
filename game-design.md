@@ -1854,7 +1854,7 @@ A spell is a data asset carrying:
   one; the other 151 resolve from their school.
 - **terrain shape** (Earth school signature, §3.8): an optional `TerrainShape` reshapes the tiled
   heightmap before damage resolves — as **smooth feathered per-corner edits**, never flat blocks.
-  **Ring** rears a raised annular wall around the impact, **Spikes** erupts rock spikes beneath it,
+  **Ring** rears a raised annular wall around the impact, **Spikes** rears **discrete tall spires** (1l95: each tip a single raised corner over a light ~0.2 m apron, so the field reads as separate ~2.6 m stone spikes, **not** a mound — terrain cannot make a needle-thin shard),
   **Wall** rears an elongated ridge across the cast direction (1ga — perpendicular to it, so the
   wall lies left-right in the player's view as a barricade; ~2.6 m on a first cast, tall enough to
   fully block the player's CharacterController), **Pillar** thrusts a tall column up at the center,
@@ -1872,20 +1872,27 @@ and **Crater** excavates a **terraced spherical cap** ringed by a raised, idempo
   shapes: original noise height + lift) is sampled **per-corner at each corner's own world coords**,
   so every corner keeps its own natural slope and no tile collapses to a uniform level — crests are
   smooth rounded ridges, never flat plateaus, and a repeat cast can never stack a ridge higher than
-  the intended release. In addition to being height-capped, **the WIDTH of every terrain shape is
+  the intended release. (The cap is a per-shape height **bound**, not a shape — **Spikes** is the
+  pointy exception: each tip is one raised corner among apron-height neighbours, drawn as a ~2 m-base
+  pyramid, with its height jittered in [0.8, 1.0] × lift so it never exceeds the cap.) In addition to being height-capped, **the WIDTH of every terrain shape is
   bounded to the spell's authored delivery dish — `spell.Radius` (crater: `spell.Radius * 0.5`,
   ~2 m for Earth Meteor), never the blast splash and never the (unbounded) hold-to-overcharge
   `sizeScale`** (1cw). Charge still enlarges the *damage* splash and the zone/ring visuals, but never
-  the ground edit — so a charged Tremor or Spire Field rears only its own ~2.6–6 m dish, not a whole
-  chunk.
-  **One deliberate exception — the Wall (1l93):** at the user's request an Earth Wall / Landslide
-  **grows with charge**. The charge size ladder (`SpellCaster.SizeScale(charge)`) is handed to
-  `WorldStreamer.DeformAt` as a `wallGrowth` factor and scales the ridge's **length, thickness and
-  height** together — **unbounded with overcharge**. This is the one place the `sizeScale` is allowed
-  to reach a deform width on purpose; the user accepted the 1cv "whole chunk at extreme charge" cost
-  for the Wall. The base footprint is still the authored delivery dish, so at charge 0 the growth is
-  1 and an uncharged Wall is byte-identical to the pre-1l93 cast. Crater / Ring / Spikes / Pillar keep
-  the 1cw dish cap above.
+  the ground edit — so a charged tremor-ring cast rears only its own ~2.6–6 m dish, not a whole
+  chunk (the Wall and Spikes are the two exceptions, below).
+  **Two deliberate exceptions** to the dish cap, both handed down as one `shapeGrowth` factor on
+  `WorldStreamer.DeformAt` (the caster's `SpellCaster.SizeScale(charge)`, threaded through
+  `TerrainDeformer.Apply` / `RaiseWallSequential`):
+  - **The Wall (1l93):** at the user's request an Earth Wall / Landslide **grows with charge** —
+    `shapeGrowth` scales the ridge's **length, thickness and height** together, **unbounded with
+    overcharge**. This is the one place the `sizeScale` is allowed to reach a deform **width** on
+    purpose; the user accepted the 1cv "whole chunk at extreme charge" cost for the Wall.
+  - **Spikes (1l95):** the spike field also grows with charge, but **height and density only** — the
+    field **width** stays the authored delivery dish (1cv is **not** re-opened for it). `shapeGrowth`
+    raises the tip height (base 2.6 m) and the tip **density** (capped at 0.5 of corners, so overcharge
+    never becomes a solid wall of stone).
+  At charge 0 `shapeGrowth` is 1 and both shapes are byte-identical to their pre-change casts.
+  Crater / Ring / Pillar keep the 1cw dish cap above.
   Since **1l91** a raised **Wall**-shape cast (Earth Wall, Landslide) no longer pops to full height:
   the ridge **rears sequentially** — a build front sweeps along its length while the section ahead of
   it grows in a few quantised **height steps**, so the wall claws up out of the ground in order instead

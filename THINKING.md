@@ -1,3 +1,51 @@
+## 1l95. Needle Field "only a lump": the raise cap was deleting the spike accent — reasoning trail (SHIPPED; play-test pending)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l94`, so this is `1l95` (rule 1 forbids
+amending; enumerate headings first — rule 8).
+
+**Report (verbatim):** "the needle field skill only create a lump, not spikes at all."
+
+**H1 — Spikes is a shared shape, so the blast radius is the first question. CONFIRMED (as a
+constraint).** `grep TerrainShape.Spikes` → **8 casters**: Needle Field (`SkillCatalog.Magic.cs:561`,
+Zone, `deliveryRadius: 3.4f` → `spell.Radius = 3.4`), Spire Field (`:111`, 3.0), Spike Burst
+(`:559`, 3.0), Crystal Field (`:563`, 3.0), and **4 golem summons** (`:113/579/581/583`). Any profile
+change hits all eight; the four Zone spells are the ones with a charge ladder.
+
+**H2 — the "jagged" accent is added and then immediately clamped away. CONFIRMED (root cause).**
+`WorldStreamer.DeformAt`'s raise branch reads:
+`influence = fall²` → `s = smootherstep(influence)` → `target = baseY + s*lift` with **`lift = 0.7f`**.
+Then a garnish adds `lift*(0.4..1.0)*influence²` on ~22 % of corners (`hash r > 0.78f`) — and the very
+next statement is `target = Mathf.Min(target, baseY + lift)`. Because `s ≤ 1`, the accent is added to a
+value already **at** the cap, so `Min` deletes it — entirely near the centre, ≤ ~17 cm surviving on 22 %
+of corners mid-ring. The cap was added for idempotency and the accent was grafted on afterwards; the
+cap silently neutralised it. Net result: a smooth ~0.7 m mound. This matches the report exactly.
+
+**H3 — "just raise the cap / the lift". WEAK; REJECTED as the fix.** Raising the cap grows a *taller
+lumpy mound*: the base profile is radially smooth, and the accent stays a small additive jitter on 22 %
+of corners. It changes the height, not the *shape language*.
+
+**H4 — the blunt instrument is geometric. CONFIRMED.** Terrain is a 1 m corner lattice (adaptive 2×2
+refine is a *bilinear* of the tile's four corners, so it only smooths — it cannot add a thinner
+feature). The sharpest representable feature is a **single raised corner** → a ~2 m-base pyramid
+(~69° at the tip). A genuinely "needle-thin shard" is **not representable** in a heightmap; that needs
+real geometry (a separate feature). So the redesign target is "tall pointy pyramids", with height
+chosen for aspect ratio.
+
+**Design decision (user, rule 7):** distinct tall spires (~2.5–3 m), a light ~0.2 m apron under them,
+and charge makes them "taller and more spike around". Interpreted as **height + density** scaling —
+**not width**, so 1cv's deform-width cap is *not* re-opened (only the Wall was granted that, 1l93).
+
+**Implementation shape.** `wallGrowth` → `shapeGrowth` (one ladder, one name — rule 13/20). Spikes
+`lift = SpikeBaseLift * shapeScale` and the tip is jittered in `[0.8, 1.0] × lift` so it *never* hits
+the cap by construction; the accent block is deleted; the apron is `s * SpikeMound`. Tips are
+hash-selected (`SpikeHash01(cx, cz)` mixed with `Seed`) so placement and height are cast-stable and the
+`Max(current, target)` write stays idempotent. Zone Spikes pass `shapeGrowth: sizeScale`; golems and
+storms stay at the `1f` default.
+
+**Verdict (this task):** H2 confirmed as the mechanism, H4 as the geometry bound, H1 as the scope. Fix
+ships as discrete spires. **OPEN until play-tested** — the "distinct spires, taller+denser on
+overcharge" reading is an expectation, not an observation.
+
 ## 1l94. Earth Wall face audit lane — reasoning trail (OPEN)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l93`, so this is `1l94` (rule 1 forbids
