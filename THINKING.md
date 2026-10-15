@@ -1,4 +1,94 @@
-## 1l93. Earth Wall grows with charge — reasoning trail (OPEN)
+## 1l94. Earth Wall face audit lane — reasoning trail (OPEN)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l93`, so this is `1l94` (rule 1 forbids
+amending; enumerate headings first — rule 8).
+
+**Report (verbatim):** "look the mesh is bug, the player can see below" — a sliver/hole in a raised
+Earth Wall's face at certain angles. Rule 7 requires asking before theorising about something the code
+alone cannot show, so the four answers were gathered first: void/skybox behind it (**nothing** there),
+**only after casting an Earth Wall**, **both first AND third person**, **any charge**, "a sliver/hole
+in the wall's face".
+
+**H1 — camera-boom-below-surface backface clip (the obvious reading of "can see below"). REJECTED.**
+First person has no boom and still shows it; a below-surface camera would be immune in first person, so
+neither `ThirdPersonCamera`'s `MinDistance` clamp nor the F5 toggle can be the mechanism.
+
+**H2 — 1l93's charge growth broke the wall. REJECTED.** The user sees it at *any* charge including
+uncharged, so the discriminating delta is "cast vs not cast", not "charged vs uncharged".
+
+**H3 — a secondary wall mesh is culled or has inverted normals. REJECTED — there is none.** The cast
+path is `SpellCaster.Cast.cs` → `TerrainDeformer.RaiseWallSequential` → `WorldStreamer.DeformAt`: Earth
+Wall is a **pure terrain deform**, the only surface is the chunk mesh. Confirmed against 1ia's revert
+note — with `LowPolyFacets` off the near chunks render the full 1 m per-tile surface **including side
+walls**, on a **Cull Back** material — so a gap means the mesher emitted nothing for that patch, or
+emitted it wound away from us.
+
+**H4 — a T-junction / stream-seam crack. REJECTED as primary.** The band's vertices exist only at the
+edge's two endpoints (`EdgeEnds`, `ChunkMeshGenerator.cs:1165`) and a refined 2x2 tile edge is
+bilinear-consistent with a coarse neighbour (`IsRefinable`), so the mid-edge vertex coincides — and the
+report is tied to a *cast*, which seams are not.
+
+**H5 — the drawn surface genuinely lacks a wall, or has a back-facing one, where the cast raised the
+ground. OPEN — this is the lane.** `EdgeIsRaised` (`ChunkMeshGenerator.cs:1124`) emits a band iff
+`max(this edge) > max(neighbour edge) + 0.001f`, and `SideBandCount` then interpolates between the two
+edges' own tops/bots. Two ways emission and interpolation can disagree with the neighbour:
+- **D-crossing** — the two ends swap which tile is higher (a=(5,3), b=(4,5)). The **max** still picks a
+  winner so a band **is** emitted, but its top/bottom invert across the swap → a **bowtie**, one of the
+  two triangles wound back-facing → Back cull drops it → a triangular hole.
+- **D-noWall** — the tops differ but the two edge **maximums** agree within `0.001f` → **neither** side
+  passes `EdgeIsRaised` → no band at all → a bare uncovered step.
+Both are **intra-chunk**.
+
+**Why F3 is blind (read, not assumed).** `RenderedCornerAudit` section C samples the 31x31 corner
+grid's **chunk corners** — the 30 m nodes — and reports the worst four-owner disagreement *there*. A
+bbox-sized Wall (a few metres) sits entirely inside one chunk and never touches a chunk corner, so F3
+being green on this world says nothing about the sliver. That is the gap this lane closes.
+
+**Two spellings of "a corner's height" do not bite here (rule 8).** Section C reads `ChunkData.Heights[]`
+directly — the *writer* — and never `CurrentHeightOf`, so it never mixes the tile-centre `+0.5f` sample
+with a pristine-at-corner reference. The ownership table was **derived and checked** against
+`ChunkData.VertexWorldX/Z` *and* against `EdgeHeights`' own pairing: `WallOwnerSlot = {3,2,0,1}`.
+
+**Key choice — first draft was wrong.** It took `Numpad3`. `1ky` recorded the user owns **no numpad**
+(the reason the boom lane's default moved Numpad2→P), so a numpad key would ship an untriggerable lane
+to its own audience. `Key.H` was then **checked** across all three Input System spellings (`Key.H`,
+`.hKey`, `[Key.H]`) over `Assets\Scripts`: the only hit is `TypingMinigame`'s `Key[]` of letter enums,
+which binds through an array element and is therefore invisible to a bare-name grep — rule 7's "a key
+has three spellings", recorded as the actual mechanism. `StaticChecks.ps1` check 8 now lists **8 lane
+keys (F3, F4, F2, F13, H, Numpad1, Numpad8, P)**, no second binding.
+
+**A re-read caught a wrong classifier — this is why the file was rewritten.** The first draft asked
+`crossing == no wall`, i.e. treated the bowtie as the *absence* case. Re-reading `EdgeIsRaised` showed
+it compares **MAXES**, so a crossing edge *does* emit (the max decides) and only the *interpolation*
+inverts — the absence case needs `max(this) == max(neighbour)`, a different and separately reachable
+condition. The rewrite gives each its own name (`CROSSING` / `NO-WALL`), its own counter and its own
+verdict line, with `WallFaceAuditRaiseEps = 0.001f` copied from the source so the flush test runs on the
+same ladder `EdgeIsRaised` does.
+
+**Edge coverage arithmetic (worked at the boundary, per rule 8).** Each interior edge is owned by its
+**south/west** tile: North/East canonical, South/West counted only when the neighbour is missing, and
+the tile loop runs `minZ-1`/`minX-1` so band-boundary edges are reached. Hand-checked on a 2-tile pair:
+`(T, T.North)` is classified from T's North edge and skipped from N's South edge → exactly once. The
+helpers still carry all four of `EdgeHeights`' directions although only 0/1 are ever passed — noted in
+the file as *not load-bearing*, so nobody sizes a decision on them.
+
+**Dead end worth keeping.** An earlier design read the hole off triangles crossing the edge's
+**elevation** — which the collider's horizontal-quad lattice makes look identical (rule 12: there is no
+vertical strip pass). Replaced by an **in-plane** test (all three verts within `WallFaceAuditLineEps` of
+the edge's vertical plane, and the triangle spanning the edge midpoint): a correctly-built band passes
+and a culled half does not.
+
+**Verdict:** the mechanism is D-crossing or D-noWall — or neither, since a clean world would mean the
+report is a specific cast's artefact, which sections A and B will say. **The fix is deliberately NOT in
+this commit (rule 7):** ship the readout, read it in Unity, then fix what it names as a separate task
+with its own commit, so the readout that justified the fix stays in history. This section stays
+**OPEN** until then.
+
+**`skills: none applied` (rule 15)** — C#/terrain code reviewed by hand; the installed set is
+DCC-side or Unity-CLI-driven (rule 3 bars the CLI path), so no skill governs this artifact. Stated
+rather than left silent.
+
+## 1l93. Earth Wall grows with charge — reasoning trail (SHIPPED, play-test pending)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l92`, so this is `1l93` (rule 1 forbids
 amending; enumerate headings first — rule 8).

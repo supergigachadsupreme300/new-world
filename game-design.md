@@ -679,6 +679,7 @@ output). Nothing was deleted; the change is three values plus their two test-pla
 | `NewWorldTestGround.EnableLowPolyTerrain` | `true` | **`false`** | test-platform mirror; re-enabled the look every session |
 | `NewWorldTestGround.LowPolyStep` | `6` | **`3`** | test-platform mirror |
 | `NewWorldTestGround.EnableCraterAudit` | n/a | **`true`** | **F13** read-only crater/deform audit (`CraterAuditKey` = `Key.F13`; moved off F1 in 1io — F1 is the combat-mode toggle) |
+| `NewWorldTestGround.EnableWallFaceAudit` | n/a | **`true`** | **H** read-only raised-terrain face audit (`WallFaceAuditKey` = `Key.H`; a letter, not a Numpad, since the user owns no numpad — see 1l94) |
 
 What the terrain renders now, with the flag off:
 
@@ -1892,6 +1893,17 @@ and **Crater** excavates a **terraced spherical cap** ringed by a raised, idempo
   `Max`-against-current write is unchanged, the front range is padded so `build = 1` saturates every
   section), so a repeat cast at the same charge still reproduces the same ridge; every non-Wall shape
   and every other caller raises in one shot as before.
+  **A Wall is a pure terrain deform — there is no second mesh to hide a gap**, so a hole in the
+  raised face has to be a hole in the terrain surface itself. **(1l94) bench key `H`** runs the
+  read-only `WorldStreamer.WallFaceAudit()` (`WorldStreamer.WallFaceAudit.cs`) that names which of the
+  two candidate mechanisms made it: **D-crossing**, where the two tiles owning a shared edge swap which
+  is higher between the edge's ends so the max-vs-max `EdgeIsRaised` test and the band's own
+  top/bottom disagree and the drawn side wall self-intersects; and **D-noWall**, where the tops differ
+  but the two edge maximums agree within `0.001f`, so **neither** side passes `EdgeIsRaised` and no
+  wall is emitted at all. Both are edge-local and intra-chunk, which is exactly what **F3 cannot see** —
+  its corner pass samples chunk corners (30 m nodes) only. `H` is the same measurement-first shape as
+  the F13 crater lane: no rebuild, no re-stamp, no forced poll, and the VERDICT names the world XZ to
+  walk to.
   ***Crater rears the terrain's strata as a signature**: unlike the capped raises, an excavation
   is **WIDTH-bounded but DEPTH-unbounded** (1cv). The crater's **width** is always the spell's small
   local delivery dish (`DeliveryRadius * 0.5`, ~2 m for Earth Meteor) — never the full blast splash —

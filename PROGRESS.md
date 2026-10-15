@@ -1,3 +1,69 @@
+## 1l94. Earth Wall face: read-only wall-face audit lane (rule 7 measurement, H)
+
+**"look the mesh is bug, the player can see below"** (task `testing.md` + report), with rule 7's
+answers locked in: the user sees **skybox/void (nothing behind)** through the raised Earth Wall, **only
+after casting Earth Wall**, in **both first and third person**, at **any charge**, described as **"a
+sliver/hole in the wall's face"**.
+
+- **What that rules out.** Both first AND third person see it → not a camera-boom-below-surface
+  backface effect (third person has a 4 m boom, first person has none). Only after a Wall cast → not
+  `1l93` (charge growth), not the always-on terrain. A sliver in a **face** with void behind → a
+  **drawn-surface gap**, not a shading/normals fault.
+- **Why it cannot be hidden behind a second mesh.** Earth Wall is a **pure terrain deform**
+  (`SpellCaster.Cast.cs` → `TerrainDeformer.RaiseWallSequential` → `WorldStreamer.DeformAt`, no
+  secondary wall object), and with `LowPolyFacets` off since 1ia near chunks render the full 1 m
+  per-tile surface **including the side walls**, on a **Cull Back** material. So a hole must be a hole
+  in the terrain surface.
+- **Two mechanisms, both edge-local and intra-chunk** (read from `ChunkMeshGenerator`, not re-derived):
+  a wall is emitted iff `EdgeIsRaised` compares the two edge **MAXES**. **D-crossing** — the two owning
+  tiles swap which is higher between the edge's two ends, so a wall IS emitted (max decides) while the
+  band interpolates across the swap: a self-intersecting **bowtie**, one triangle wound back-facing and
+  culled. **D-noWall** — the tops differ but `max(this) == max(neighbour)` within `0.001f`, so **neither**
+  side passes and nothing is emitted, leaving a bare uncovered step. Only one side ever emits for a
+  normal step, so both defects are about the two owners disagreeing along **one** shared edge.
+- **Why F3 cannot see it (the gap this lane closes).** `RenderedCornerAudit` section C samples
+  **chunk corners only** (30 m nodes). A bbox-sized Wall's interior tile edge — where both mechanisms
+  live — is out of scope for F3.
+- **Lane** — new `WorldStreamer.WallFaceAudit()` (`WorldStreamer.WallFaceAudit.cs`, partial of
+  `WorldStreamer`, read-only): **A** fingerprint (one generator version built the resident world,
+  rule 11 — otherwise the rest is void as evidence), **B** target (raised tile nearest you, the
+  known-non-zero control), **C** corners (every interior world corner, all four owning tiles' stored
+  heights, worst disagreement = the ownership defect), **D** edges (every interior tile edge: flush /
+  covered / **CROSSING** / **NO-WALL**, with the known-zero control beside each), **E** drawn (at the
+  worst problem edge, read the uploaded `RootMesh` triangles and confirm the surface parts). VERDICT
+  names the first failure and the world XZ to walk to. **Section order is premise-first**: A runs first
+  because a fingerprint finding voids the rest (rule 7).
+- **Edge coverage arithmetic** — every interior edge classified **once**: North/East are canonical
+  (the south/west owner of the pair), South/West only counted when the neighbour is missing, and the
+  tile loop runs one tile out on -X/-Z so band-boundary edges are reached. Unclassified-with-geometry
+  and unowned are **separate** verdicts (a shorter horizon is not a hole).
+- **Keys** — `WallFaceAuditKey = Key.H` (**a letter, not a Numpad**): `1ky` established the user owns
+  **no numpad**, so the boom lane's old Numpad2 default was untriggerable by its own audience. H was
+  **checked** across all three Input System spellings (`Key.H` / `.hKey` / `[Key.H]`) — the only hit is
+  `TypingMinigame`'s array of letter enums, which binds through an array element. Serialized, so
+  rebindable in the Inspector; the tooltip documents the full key map as of `1l94`.
+- Files: `World/Streaming/WorldStreamer.WallFaceAudit.cs` (new), `Opt/NewWorldTestGround.cs`
+  (fields + key poll + `RunWallFaceAudit` + HUD, patterned on `RunCraterAudit`),
+  `tools/StaticChecks.ps1` (added to `$files`, rule 3), `game-design.md` §3.8 + bench-key table.
+- `skills: none applied` (rule 15) — a C#/terrain code-review task, not a DCC/asset artifact; the
+  installed set is overwhelmingly DCC-side and none governs a C# edit reviewed by hand.
+
+### 1l94-status
+
+- **Done** — measurement lane implemented and wired; docs updated.
+- **Verification** — grep + reread, no build (rule 3): `tools\StaticChecks.ps1` → **0 candidates**
+  (`WorldStreamer.WallFaceAudit.cs` braces 41/41, parens 286/286; check 5 no cross-case reads;
+  check 8 lists **8 lane keys — F3, F4, F2, F13, H, Numpad1, Numpad8, P — no second binding**).
+  Checked the `$typeAlt`/switch/member shapes the script scans for **false positives before trusting
+  its zeros** (multi-declarator `int a, b;`, `out` params and `=`-initialized locals all miss the
+  patterns, numeric switches miss check 5's string cases).
+- **Rule 7** — the fix is **deliberately NOT in this commit**: the readout that justifies it must
+  exist first so it stays in history. Fix lands as a separate task once `H` names a mechanism.
+- [ ] **PLAY-TEST (user, Unity):** with the world loaded, press **H**. Report the **`VERDICT`** line
+  and, if any, the world XZ it names. Expect `A-stale` → clean (a stale fingerprint would void D/E).
+  Then **cast an Earth Wall, walk to the named XZ, look at the face obliquely** and check the sliver —
+  the acceptance is the original report disappearing, not a green lane.
+
 ## 1l93. Earth Wall grows with charge (width + height, unbounded overcharge)
 
 **"increase earthwall width and height with charges."**
@@ -5342,13 +5408,17 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-12 (1l6v). Read this first in a new session; then continue with the
+Last updated: 2026-10-15 (1l94). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded. **Open play-test items (newest first):** the camera boom lane
+for the reasoning it recorded. **Open play-test items (newest first):** **1l94** - press **H** with the
+world loaded and report the `WallFaceAudit` **`VERDICT`** line plus any world XZ it names; expect
+`A-stale` first (a stale generator fingerprint voids sections B-E as evidence), otherwise clean. Then
+cast an Earth Wall, walk to the named XZ, look at the face obliquely and check the reported sliver -
+the acceptance is the original report disappearing, not a green lane. The camera boom lane
 `BoomAuditKey` is **P** (was Numpad2; the user has no numpad - 1ky rebind), pressing P after a
 lag hitch reports `D-hitch` (peak frame time + camera step on it) and a `FRAME-PINNED` verdict
 the next fix decision quotes; 1ky also wants the 1kx W/sprint verdict (zoom gone), the 1kw

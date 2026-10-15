@@ -48,6 +48,7 @@ $chunkbuild  = 'Assets\Scripts\World\Streaming\WorldStreamer.ChunkBuild.cs'
 $farshell    = 'Assets\Scripts\World\Streaming\WorldStreamer.FarShell.cs'
 $deform      = 'Assets\Scripts\World\Streaming\WorldStreamer.Deform.cs'
 $crateraudit = 'Assets\Scripts\World\Streaming\WorldStreamer.CraterAudit.cs'
+$wallfaceaudit = 'Assets\Scripts\World\Streaming\WorldStreamer.WallFaceAudit.cs'
 # 1l4 added the streamer's main partial + the mesh/props stages, which the 1l4 burst edits touch
 # (FinalizeChunks / ReconcileCollidersIfChanged / StepChunkProps and the new BurstChunkLoads field).
 $streamer    = 'Assets\Scripts\World\Streaming\WorldStreamer.cs'
@@ -84,8 +85,12 @@ $propstage   = 'Assets\Scripts\World\Streaming\WorldStreamer.Props.cs'
 # count, and 1jd also moved four nested MonoBehaviours (BoltFader, RingFader, SlashFader,
 # TumbleSpin) and rewrote ~8 `Destroy(x)` calls as `Object.Destroy(x)` - the static-class
 # edit a diff cannot show, since the line is textually identical in both files.
+# 1l94 added WallFaceAudit - a read-only QA lane partial of WorldStreamer with a four-way
+# `out` parameter set (check 4's CS0165 surface), a four-case switch on the edge index
+# (check 5's cross-case surface) and a private TryGet-style helper (check 2). It also owns a
+# new lane key (WallFaceAuditKey) in NewWorldTestGround, so check 8 must see it here.
 $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
-           $chunkbuild, $farshell, $deform, $crateraudit,
+           $chunkbuild, $farshell, $deform, $crateraudit, $wallfaceaudit,
            $streamer, $meshstage, $propstage,
            'Assets\Scripts\World\Terrain\ChunkMeshGenerator.cs',
            'Assets\Scripts\World\Chunks\ChunkObject.cs',

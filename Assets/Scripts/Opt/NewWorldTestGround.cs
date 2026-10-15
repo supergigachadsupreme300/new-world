@@ -121,6 +121,12 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public Key CraterAuditKey = Key.F13;
     private string _craterAuditText;
 
+    [Tooltip("QA (1l94): press WallFaceAuditKey for a read-only measurement of the raised-terrain (Earth Wall / Landslide) face the player reports 'the mesh is bug, the player can see below' at certain angles. A Wall is a pure terrain deform, so the question is whether the surface the mesher DRAWS parts where a cast touched. The existing F3 corner/void audit cannot see it: its corner pass samples CHUNK corners (30 m nodes) only, so an INTRA-CHUNK tile edge - where a bbox-sized Wall lands - is out of scope. Sections, premise-first: A fingerprint (more than one mesh bucket = two generator versions built the resident world, voiding the rest as evidence, rule 11); B target (the raised tile nearest you, the known-non-zero control); C corners (every interior world corner: read all four owning tiles' stored heights, report the worst disagreement - the raw ownership defect); D edges (every interior tile edge: flush / covered-step / CROSSING, where the two owners disagree oppositely so max-vs-max EdgeIsRaised picks neither as higher and NO side wall is drawn - the open wedge that is the reported sliver); E drawn (at the worst crossing, read the drawn RootMesh and confirm the surface parts). The VERDICT names the first failure and the world XZ to walk to. Read-only by rule 7: no rebuild, no re-stamp, no forced poll. Needs EnableFpsStats on to display.")]
+    public bool EnableWallFaceAudit = true;
+    [Tooltip("QA (1l94): key that runs the Earth-Wall face audit. Key.H - a LETTER, not a Numpad, because of 1ky's finding that the user has NO numpad, which made the boom lane's old Numpad2 default untriggerable by its own audience; the same reasoning applies here. H is checked free across all three Input System spellings ('Key.H', '.hKey', '[Key.H]') in Assets\\Scripts (the only hit is TypingMinigame's array of letter enums, which binds through an array element, not a named key), and it collides with nothing in the map below. The full map as of 1l94: F1 the combat-mode toggle, F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts, F13 the 1io crater audit, Numpad1 the 1je summon-model lane, Numpad2 the 1jv boom lane (default moved to P in 1ky), Numpad8 the 1jq trail lane, numpadEnter the ending cutscene, P the 1ky boom lane. Note: letters are rebindable as skill keys elsewhere and TypingMinigame captures a-z while it is open, so if a skill is bound to H the press also fires it - that collision is on the user's binds, not the lane's. Key is a serialized field, so it can be rebound in the Inspector. See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
+    public Key WallFaceAuditKey = Key.H;
+    private string _wallFaceAuditText;
+
     [Tooltip("QA (1jq): key that spawns the summon-model lane. Numpad1, and the choice is CHECKED the same way F13's was: 'Key.Numpad1', '.numpad1Key' and '[Key.Numpad1]' all read 0 in Assets\\Scripts, with F1 as the positive control proving the property-name spelling is actually being searched. Note this lane then TOOK Numpad1, so the F13 tooltip's 'Numpad0-9 are free' below is stale - 1jq corrected it in place.")]
     public Key SummonModelKey = Key.Numpad1;
     private readonly List<GameObject> _summonModelCells = new List<GameObject>();
@@ -1465,6 +1471,17 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunCraterAudit();
         }
 
+        // 1l94: the Earth-Wall face audit. Polled here, above the weapon-rack / GamePaused early
+        // returns, for the same reason as the lanes above - a lane after them could report nothing.
+        // RunSafely, like every other lane here, so a fault surfaces as a named failure.
+        if (EnableWallFaceAudit)
+        {
+            Keyboard kbWall = Keyboard.current;
+            if (kbWall != null && kbWall[WallFaceAuditKey] != null
+                && kbWall[WallFaceAuditKey].wasPressedThisFrame)
+                RunSafely("wall face audit", RunWallFaceAudit);
+        }
+
         // 1je: summon-model lane. Polled here, above the weapon-rack / GamePaused early returns,
         // for the same reason as the lanes above - a lane placed after them could report nothing.
         if (EnableSummonModels)
@@ -1587,6 +1604,38 @@ public sealed class NewWorldTestGround : MonoBehaviour
             headline = headline + "\n" + v.TrimEnd();
         }
         _craterAuditText = headline;
+        Debug.Log("[NewWorldTestGround] " + report);
+    }
+
+    /// <summary>
+    /// QA (1l94): run the Earth-Wall face audit and cache its headline on the HUD. The report is a
+    /// per-corner/per-edge table, so it goes to the console verbatim and a one-line headline +
+    /// VERDICT is cached for the diagnostics strip, matching RunCraterAudit. Read-only inside the
+    /// streamer — nothing rebuilt, re-stamped or polled (rule 7).
+    /// </summary>
+    private void RunWallFaceAudit()
+    {
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null)
+        {
+            _wallFaceAuditText = "wall face audit: no WorldStreamer in the scene";
+            Debug.LogWarning("[NewWorldTestGround] " + _wallFaceAuditText);
+            return;
+        }
+
+        string report = streamer.WallFaceAudit();
+        string headline = report;
+        int nl = report.IndexOf('\n');
+        if (nl >= 0) headline = report.Substring(0, nl);
+        int verdict = report.IndexOf("VERDICT ");
+        if (verdict >= 0)
+        {
+            string v = report.Substring(verdict);
+            int vnl = v.IndexOf('\n');
+            if (vnl > 0) v = v.Substring(0, vnl);
+            headline = headline + "\n" + v.TrimEnd();
+        }
+        _wallFaceAuditText = headline;
         Debug.Log("[NewWorldTestGround] " + report);
     }
 
@@ -2808,6 +2857,12 @@ private static string Describe(in SpellLook look)
                 // report named still shows the numbers for the frame the key was pressed on.
                 if (EnableCraterAudit && !string.IsNullOrEmpty(_craterAuditText))
                     stats += "\n" + _craterAuditText;
+
+                // 1l94: same persistence rule as the audits above — the wall-face headline stays up
+                // until the next press, so a screenshot after walking to the XZ the report named
+                // still shows the numbers for the frame the key was pressed on.
+                if (EnableWallFaceAudit && !string.IsNullOrEmpty(_wallFaceAuditText))
+                    stats += "\n" + _wallFaceAuditText;
 
                 // 1id: SpellImpactFx's per-frame budget REFUSES flashes past PerFrameBudget in one
                 // frame and counts the refusals. That counter was write-only until here — the budget
