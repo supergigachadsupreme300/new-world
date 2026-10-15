@@ -830,7 +830,8 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
 - **Player spawns on the test ground (1dn):** the test platform is now the **default spawn point**.
   `GameBootstrap` creates the test ground before placing the player and lands them on
   `NewWorldTestGround.GetSpawnPoint()` (pad top + 2 m) whenever the platform is built
-  (`CreatePlatform` + `IsArenaReady`); `PlayerController.ResetPlayer` (new game / death respawn) does
+  (`CreatePlatform` + `IsArenaReady`); `PlayerController.ResetPlayer` (new game — it also stands the
+  player back up if a death ragdoll was still down, 1l97) does
   the same. `NewWorldTestGround.AutoTeleportPlayerOnStart` is now default **on** (the `RunBenchSpawn`
   pull-onto-pad is belt-and-braces for the same spot). The world's boot chunk near `(0, terrain, -10)`
   remains only as the fallback when the test platform is not built — flip `CreatePlatform` off or the
@@ -1030,6 +1031,7 @@ Direct weapon/ability control with stamina management, dodge-rolling, blocking, 
 | **Jump Attack** | Aerial downward strike, breaks guard |
 | **Charged Attack** | Hold to charge for more damage |
 | **Weapon Arts** | Unique per weapon type, costs FP (Focus Points) |
+| **Knockdown (1l97)** | A hard enough hit puts the model into a jointed ragdoll; lethal hits stay down |
 
 #### Damage Formula
 
@@ -1041,6 +1043,15 @@ Final Damage = (Attack Power x Skill Multiplier x Weakness Multiplier)
                x Critical Modifier (if applicable)
 ```
 The **DamageType Modifier** resolves the specific damage type (§3.7 — Physical, Fire, Ice, Lightning, Holy, Dark, Wind, Earth, Water, Arcane) of the weapon or spell against the target's per-type equipment resistance. `DamageCalculator` routes the attacker's type → the target's resistance table (see §3.6/§3.8).
+
+#### Knockdown & Death — the player ragdoll (1l97)
+
+The player model is **procedural** (`PlayerModelBuilder`: a plain transform tree of primitive-mesh parts, no skinned mesh, no bones, no Animator), so there is no ragdoll prefab to switch to. `PlayerRagdoll` builds a physics rig on the **same pivots** on demand: one `Rigidbody` + `BoxCollider` + `CharacterJoint` per bone (root → Torso → shoulders/elbows and root → hips/knees), each collider sized from the meshes whose nearest bone ancestor is that pivot. Two triggers, both from `PlayerController.ReceiveDamage` (the `IPlayerDamageReceiver` entry an enemy/boss melee uses):
+
+- **Heavy hit** — a hit that still leaves the player standing but costs **`RagdollKnockdownDamage` (15)** or more knocks them down for a timed recovery (`PlayerRagdoll.RecoverSeconds`, 1.6 s), after which the model is rebuilt and control returns.
+- **Lethal hit** — the body ragdolls and **stays down**. This stay-down ragdoll *is* the death state: `GameManager.TriggerPlayerDeath` no longer plays the sad-ending cutscene (1l97 removed that connection by request).
+
+Enemy and boss melee carry a serialized **`KnockbackForce`** (enemy 5, boss 8 m/s) which, with the ragdoll's own `KnockdownImpulse`, sets the flop's direction and speed. Damage still passes through the same mitigation gates (i-frames, class aura, tree `DamageReduction`, melee guard); whether a hit knocks down is decided on the **mitigated** number the HUD loses. While down the camera is forced to **third person** and follows the body (the pivot tracks the torso's position only), restoring the prior mode on recovery. Death currently has **no respawn** other than starting a new game or returning to the main menu.
 
 #### Stamina System
 

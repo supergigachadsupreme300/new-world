@@ -78,6 +78,12 @@ public partial class PlayerController
         }
     }
 
+    /// <summary>1l97: rebuild the model from scratch (destroy + build) and re-rig what was equipped.
+    /// The ragdoll's recovery calls this because the pristine rebuild IS the cleanup that removes the
+    /// physics rig - a hand-made restore would have to walk every bone back to its authored pose,
+    /// and the rebuild also re-seeds the weapon poses and body/arm layers for free.</summary>
+    public void RebuildPlayerModel() => LoadPlayerModel();
+
     /// <summary>True when the renderer sits on the arm chain (Shoulder â†’ Elbow â†’ Hand) or a held
     /// weapon rig parented to it. Declared inline so no top-level helper is added to the class.</summary>
     private static bool IsArmUnderShoulder(Transform t)

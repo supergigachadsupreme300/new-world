@@ -23,6 +23,32 @@ public partial class PlayerController
 
     public void TakeDamage(int amount)
     {
+        ApplyDamage(amount);
+    }
+
+    /// <summary>1l97 — <see cref="IPlayerDamageReceiver"/>: a weapon contact from an enemy or boss.
+    /// Runs the same mitigation as <see cref="TakeDamage"/>, then decides the RAGDOLL from what
+    /// actually landed: a killing blow always drops the body and leaves it down, and any hit that
+    /// still leaves the player standing but costs <see cref="RagdollKnockdownDamage"/> or more
+    /// knocks them down for a timed recovery. Small taps only cost HP.</summary>
+    public void ReceiveDamage(int amount, Vector3 hitDir, float force)
+    {
+        int hpBefore = HP;
+        ApplyDamage(amount);
+        int dealt = hpBefore - HP;
+        if (dealt <= 0) return;
+
+        if (HP <= 0)
+            Ragdoll.Enter(hitDir, force, stayDown: true);
+        else if (dealt >= RagdollKnockdownDamage)
+            Ragdoll.Enter(hitDir, force, stayDown: false);
+    }
+
+    /// <summary>The one place a hit becomes HP loss: i-frames, aura and tree damage reduction, the
+    /// melee guard, then the death check. Both damage entry points call this so a knockdown is
+    /// always decided on the SAME mitigated number the HUD loses.</summary>
+    private void ApplyDamage(int amount)
+    {
         if (HP <= 0) return;
         if (Time.time < _invulnerableUntil) return;
         // Aura buff: flat damage reduction from class aura skills (clamped to sane bounds).

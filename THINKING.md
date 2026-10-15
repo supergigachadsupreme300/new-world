@@ -1,3 +1,85 @@
+## 1l97. Player ragdoll: jointed knockdown/death state - reasoning trail (SHIPPED)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l96`, so this is `1l97` (enumerate first - rule 8).
+Source: the user's request, verbatim - "ok, now add ragdoll state to player model ... player will enter
+ragdoll when hit by an attack and stuff like that". Four design questions were put to the user and answered
+BEFORE any code (jointed ragdoll not a stiff fall; both heavy and lethal triggers; wire the enemy melee
+now; force third person and follow the body; remove the death -> sad-ending cutscene connection; add an
+on-demand QA key) - recorded here so the answers are not re-litigated.
+
+**H1 - "there is a ragdoll to switch to". REJECTED.** The player model is built by `PlayerModelBuilder` as a
+procedural transform tree of primitive-mesh parts (`MapBuilder.MakePart` adds MeshFilter + MeshRenderer
+only; the collider overload is opt-in and unused here) with NO skinned mesh, NO bones and NO Animator. So
+the standard "swap to a ragdoll prefab / SetRagdollMode" has nothing to act on: the rig has to be BUILT,
+per pivot, at the moment of the hit. That reframes the task from "enable" to "author a rig from the parts
+already there".
+
+**H2 - "attach the rig at build time in PlayerModelBuilder". REJECTED (rule 19).** The factory has other
+callers and none of them is a falling body; more importantly the rig only exists to be destroyed by the
+rebuild, so creating it once at the hit keeps a normal session free of physics components entirely. Hence
+`EnsureRig` on the first `Enter`, and `Exit` throws the rig away with the model.
+
+**H3 - the bone list must be the SPINE and LIMB PIVOTS ONLY. CONFIRMED by grep of the builder.** The model
+has pivots `Torso`, `ShoulderL/R`, `ElbowL/R`, `HipL/R`, `KneeL/R` under a root named `PlayerModel`, but the
+head/hair/eyes/body/belt are MESHES parented directly to `Torso` - there is no head pivot. Folding a head
+bone in would mean reparenting hair and eyes (and the eye/head-aim code reads them by name under Torso), so
+the torso bones carry the head meshes' box instead: `NearestBone` walks each mesh up to the closest pivot
+and claims it, which is exactly what keeps the head rigid with the chest and no reparenting is needed.
+
+**H4 - enemy melee already damages the player. REJECTED, and this was the real defect.** `IPlayerDamageReceiver`
+had ZERO implementers in Assets/Scripts while BOTH `EnemyController.StrikeTarget` and `BossController.HitTarget`
+switch on it - so every enemy and boss melee attack dealt nothing, and hurt only registered from air/water/
+livestock via `TakeDamage`. This is rule 14's behavioural orphan: every symbol resolved, nothing compiled
+wrong, the feature simply pointed at something that did not exist. So "add a ragdoll on hit" could not be
+tested without first wiring damage, and the interface needed the hit's DIRECTION and FORCE to have anything
+to ragdoll with.
+
+**H5 - the knockdown decision can reuse `TakeDamage`. REJECTED.** `TakeDamage` has four mitigation gates
+(i-frames, class aura, tree perk flat DR, melee guard) and only the RESULT should decide the knockdown. Two
+code paths would let the mitigation drift; so the body moved into `ApplyDamage` and the knockdown reads the
+delta `hpBefore - HP`. `TakeDamage` stays as the wrapper its existing callers use, and the new interface
+method is the only caller that passes a direction.
+
+**H6 - the projectile/melee knockback numbers fit the ragdoll. REJECTED as a first guess.** The existing
+knockback field is `HitboxSystem.KnockbackForce` (the player's own hits on enemies, 2.5-4), which is a
+different ladder from "how hard does a hit shove the PLAYER". So the enemies got their own serialized
+`KnockbackForce` (enemy 5, boss 8) and the ragdoll has its own `KnockdownImpulse` floor - three numbers on
+three ladders, named rather than reused (rule 8's "state which inputs are on different ladders").
+
+**H7 - the death cutscene must be deleted with the death path. REJECTED.** The user asked to remove the
+CONNECTION, not the ending. `PlaySadEnding` still has two other callers (the F7 debug shortcut and the
+endings browser), so deleting the method would have orphaned them; removing one line from
+`TriggerPlayerDeath` leaves the ending reachable and nothing dangling. The consequence the user should know
+is recorded instead: death now has no respawn except `StartNewGame`/`ReturnToMainMenu`.
+
+**H8 - the camera can just follow the frozen pivot. REJECTED after reading the boom.** `CameraModeSwitch`
+builds the boom's horizontal from the PIVOT's forward and its height from `ThirdPersonY - pivot.localPosition.y`.
+Feeding it a tumbling body's rotation would swing the camera; feeding it the body's POSITION is what makes
+it follow the flop. So `Update` writes position only, the pivot's authored local offset is remembered on
+entry and restored on exit (one derivation, no second literal), and third person is forced while first
+person is remembered and put back. The player's own `Update` returns early on `IgnoreInput` before
+`HandleMouseLook`, so nothing else is writing the pivot while ragdolled - the write order is safe.
+
+**H9 - the model can be detached and re-attached. REJECTED (rule 18).** `CutsceneManager.RestorePlayerControl`
+lives in Legacy/ and finds the model by name under the player; a detached model would make that lookup fail,
+and the fix would have to be made inside the fence. Keeping the model parented costs nothing, so the
+constraint decided the design rather than the other way round.
+
+**H10 - F14 is free. CONFIRMED.** `Key.F14`, `.f14Key` and `[Key.F14]` all read 0 across Assets/Scripts
+with `Key.F13` (a known lane key) as the positive control proving the property-name spelling is actually
+searched. `StaticChecks.ps1` check 8 then confirms it as the 9th lane key with no second binding.
+
+**H11 - the new file's static helpers compile as written. REJECTED, caught by reread not by a check.**
+`BoneLocalBounds` was authored `static` but calls `NearestBone`, which reads the instance `_boneSet` - a
+CS0120 that no check in this repo can see (check 1 is brace balance, check 4 is unassigned locals). Made it
+an instance method. This is rule 3's point exactly: grep proved the symbols existed, it did not prove the
+signatures agreed.
+
+**Verdict.** Jointed rig built on demand from the existing pivots; enemy/boss melee wired (the pre-existing
+bug) and routed so the knockdown reads the same mitigated number the HUD loses; both triggers with
+escalation; model stays parented; camera follows position-only with the mode restored; death cutscene
+disconnected but not deleted; F14 demo lane. `CharacterJoint` is a first use here and remains an unverified
+assumption until the play-test (see `PROGRESS.md` 1l97-status).
 ## 1l96. Unity console warnings: fix live code, skip legacy - reasoning trail (SHIPPED)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l95`, so this is `1l96` (enumerate first - rule 8).

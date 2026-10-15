@@ -1,3 +1,71 @@
+## 1l97. Player ragdoll: jointed knockdown/death state, enemy melee wired to it, death cutscene disconnected
+
+The player model is a PROCEDURAL transform hierarchy (PlayerModelBuilder - no skinned mesh, no bones, no
+Animator), so there was no ragdoll to swap in. `Assets/Scripts/Player/PlayerRagdoll.cs` attaches a physics
+rig to the SAME pivots a built model already has: one Rigidbody + BoxCollider + CharacterJoint per bone,
+chained from the root down (root/Torso/shoulders/elbows/hips/knees), each collider sized from the meshes
+whose NEAREST bone ancestor is that pivot (bone-local via InverseTransformPoint) and grown 0.04 m so
+neighbours overlap rather than meet (rule 9).
+
+**Two triggers, both wired:**
+- **Heavy hit** -> knockdown + timed recovery (`RecoverSeconds` 1.6 s), then the model is rebuilt
+  (`PlayerController.RebuildPlayerModel` -> `LoadPlayerModel`) and control/animator/camera come back.
+- **Lethal hit** -> `stayDown: true`: the body ragdolls and stays down. A later lethal hit while already
+  down escalates a recoverable knockdown to permanent instead of restarting the timer.
+
+**Enemy melee dealt the player zero damage before this task** (rule 14's behavioural-orphan case): the
+interface `IPlayerDamageReceiver` had NO implementer in Assets/Scripts, so `EnemyController.StrikeTarget`
+and `BossController.HitTarget` silently hit nothing. `PlayerController` now implements it, and the interface
+gained the hit's direction and the attacker's knockback force (`ReceiveDamage(int, Vector3, float)`); both
+call sites pass `target.position - transform.position` flattened, with new serialized `KnockbackForce`
+fields (enemy 5, boss 8). Damage routes through the new `private int ApplyDamage(int)` so the knockdown
+decision sees the SAME mitigated number (i-frames, aura, tree perks, melee guard) the HUD loses;
+`TakeDamage` (air/water/livestock callers) is now a one-line wrapper over it.
+
+**Camera:** while down, `PlayerRagdoll.Update` writes the pivot's WORLD position to the Torso (position
+only - the boom's horizontal is built from the pivot's forward, and a tumbling body would swing it), and
+`CameraModeSwitch.SetThird()` is forced on entry with the prior mode restored on exit. The pivot's authored
+local offset is remembered on entry and restored on exit rather than re-spelled (a second literal would
+drift from SetupPlayerCamera's the next time that moves).
+
+**Death -> cutscene removed** (user request): `GameManager.TriggerPlayerDeath` no longer calls
+`CutsceneManager?.PlaySadEnding()`; the stay-down ragdoll IS the death state. `PlaySadEnding` itself still
+exists and is still reachable from the F7 debug shortcut and the endings menu, so nothing is orphaned
+(rule 14). Consequence, stated: death now has no respawn path except `StartNewGame`/`ReturnToMainMenu`;
+`PlayerController.ResetPlayer` exits an active ragdoll first so a new game stands the body back up.
+
+The model root STAYS PARENTED to the player while ragdolled: recovery rebuilds the model wholesale, and
+`CutsceneManager.RestorePlayerControl` (Legacy, read-only, rule 18) finds the model by NAME under the
+player, so detaching would break a path this task may not edit.
+
+**QA lane:** new F14 lane in `NewWorldTestGround` (`EnableRagdollDemo` + `RagdollDemoKey = Key.F14`) knocks
+the player down on demand through the same entry a real hit uses, light path only (a death triggered there
+has no way back). F14 checked free in all three Input System spellings with F13 as the positive control;
+`StaticChecks.ps1` check 8 now covers 9 lane keys.
+
+**Files (10):** `Player/PlayerRagdoll.cs` (new), `Player/PlayerController.cs`,
+`Player/PlayerController.Combat.cs`, `Player/PlayerController.Animation.cs`,
+`Enemies/_Shared/EnemyController.cs`, `Enemies/Boss/BossController.cs`, `Core/GameManager.cs`,
+`Opt/NewWorldTestGround.cs`, `tools/StaticChecks.ps1`, docs.
+
+### 1l97-status
+- Verification: grep + reread + `tools\StaticChecks.ps1` -> **0 candidates** (all 8 checks green; the new
+  file is in `$files`). **No build run** (rule 3) - Unity is the compiler.
+- skills: none applied - the artifact is a C# edit to an existing procedure-built rig, and the installed
+  Unity skills drive a running editor over MCP / batchmode, which rule 3 forbids here (informative, never
+  authoritative). No DCC artifact involved.
+- Loose ends: `CharacterJoint` is a FIRST USE in this codebase (grep: zero prior `CharacterJoint` /
+  `ConfigurableJoint` / `HingeJoint` in Assets/Scripts), so its swing/twist limits and anchor behaviour are
+  unverified assumptions until play-test. `Rigidbody.linearDamping`/`angularDamping` follow pre-existing
+  Unity-6 use (rule 3). **Threshold note, stated rather than hidden:** a regular enemy hit is `Damage 10`
+  and mitigation only lowers it, so it sits UNDER `RagdollKnockdownDamage` (15) - the knockdown is
+  currently a boss/heavy-hit event by construction. `RagdollKnockdownDamage` is serialized on
+  `PlayerController`, so a play-test that wants grunt hits to knock the player down lowers it in the
+  Inspector rather than editing code.
+- Pending play-test: heavy hit -> flop + recover; lethal -> stays down, no cutscene; camera follows in
+  third person and the mode restores on recovery; F14 on demand; enemies/boss now actually damage the
+  player; a sitting player is not ragdolled. Plus outstanding 1l95 (Needle-Field spikes), 1l94 (H lane),
+  1l93.
 ## 1l96. Silence Unity console warnings in live code (CS0618/CS0114/CS0162/CS0168/CS0675/UAC1001)
 
 The user pasted Unity's console into `compile error.txt` (repo root) and asked for the warnings to be

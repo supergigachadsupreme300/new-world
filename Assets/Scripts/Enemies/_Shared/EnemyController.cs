@@ -28,6 +28,8 @@ public class EnemyController : MonoBehaviour, IDamageable
     [Header("Combat")]
     [SerializeField] private int _maxHealth = 50;
     public int Damage = 10;
+    [Tooltip("1l97: m/s of knockback this enemy's melee carries into the player on top of its own force - the part of a hit that decides whether the player is knocked down into the ragdoll (see PlayerController.ReceiveDamage). 0 = damage only, no ragdoll impulse.")]
+    public float KnockbackForce = 5f;
     [Tooltip("Flat damage reduction applied after armor factor (blocked=false skips).")]
     public int Armor;
     [Tooltip("0..1 damage reduction multiplier (0 = none).")]
@@ -401,8 +403,17 @@ public class EnemyController : MonoBehaviour, IDamageable
 
 private void StrikeTarget(Transform target)
     {
+        // 1l97: the knock direction is travelled toward the player (their own facing is the
+        // fallback when the two are co-located), flattened so a swing cannot launch the body up.
+        Vector3 hitDir = target.position - transform.position;
+        hitDir.y = 0f;
+        if (hitDir.sqrMagnitude < 1e-4f)
+            hitDir = transform.forward;
+        else
+            hitDir = hitDir.normalized;
+
         if (target.TryGetComponent<IPlayerDamageReceiver>(out var receiver))
-            receiver.ReceiveDamage(Damage);
+            receiver.ReceiveDamage(Damage, hitDir, KnockbackForce);
         else if (target.TryGetComponent<IDamageable>(out var damageable))
             damageable.TakeDamage(Damage);
     }
@@ -531,5 +542,8 @@ private void StrikeTarget(Transform target)
 /// </summary>
 public interface IPlayerDamageReceiver
 {
-    void ReceiveDamage(int amount);
+    /// <summary>Take a weapon contact. 1l97 added the direction and the attacker's own knockback
+    /// force, because the receiver decides whether the hit only costs HP or also puts the player
+    /// into the jointed ragdoll (PlayerController.ReceiveDamage).</summary>
+    void ReceiveDamage(int amount, Vector3 hitDir, float force);
 }

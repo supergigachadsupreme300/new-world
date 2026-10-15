@@ -4,13 +4,18 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
-public partial class PlayerController : MonoBehaviour, IHealable
+public partial class PlayerController : MonoBehaviour, IHealable, IPlayerDamageReceiver
 {
     public float MoveSpeed = 5f;
     public float SprintMultiplier = 2f;
     public float Gravity = -9.81f;
     public float JumpHeight = 1.5f;
     public int HP = 100;
+
+    /// <summary>1l97: damage from a single weapon contact (after mitigation) that still knocks the
+    /// player down into the ragdoll. Below this the hit just costs HP, so small enemy taps never
+    /// turn the fight into a ragdoll reel. A hit that takes HP to zero always ragdolls regardless.</summary>
+    public int RagdollKnockdownDamage = 15;
 
     public float Stamina = 1000f;
 
@@ -45,6 +50,22 @@ public bool IgnoreInput { get; private set; }
     // scene scan. A destroyed object nulls out and re-finds itself on the next Tab.
     private CharacterInfoUI _charInfoCached;
     private CharacterInfoUI CharacterInfoRef => _charInfoCached != null ? _charInfoCached : _charInfoCached = Object.FindAnyObjectByType<CharacterInfoUI>();
+    // 1l97: the ragdoll is created on the first hit that needs it (like PlayerSitController in
+    // Start), so a player who is never knocked down never carries the component.
+    private PlayerRagdoll _ragdollCached;
+    /// <summary>The player's ragdoll state, created on first use.</summary>
+    public PlayerRagdoll Ragdoll
+    {
+        get
+        {
+            if (_ragdollCached == null) _ragdollCached = GetComponent<PlayerRagdoll>();
+            if (_ragdollCached == null) _ragdollCached = gameObject.AddComponent<PlayerRagdoll>();
+            return _ragdollCached;
+        }
+    }
+    /// <summary>The ragdoll only if it already exists — for paths that must not CREATE one (Reset
+    /// runs from Start, where a fresh player is not ragdolled).</summary>
+    private PlayerRagdoll RagdollIfPresent => _ragdollCached != null ? _ragdollCached : GetComponent<PlayerRagdoll>();
     // Physics-integrity fail-net (1ca): a corrupted collider (NaN/garbage mesh height) can
     // depenetrate the CharacterController thousands of metres in one step. _lastSafePosition
     // holds the last sane position; EnforcePhysicsSanity reverts any such launch.
@@ -233,13 +254,21 @@ public bool IgnoreInput { get; private set; }
 
     public void ResetPlayer()
     {
+        // 1l97: a respawn while the body is still down must stand it up first. ResetPlayer is the
+        // only path out of a death ragdoll (a new game), and Exit's model rebuild is what
+        // replaces the physics rig with a pristine one. Read-only: this never CREATES the component,
+        // so Start's call on a fresh player stays a no-op.
+        var ragdoll = RagdollIfPresent;
+        if (ragdoll != null && ragdoll.IsRagdolled)
+            ragdoll.Exit();
+
         HP = MaxHP;
         Stamina = MaxStamina;
         Money = 1000;
         var testGround = Object.FindAnyObjectByType<NewWorldTestGround>();
         if (testGround != null && testGround.IsArenaReady)
         {
-            // Default spawn is the test ground since 1dn (new game / death reset): the platform is
+            // Default spawn is the test ground since 1dn (new game): the platform is
             // built synchronously in Awake, so this is never a void. The boot chunk is the fallback
             // when the test platform isn't built.
             TeleportTo(testGround.GetSpawnPoint());

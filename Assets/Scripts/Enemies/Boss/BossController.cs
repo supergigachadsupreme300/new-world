@@ -30,6 +30,8 @@ public class BossController : MonoBehaviour, IDamageable
     public float AttackRange = 2.5f;
     public float AttackCooldown = 1f;
     public int MeleeDamage = 20;
+    [Tooltip("1l97: m/s of knockback this boss's melee carries into the player on top of its own force - the part of a hit that decides whether the player is knocked down into the ragdoll (see PlayerController.ReceiveDamage). 0 = damage only, no ragdoll impulse.")]
+    public float KnockbackForce = 8f;
 
     [Header("Pattern Unlocks")]
     public bool CanCharge = true;
@@ -118,8 +120,17 @@ public class BossController : MonoBehaviour, IDamageable
 
     private void HitTarget(Transform target, int amount)
     {
+        // 1l97: same contract as EnemyController.StrikeTarget - travelled toward the player with the
+        // attacker's facing as the co-located fallback, flattened so the swing cannot launch them up.
+        Vector3 hitDir = target.position - transform.position;
+        hitDir.y = 0f;
+        if (hitDir.sqrMagnitude < 1e-4f)
+            hitDir = transform.forward;
+        else
+            hitDir = hitDir.normalized;
+
         if (target.TryGetComponent<IPlayerDamageReceiver>(out var receiver))
-            receiver.ReceiveDamage(amount);
+            receiver.ReceiveDamage(amount, hitDir, KnockbackForce);
         else if (target.TryGetComponent<IDamageable>(out var damageable))
             damageable.TakeDamage(amount);
     }

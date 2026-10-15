@@ -567,7 +567,11 @@ public class GameManager : MonoSingleton<GameManager>
     {
         if (IsPlayerDead) return;
         IsPlayerDead = true;
-        CutsceneManager?.PlaySadEnding();
+        // 1l97: the death -> sad-ending cutscene connection was removed by request. Death is now the
+        // player's stay-down ragdoll (PlayerRagdoll.Enter with stayDown, entered from
+        // PlayerController.ReceiveDamage) instead of a cutscene. PlaySadEnding itself still exists
+        // and is still reachable from the F7 debug shortcut above and the endings menu in
+        // UIManager.Endings, so this is a disconnect, not a deletion of the ending.
     }
 
     public void ReloadFromBossDeath()

@@ -107,7 +107,20 @@ $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            'Assets\Scripts\Models\Magic\CcZoneFxModelBuilder.cs',
 'Assets\Scripts\Models\Magic\AoeAimPreviewModelBuilder.cs',
             'Assets\Scripts\Models\Magic\SpellBoltModelBuilder.cs',  # 1l73: new file; check 1 (balance) covers a brand-new builder like the 1jb/1jd moves
-            'Assets\Scripts\Models\WeaponProjectileModelBuilder.cs')
+            'Assets\Scripts\Models\WeaponProjectileModelBuilder.cs',
+            # 1l97 added the ragdoll plus every file its wiring touches: PlayerRagdoll is brand new
+            # and joint-heavy (check 1 is the cheapest thing that catches a botched brace), and the
+            # PlayerController / EnemyController / BossController / GameManager edits change a
+            # DAMAGE SIGNATURE (IPlayerDamageReceiver) and split TakeDamage into ApplyDamage, which
+            # is exactly the 'review is not compilation' shape rule 3 warns about - two signatures
+            # agreeing, and a local read after a refactor.
+            'Assets\Scripts\Player\PlayerRagdoll.cs',
+            'Assets\Scripts\Player\PlayerController.cs',
+            'Assets\Scripts\Player\PlayerController.Combat.cs',
+            'Assets\Scripts\Player\PlayerController.Animation.cs',
+            'Assets\Scripts\Enemies\_Shared\EnemyController.cs',
+            'Assets\Scripts\Enemies\Boss\BossController.cs',
+            'Assets\Scripts\Core\GameManager.cs')
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'

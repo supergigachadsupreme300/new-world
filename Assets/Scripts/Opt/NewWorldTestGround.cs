@@ -162,6 +162,11 @@ public sealed class NewWorldTestGround : MonoBehaviour
     public Key BoomAuditKey = Key.P;
     private string _boomAuditText;
 
+    [Tooltip("QA (1l97): press RagdollDemoKey to knock the player down into the jointed ragdoll on demand, so the new state can be watched in the arena without first finding a hit hard enough to trigger it. This lane is a STATE CHANGE, not a read-only audit - it stands the player up again on recovery exactly as a real heavy hit does. It takes the light-hit path (timed recovery), because the lethal path (stay down) is tested by actually being killed and, with the death cutscene connection removed in 1l97, has no other way back.")]
+    public bool EnableRagdollDemo = true;
+    [Tooltip("QA (1l97): key that knocks the player down. Key.F14 - chosen the way F13's and Numpad1's were: 'Key.F14', '.f14Key' and '[Key.F14]' all read 0 in Assets\\Scripts, with F13 as the positive control proving the property-name spelling is actually being searched. F14 is free because nothing has ever used it: F13 went to the 1io crater audit. A letter was avoided on purpose (letters are rebindable as skill keys and TypingMinigame captures a-z while open), and so was a numpad (the user has NO numpad, 1ky). The full map as of 1l97: F1 the combat-mode toggle (PlayerController.Interactions.cs:521), F2 the 1ik frame-budget lane, F3 the 1hy corner/void audit, F4 the 1ic look audit, F5 the CameraModeSwitch toggle, F6-F12 editor cutscene shortcuts (GameManager.cs), F13 the 1io crater audit, F14 this lane, Numpad1 the 1je summon-model lane, Numpad8 the 1jq trail lane, numpadEnter the ending cutscene, H the 1l94 wall-face audit, P the 1ky boom lane. See tools\\StaticChecks.ps1 check 8, which enforces the no-double-binding half of this for every lane key.")]
+    public Key RagdollDemoKey = Key.F14;
+
     // Trailing window for the boom readout. A single frame cannot catch a transient, and 'snaps in
     // and out' IS a transient, so the trackers are fed every frame and the key only READS the
     // trailing window - the report describes the frames that ran UP TO the press (same convention
@@ -1515,6 +1520,18 @@ public sealed class NewWorldTestGround : MonoBehaviour
                 RunSafely("boom audit", SnapshotBoomAudit);
         }
 
+        // 1l97: the ragdoll demo lane. Polled with the others, above the early returns, for the same
+        // reason a lane below them could report nothing. Unlike them it is a state change rather than
+        // a read-only audit, so it goes through RunSafely the same way anyway - a fault in the entry
+        // path should surface as a named failure instead of a half-set-up player.
+        if (EnableRagdollDemo)
+        {
+            Keyboard kbRagdoll = Keyboard.current;
+            if (kbRagdoll != null && kbRagdoll[RagdollDemoKey] != null
+                && kbRagdoll[RagdollDemoKey].wasPressedThisFrame)
+                RunSafely("ragdoll demo", TriggerRagdollDemo);
+        }
+
         RunPendingPlayerGrants();
         if (!EnableWeapons || _rackStands.Count == 0) return;
         var gm = GameManager.Instance;
@@ -1605,6 +1622,34 @@ public sealed class NewWorldTestGround : MonoBehaviour
         }
         _craterAuditText = headline;
         Debug.Log("[NewWorldTestGround] " + report);
+    }
+
+    /// <summary>
+    /// QA (1l97): knock the player down on demand, through the same public entry a real hit uses, so
+    /// the lane exercises the shipping path rather than a side door. Takes the LIGHT branch (timed
+    /// recovery) deliberately: the lethal branch is the player actually dying, and with the death
+    /// cutscene connection removed in 1l97 a death triggered here would have no way back.
+    /// </summary>
+    private void TriggerRagdollDemo()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || gm.Player == null)
+        {
+            Debug.LogWarning("[NewWorldTestGround] ragdoll demo: no player to knock down.");
+            return;
+        }
+        var pc = PlayerControllerCached(gm.Player);
+        if (pc == null)
+        {
+            Debug.LogWarning("[NewWorldTestGround] ragdoll demo: no PlayerController on the player.");
+            return;
+        }
+
+        // hitDir uses the same convention as EnemyController.StrikeTarget - the direction the body is
+        // pushed - so a frontal blow knocks the player away from the camera instead of into it.
+        pc.Ragdoll.Enter(-pc.transform.forward, 10f, stayDown: false);
+        Debug.Log("[NewWorldTestGround] ragdoll demo: knocked down on the light path; it recovers on "
+                  + "its own after " + pc.Ragdoll.RecoverSeconds.ToString("0.0") + " s.");
     }
 
     /// <summary>
