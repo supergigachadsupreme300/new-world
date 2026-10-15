@@ -43,10 +43,10 @@ the player down on demand through the same entry a real hit uses, light path onl
 has no way back). F14 checked free in all three Input System spellings with F13 as the positive control;
 `StaticChecks.ps1` check 8 now covers 9 lane keys.
 
-**Files (10):** `Player/PlayerRagdoll.cs` (new), `Player/PlayerController.cs`,
+**Files (12):** `Player/PlayerRagdoll.cs` (new), `Player/PlayerController.cs`,
 `Player/PlayerController.Combat.cs`, `Player/PlayerController.Animation.cs`,
 `Enemies/_Shared/EnemyController.cs`, `Enemies/Boss/BossController.cs`, `Core/GameManager.cs`,
-`Opt/NewWorldTestGround.cs`, `tools/StaticChecks.ps1`, docs.
+`Opt/NewWorldTestGround.cs`, `tools/StaticChecks.ps1`, `game-design.md`, `PROGRESS.md`, `THINKING.md`.
 
 ### 1l97-status
 - Verification: grep + reread + `tools\StaticChecks.ps1` -> **0 candidates** (all 8 checks green; the new
