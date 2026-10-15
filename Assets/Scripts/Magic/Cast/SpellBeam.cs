@@ -109,7 +109,13 @@ public class SpellBeam : MonoBehaviour
     /// funnel body made dead: the tick still walks ConeRays/ConeSegments analytically and the drawn
     /// body no longer sits on those rays.</para>
     /// <para>1kb: the chunks hold the scale the builder wrote — the per-frame base-radius readout
-    /// <c>_funnelBaseRadius</c> existed only for the body breath and is deleted with it.</para></summary>
+    /// <c>_funnelBaseRadius</c> existed only for the body breath and is deleted with it.</para>
+    /// <para>1l85: the chunks also hold that scale for the whole channel. The old disc loop read each
+    /// disc's LIVE scale back and multiplied it by a breathe factor (<c>ls.x * ds</c>), so a held
+    /// flamethrower compounded that factor every frame into unbounded growth ("the flamethrower are
+    /// enlarging too big") — the random-walk 1kb set out to end, left live in the cone branch. The discs
+    /// now keep the per-order size the builder wrote: smallest at the mouth (i=0), widest at the tip,
+    /// which is the "max size corresponds to chunk order, closest smallest" the report asked for.</para></summary>
     private Transform[] _funnelChunks;
 
     /// <summary>1ir: every material that must fade out together (2 for a line, 1 + rays*segs + ring
@@ -442,13 +448,14 @@ public class SpellBeam : MonoBehaviour
         // 1kb (testing.md task 5): the BODY HOLDS its authored size — the shrink-and-enlarge
         // breathing is gone. The line's pulse previously scaled `_bodyBaseScale * pulse` every frame
         // (12% + 6% oscillation at 23/41 Hz); a cone flared every disc's radius by `pulse` and
-        // compounded its thickness through `s.y * pulse` (a slow random-walk upward that this freeze
-        // also ends). Both now keep the scale the builder wrote; only position/rotation still
-        // re-derive per frame, because the beam must track the caster and sweep with the aim.
-        // "Holding" is the steady extended beam — the debris keeps orbiting and the tip orb keeps its
-        // soft glow throb below, so the beam is held, not frozen in place.
+        // compounded it through `ls.x * ds` (a slow random-walk upward).
+        // 1l85: the cone's compounding write was in fact still live here until now, so the freeze had
+        // only landed for the line body — the cone branch below finally removes the scale write too, and
+        // both bodies keep the scale the builder wrote. Only position/rotation still re-derive per frame,
+        // because the beam must track the caster and sweep with the aim. "Holding" is the steady extended
+        // beam — the debris keeps orbiting and the tip orb keeps its soft glow throb below, so the beam
+        // is held, not frozen in place.
         float tempo = _look.Tempo;
-        float scaleMul = _look.Scale;
 
         if (_body != null)
         {
@@ -459,8 +466,10 @@ public class SpellBeam : MonoBehaviour
         }
         else if (_funnelChunks != null)
         {
-            // Gentle axial bob + per-disc scale pulse for cone funnel (Flamethrower).
-            // Discs keep their authored scale except breathing; debris orbits as before.
+            // Gentle axial bob for the cone funnel (Flamethrower). The discs keep the scale the builder
+            // wrote (1l85): their per-order taper — smallest at the mouth (i=0), widest at the tip — IS
+            // the cap, and nothing writes scale here any more, so a held cone cannot grow. Debris orbits
+            // below.
             float axialPhase = Time.time * 2.2f * tempo;
             float axial = Mathf.Sin(axialPhase) * 0.05f;
             for (int i = 0; i < FunnelChunks; i++)
@@ -470,10 +479,6 @@ public class SpellBeam : MonoBehaviour
                 Transform t = _funnelChunks[idx];
                 if (t == null) continue;
                 float lenT = i / (float)Mathf.Max(1, FunnelChunks);
-                float discPhase = Time.time * 3.4f * tempo + i * 0.38f;
-                float ds = 1f + Mathf.Sin(discPhase) * 0.08f * scaleMul + (1f - lenT) * 0.03f * Mathf.Sin(discPhase * 1.1f);
-                Vector3 ls = t.localScale;
-                t.localScale = new Vector3(ls.x * ds, ls.y, ls.z * ds);
                 Vector3 lpDisc = t.localPosition;
                 t.localPosition = new Vector3(lpDisc.x, lpDisc.y, lpDisc.z + axial * lenT);
             }

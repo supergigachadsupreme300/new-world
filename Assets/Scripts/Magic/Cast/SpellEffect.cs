@@ -48,6 +48,14 @@ public class SpellEffect : MonoBehaviour
     private const float WaveLift = 0.35f;
     private const float WaveTickInterval = 0.15f;
 
+    /// <summary>1l85: the wave body's ripple driver — the floor of cubes that bobs in sequence. Found
+    /// once from the body the builder attaches (<see cref="MagicProjectileModelBuilder"/>'s Wave). Null
+    /// for every non-wave projectile and for a body built without one; the wave branch null-checks it.
+    /// <para>Driven from here, not from the component's own <c>Update</c> (rule 19): the same builder
+    /// draws motionless QA pedestals, and the per-frame ripple must run only while the wave MOVES.</para>
+    /// </summary>
+    private WaveRipple _waveRipple;
+
     // Collider-on-demand (1dq): the projectile keeps its current chunk in the
     // ColliderRequestRegistry so a long-range bolt still lands on far terrain, while every other
     // chunk beyond the player ring stays collider-free. Moved chunk-by-chunk as the bolt flies.
@@ -121,6 +129,7 @@ public class SpellEffect : MonoBehaviour
             // spent. Travel time is Range / Speed, so the sweep's reach is a number on the spell,
             // never a leftover of Lifetime (the 4 s default would let it run 80 m).
             _wave = true;
+            _waveRipple = GetComponentInChildren<WaveRipple>();
             if (_spell.Range > 0f)
                 Lifetime = Mathf.Min(Lifetime, _spell.Range / Mathf.Max(1f, Speed));
 
@@ -202,6 +211,9 @@ public class SpellEffect : MonoBehaviour
             }
 
             SweepWave();
+            // 1l85: roll the crest across the floor. Driven here (not in the body component) so only a
+            // MOVING wave ripples; the same floor on the QA pedestal stays flat (rule 19).
+            if (_waveRipple != null) _waveRipple.Apply(Time.time);
             transform.position += _dir * step;
             return;
         }

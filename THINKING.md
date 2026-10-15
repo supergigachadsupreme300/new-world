@@ -1,3 +1,41 @@
+## 1l85. Flamethrower size, Firestorm ring gaps, Wave floor
+
+**Q1 — Flamethrower "enlarging too big."** *H (the cone compounded its own breathe — CONFIRMED).*
+`SpellBeam.PulseVisual`'s disc loop read `ls = t.localScale` and wrote `ls.x * ds` (`ds ≈ 1 ± 0.11`). Reading
+the LIVE scale and multiplying means each frame's write feeds the next: a random walk in log-space whose
+variance grows ~√n, so a held cone drifts by a factor of several within seconds. Two tells named it: the
+1kb comment *claims* the cone freeze landed ("Both now keep the scale the builder wrote") while the write is
+still on the page — a comment naming a mechanism the code does not implement (rule 8); and `ds` has a
+DOWNWARD log drift (`E[log ds] < 0`), so the failure is a walk in both directions, not a monotonic grow —
+consistent with "enlarging" as the tail the user happened to catch. *Fix:* delete the scale write; the discs
+hold the builder's per-order taper. *Rejected:* breathing around a captured base scale — the user's earlier
+1kb request ("stop the shrink-and-enlarge") was to stop breathing, so re-adding it, even bounded, would
+re-introduce the disliked effect.
+
+**Q2 — Firestorm "gaps between cubes."** *H (flat rings, tapered spacing — CONFIRMED by arithmetic).*
+`BuildFunnel` rings sit at `r·height` with `r = Lerp(0.12, radius·0.85, i/6)`, so consecutive centres are
+`ringSpan = height·(topR−bottomR)/6` apart — 1.45 m at radius 3.8. Each ring is a default Cube scaled
+`(r, 1, r)`, i.e. 1 m tall, so any span > 1 leaves 0.45 m of daylight. *Fix:* thickness = `ringSpan · 1.25`
+(the beam funnel already overlaps its mouth discs at 1.36× — same trick), clamped to ≥ 0.1 so a narrow or
+inverted taper cannot hand a Cube a non-positive scale (rule 9). *Rejected:* moving the rings closer —
+`r·height` is the taper's own shape and moving it would change the silhouette, not just close the gap.
+
+**Q3 — Wave rework.** *H (the old body was a shape, not a wave — CONFIRMED by reading `Wave`).* It built 5
+cubes along a rising, tilting diagonal: a frozen crest silhouette with no motion. The new body is a flat
+lattice; the crest is time-dependent, so it belongs in the MOVING loop (rule 19) — the same builder also
+feeds motionless QA pedestals through `CreateProjectileDisplay`, so a self-updating component would ripple
+on every pedestal. *Shape choice:* the ripple offsets each cell along local Y on `sin(t·speed − z·k)`, keyed
+on the cell's own local Z so the crest travels along travel (+Z, the Wave branch forces local +Z via
+`LookRotation`). Offsets are recomputed from each cell's authored rest, never accumulated — deliberately the
+fix Q1 needed, applied pre-emptively. *Colour:* a uniform-colour floor shows the ripple only weakly because
+vertical translation does not change face normals; so `Apply` also lerps each cell's material toward the
+school colour on the crest (`k²` to keep it crest-local). *Rejected:* putting the ripple's `Update` on the
+component — violates rule 19 and would animate the pedestal; rejected also a hand-authored static crest
+colour, which would not track the moving crest. `WaveRipple` is resolved once in `Launch` and only for
+`ProjectileShape.Wave`, so every non-wave projectile pays nothing.
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l84. Leap direction from WASD, not the camera
 
 **H1 (the leap used the camera look — CONFIRMED).** `ResolveTeleport` flattened `fwd`, which for an

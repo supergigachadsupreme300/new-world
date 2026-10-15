@@ -2012,6 +2012,14 @@ a school read distinctly instead of feeling like copies:
   constant shrink-and-enlarge. The body now keeps the scale the builder wrote for the whole channel, so
   a held beam stays steady; the debris still orbits (1is swirl) and the tip orb keeps its soft glow
   throb — only the body's scale is frozen.
+  **1l85 finished that freeze for the cone.** The cone's disc loop still read each disc's LIVE scale
+  back and multiplied a breathe factor into it (`ls.x * ds`), so a held flamethrower compounded the
+  factor every frame into unbounded growth ("the flamethrower are enlarging too big") — the very
+  random-walk 1kb set out to end, left live in the branch 1kb's comment claimed it had fixed. The
+  scale write is gone; the discs hold the per-order size the builder gave them — smallest at the mouth
+  (i=0), widest at the tip — which is the "max size corresponds to chunk order, closest smallest" the
+  report asked for, now with nothing left to grow. The axial bob and the debris orbit are unchanged
+  (they move position, not scale).
   **1l83: the beam root sits at the projectile muzzle, NOT the caster's feet.** `ResolveBeam` roots the
   beam at `origin + cast-forward * SpellCaster.CastMuzzleOffset` (0.5 m, no vertical lift) and hands the
   cast origin to `SpellBeam`, whose per-frame follow is now `anchor.position + anchor.forward * offset`
@@ -2119,8 +2127,16 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   from the caster) as its `Radius`-wide band passes over them — a per-wave `HashSet` of hit roots, ticked
   on a short cadence so the band keeps up with a fast wave. A wave deliberately never detonates on the
   ground it rides, never dies on the first foe it touches (it passes through and shoves), and leaves no
-  trail strip — it is a sweep, not a bolt. Fire Wave is the only spell: a 3.4 m-wide band sweeping
-  12 m at 20 m/s (~0.6 s), knockback shoving foes away from the caster along the ground.
+  trail strip — it is a sweep, not a bolt. Fire Wave and Frozen Touch are the two Wave spells: a 3.4 m
+  and 3.2 m-wide band sweeping 12 m and 10 m, knockback shoving foes away from the caster along the
+  ground.
+  **The body (1l85) is a flat floor of small voxel cubes** spanning the band — no longer the old
+  diagonal ramp of five cubes, which was a wave *shape*, not a wave. The crest is drawn by a traveling
+  sine: a `WaveRipple` component holds the floor's cells and offsets each along local Y in order as
+  time advances, and `SpellEffect`'s wave branch calls it on every frame the wave MOVES (rule 19 — the
+  ripple lives in the flying loop, never in the shape factory, so the QA pedestal that same builder
+  feeds draws the floor motionless). Each offset is recomputed from the cell's authored rest, never
+  accumulated, so the ripple cannot drift.
 
 **Sky spells** (`SummonFallingRock`, the meteor/boulder family) drop a **rock formation** from high
 above the ground target and read as the spell landing: the burst (damage, knockback, terrain
@@ -2169,7 +2185,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Soul** | 1l6x: a drifting spectral wisp — a bright cold core leading (+Z) inside a soft translucent halo, with a long tapering frost tail and two stray motes behind — so a homing missile reads as a spirit that hunts. **Display-only:** `ProjectileShape.Soul` carries no behaviour (unlike `Missile` it has no homing of its own), and it is authored-only — never in a `Shape_*` family. Chill Soul wears it while keeping `Missile` as its gameplay shape. |
 | **Hand** | 1l6y: a spectral reaching hand — a flat translucent palm whose four fingers lead (+Z) into the foe, a thumb to one side, a bright cold core in the palm and two ghostly flecks trailing — so a numbing touch reads as a hand reaching out. **Display-only** and authored-only (never in a `Shape_*` family). Chill Touch. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
-| **Wave** | 1jy: a **flat ground-hugging disc** of voxel cubes with a brighter forward crest arc — Fire Wave. This shape is *also behaviour*, not just a look: a Wave-shaped projectile is fully transformed by `SpellEffect` into a terrain-glued forward sweep (§3.8.1 below). It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the sweep without its asking. |
+| **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellEffect`'s wave branch calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) Fire Wave and Frozen Touch. This shape is *also behaviour*, not just a look: a Wave-shaped projectile is fully transformed by `SpellEffect` into a terrain-glued forward sweep (§3.8.1 below). It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the sweep without its asking. |
 
 `Auto` picks from the spell's **school family** via `SpellLook.Resolve` (§3.8.3): Fire→Sphere,
 Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Physical→Dart, everything
@@ -2639,6 +2655,14 @@ kept its Pillar/Halo profile). The same data-driven pass also gave Frost Pierce 
 **Instant** delivery, Frozen Touch a **Wave** projectile, Tundra a new identity as the **Snow Drift**
 caster-anchored familiar, and Witching Chill a **Frost vortex** — see magic-skills.md; keys are
 unchanged, so the skill tree holds.
+
+**1l85: the shared `Funnel` body's rings no longer show gaps.** `SpellZoneModelBuilder.BuildFunnel` — the
+tornado body Firestorm draws over its storm area (and any pulling zone draws over its radius) — is a
+stack of 7 rings whose centres rise with the taper. The rings were flat 1-unit cubes, so once the taper's
+per-ring vertical span opened past 1 the stack read as separate plates with daylight between them ("the
+firestorm skill models has gaps between cubes"). Each ring is now given a thickness that overlaps its
+neighbour, the same overlap the beam funnel uses at its mouth, so the tornado reads as one body. Drawn
+only: `Funnel` stays `Funnel` for every non-authored zone, so no F4 key moves and `authored` is unchanged.
 
 #### Spell Sources
 

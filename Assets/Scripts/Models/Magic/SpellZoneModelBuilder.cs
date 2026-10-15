@@ -20,22 +20,34 @@ public static class SpellZoneModelBuilder
 {
     /// <summary>Funnel: tapering stack of 7 spinning flat rings + 6 orbiting debris blocks
     /// (tornado / vortex). Placed in the parent's local frame; every collider is destroyed and the
-    /// zone's own tick never queries a piece, so this is body-only by construction.</summary>
+    /// zone's own tick never queries a piece, so this is body-only by construction. (1l85: each ring is
+    /// scaled to overlap the next, so the taper reads as one body with no gaps between the rings.)</summary>
     public static void BuildFunnel(Transform parent, float radius, Material sharedMat)
     {
         const float height = 2.8f;
         const int rings = 7;
+        const float bottomR = 0.12f;
+        float topR = radius * 0.85f;
+        // 1l85: ring centres are at r*height with r linear in the index, so consecutive centres sit a
+        // UNIFORM span apart vertically. The rings used to be flat 1-unit cubes, so once that span
+        // opened past 1 the stack showed daylight between every pair ("the firestorm skill models has
+        // gaps between cubes"). Give each ring a thickness that OVERLAPS its neighbour — the same
+        // overlap trick the beam funnel uses at its mouth — so the tornado reads as one body.
+        // Clamped because radius is caller-supplied (a pull zone can be narrow): a span that shrinks
+        // toward zero, or inverts, must never reach a Cube as a zero/negative scale.
+        float ringSpan = Mathf.Abs(height * (topR - bottomR)) / (rings - 1);
+        float ringThickness = Mathf.Max(ringSpan, 0.1f) * 1.25f;
         for (int i = 0; i < rings; i++)
         {
             float t = i / (float)(rings - 1);
-            float r = Mathf.Lerp(0.12f, radius * 0.85f, t);
+            float r = Mathf.Lerp(bottomR, topR, t);
 
             var ring = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ring.name = "SpellRing_" + i;
             DestroyCollider(ring);
             ring.transform.SetParent(parent, false);
             ring.transform.localPosition = new Vector3(0f, r * height, 0f);
-            ring.transform.localScale = new Vector3(r, 1f, r);
+            ring.transform.localScale = new Vector3(r, ringThickness, r);
             ring.transform.localRotation = Quaternion.Euler(0f, 45f - i * 14f, 0f);
             ApplyShared(ring, sharedMat);
         }

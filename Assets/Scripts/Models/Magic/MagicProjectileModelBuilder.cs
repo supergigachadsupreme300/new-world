@@ -537,28 +537,61 @@ internal static class MagicProjectileModelBuilder
     }
 
     /// <summary>
-    /// Ground-hugging wave front (1jy): a flat disc of voxel cubes at ground level with a brighter
-    /// front-facing crest arc. The parent projectile's rotation is flattened to horizontal every
-    /// frame by <c>SpellEffect</c> (the Wave branch re-aims <c>LookRotation</c> at the flattened
-    /// <c>_dir</c>), so this ring always lies flat on the terrain instead of inheriting the release
-    /// aim's pitch. Assumes local +Z is the travel direction.
+    /// Ground-hugging wave front (1jy): a floor of voxel cubes that ripples as it travels. The parent
+    /// projectile's rotation is flattened to horizontal every frame by <c>SpellEffect</c> (the Wave
+    /// branch re-aims <c>LookRotation</c> at the flattened <c>_dir</c>), so the floor always lies flat
+    /// on the terrain instead of inheriting the release aim's pitch. Assumes local +Z is the travel
+    /// direction.
+    /// <para>1l85 rework: the old body was a short diagonal ramp of 5 cubes — a wave SHAPE, not a wave.
+    /// It is now a flat lattice of small cubes, and the crest is DRAWN by a traveling sine
+    /// (<see cref="WaveRipple"/>, driven from SpellEffect's wave branch) rather than baked into the
+    /// geometry, so a crest actually rolls across the floor as the projectile flies. The body stays
+    /// static by construction: the ripple component has no <c>Update</c>, so the QA pedestal this
+    /// builder also feeds draws the floor motionless.</para>
     /// </summary>
     private static Transform Wave(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
-        
-        Color deep = Color.Lerp(color, Color.black, 0.55f);
-        int wave = 5;
-        for(int i = 0; i < wave; i++)
+
+        // Spans the wave's delivery radius; the lattice is denser than the old 5-cube ramp so the
+        // ripple reads as a moving front rather than a handful of bobbing blocks.
+        const int cols = 7;
+        const int rows = 5;
+        const float width = 3.4f;
+        const float depth = 2f;
+        const float thickness = 0.18f;
+        const float amplitude = 0.16f;
+        const float speed = 7f;
+        const float wavelength = 1.6f;
+        float sx = width / cols;
+        float sz = depth / rows;
+        float cell = Mathf.Min(sx, sz) * 0.92f;
+
+        // The floor's rest colour; the ripple lerps each cell up toward the school colour on the crest.
+        Color trough = Color.Lerp(color, Color.black, 0.55f);
+        var cells = new Transform[cols * rows];
+        var restY = new float[cols * rows];
+        var mats = new Material[cols * rows];
+        int n = 0;
+        for (int ix = 0; ix < cols; ix++)
         {
-            float t = i / (float)(wave - 1);
-            float s = Mathf.Lerp(0.08f, 0.04f, t);
-            var cube = Primitive(PrimitiveType.Cube, "Wave" + i, root);
-            cube.localPosition = new Vector3(0f, 0.06f + t * 0.9f, t * 1.2f);
-            cube.localScale = new Vector3(2.2f - t * 0.6f, 0.8f + t * 0.4f, 0.5f - t * 0.2f);
-            cube.localRotation = Quaternion.Euler(30f * t, 0f, 0f);
-            Materialize(cube, shader, Color.Lerp(color, Color.white, t * 0.3f));
+            float x = (ix + 0.5f) * sx - width * 0.5f;
+            for (int iz = 0; iz < rows; iz++)
+            {
+                float z = (iz + 0.5f) * sz - depth * 0.5f;
+                var cube = Primitive(PrimitiveType.Cube, "WaveCell_" + n, root);
+                cube.localPosition = new Vector3(x, 0f, z);
+                cube.localScale = new Vector3(cell, thickness, cell);
+                Materialize(cube, shader, trough);
+                mats[n] = cube.GetComponent<MeshRenderer>().material;
+                cells[n] = cube;
+                restY[n] = 0f;
+                n++;
+            }
         }
+
+        root.gameObject.AddComponent<WaveRipple>().Configure(
+            cells, restY, mats, trough, color, amplitude, speed, wavelength);
         return root;
     }
 }

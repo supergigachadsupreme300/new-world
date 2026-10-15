@@ -1,9 +1,5 @@
-1. the hair should be longer and put the eyes closer to head, there are gaps between eyes and head
+1. the flamethrower are enlarging too big, reduce the size and set max size correspond to each chunk order, the closest will be smallest max size
 
-2. the player should hold the staff at in middle not at the root
+2. the firestorm skill models has gaps between cubes
 
-3. add an rotating animation for projectile like fireball, 
-
-4. (done - 1l6) 
-5. 
-6. 1l6: hair lengthened, eyes pulled back closer to head (across standing/seated/sit), staff held at middle via visual-only model offset (rig root preserved), projectile spin on Z-axis (pre/post launch), charged preview pushed forward with scale, casting circle flat orientation matches aim.
+3. the wave is not what i depicted, im saying a rework on wave model, instead of firing a wave projectile, now launch foward a floor make of multiple small shape, those small shape will move up and down in order creating a wave sync

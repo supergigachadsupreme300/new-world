@@ -1,3 +1,44 @@
+## 1l85. Flamethrower cone holds its size, Firestorm funnel rings close, Wave becomes a ripple floor
+
+Three `testing.md` reports, all drawn-geometry.
+
+- **1) "the flamethrower are enlarging too big, reduce the size and set max size correspond to each
+  chunk order, the closest will be smallest max size."** Cause: `SpellBeam.PulseVisual`'s cone branch
+  read each disc's LIVE scale back and multiplied a breathe factor in (`ls.x * ds`), compounding every
+  frame into unbounded growth — the random-walk 1kb's comment claimed to have ended, still live in the
+  branch 1kb never actually touched. Fix: the scale write is gone; the discs hold the per-order size the
+  builder gave them (smallest at the mouth `i=0`, widest at the tip), which is exactly the requested
+  per-order max. The axial bob still moves position, not scale.
+- **2) "the firestorm skill models has gaps between cubes."** Cause:
+  `SpellZoneModelBuilder.BuildFunnel` stacked 7 FLAT 1-unit cube rings whose centres rise with the taper;
+  once the taper's per-ring vertical span opened past 1 the plates parted. Fix: each ring is scaled to
+  overlap its neighbour (the beam funnel's mouth-overlap trick); the thickness is derived from the span
+  and clamped so a narrow radius cannot invert it (rule 9). Drawn-only for `Funnel`.
+- **3) "rework on wave model, instead of firing a wave projectile, now launch forward a floor made of
+  multiple small shapes, those small shapes move up and down in order creating a wave sync."** Fix:
+  `MagicProjectileModelBuilder.Wave` is now a flat 7×5 lattice of small cubes spanning the band (was a
+  5-cube diagonal ramp — a wave *shape*, not a wave). New `Magic/Fx/WaveRipple.cs` holds the cells and
+  their authored rest heights and `Apply(time)` offsets each along local Y on a traveling sine, also
+  brightening the crest. `SpellEffect`'s `ProjectileShape.Wave` branch calls it every frame the wave
+  MOVES (rule 19 — the ripple lives in the flying loop, never in the shape factory, so the QA pedestal
+  that same builder feeds stays motionless; resolved once in `Launch` via
+  `GetComponentInChildren<WaveRipple>`). Offsets are recomputed from each cell's authored rest, never
+  accumulated, so it cannot drift.
+- Files: `Magic/Cast/SpellBeam.cs`, `Models/Magic/SpellZoneModelBuilder.cs`,
+  `Models/Magic/MagicProjectileModelBuilder.cs`, `Magic/Cast/SpellEffect.cs`, new
+  `Magic/Fx/WaveRipple.cs` (+ `.meta`).
+- Docs: `game-design.md` (beam 1l85 paragraph, Wave shape-table row, ground-waves paragraph, §3.8.5
+  funnel-gap paragraph), this entry + `THINKING.md §1l85`.
+
+### 1l85-status
+- [x] All three fixed; swept for removed symbols (`_funnelBaseScale`, `scaleMul`, `discPhase` — none left).
+- [x] `tools\StaticChecks.ps1` → 0 candidates. No build (rule 3).
+- [x] `skills: none applied` (rule 15) — C# drawn geometry; no installed skill governs a C# edit-by-review.
+- [ ] **PLAY-TEST (user, Unity):** (1) channel Flamethrower — the cone holds a steady per-order size
+  (smallest at the mouth), no growth; (2) Firestorm — the tornado rings read as one body, no gaps;
+  (3) Fire Wave and Frozen Touch — the floor of cubes ripples up-and-down in sequence and brightens at
+  the crest as it travels; confirm the QA pedestals for those spells draw the floor motionless.
+
 ## 1l73. Lightning block foundation: SpellBoltModelBuilder + four one-mechanic delivery axes
 
 testing.md tasks #6–#11 rework the Lightning school's deliveries (Chain Lightning, Devastation,
