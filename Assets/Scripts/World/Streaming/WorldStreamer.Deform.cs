@@ -36,7 +36,7 @@ public partial class WorldStreamer
     /// </para>
     /// </summary>
     public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default,
-        bool emitDebris = true)
+        bool emitDebris = true, float build = 1f)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
 
@@ -217,7 +217,20 @@ public partial class WorldStreamer
                     float perp = Mathf.Sqrt(Mathf.Max(0f, dx * dx + dz * dz - along * along));
                     float band = 1f - Mathf.Clamp01((perp - wallHalfThick) / Mathf.Max(0.01f, wallHalfThick));
                     float ends = 1f - Mathf.Clamp01((Mathf.Abs(along) - (wallHalfLen - wallHalfThick)) / Mathf.Max(0.01f, wallHalfThick));
-                    influence = Mathf.Min(band, ends);
+                    // 1l91: sequential rise. `build` is how much of the ridge has reared so far (0..1),
+                    // stepped over a few frames by DeformWallRise. A build FRONT sweeps along the ridge
+                    // from one end to the other, and the section just ahead of it grows in a few
+                    // quantised HEIGHT steps, so the wall claws up out of the ground in order instead of
+                    // popping to full height. The front range is padded by growWidth at BOTH ends so
+                    // that `build = 1` saturates every section at 1: the wall is byte-identical to the
+                    // static full raise (the Max-against-current write below is untouched), so the
+                    // final animation frame == the old one-shot cast and a repeat cast is still
+                    // idempotent. Every other caller leaves `build` at its 1f default.
+                    float growWidth = Mathf.Max(wallHalfThick, wallHalfLen * 0.35f);
+                    float buildFront = Mathf.Lerp(-wallHalfLen - growWidth, wallHalfLen + growWidth, build);
+                    float section = Mathf.Clamp01((buildFront - along) / growWidth);
+                    section = Mathf.Floor(section * WallRiseSteps) / WallRiseSteps;
+                    influence = Mathf.Min(Mathf.Min(band, ends), section);
                 }
                 else if (shape == TerrainShape.Crater)
                 {
@@ -380,6 +393,43 @@ public partial class WorldStreamer
         // fading sphere blast instead — only tool digs / zone-strikes keep the cube burst.
         if (shape == TerrainShape.Crater && emitDebris)
             SpawnCraterDebris(center);
+    }
+
+    /// <summary>1l91: number of quantised HEIGHT steps a wall section climbs through as the build
+    /// front passes it. Four-ish is enough to read as "step by step" without looking like a
+    /// staircase; the length sweep supplies most of the sequential feel.</summary>
+    private const int WallRiseSteps = 4;
+
+    /// <summary>
+    /// 1l91: rear a Wall shape sequentially — the ridge claws up out of the ground over a few frames
+    /// (a build front sweeping along its length, each section growing in a few height steps) instead
+    /// of popping to full height in one <see cref="DeformAt"/>. Each step is the same idempotent
+    /// Max-against-current write the static raise uses, so the last frame reproduces the exact wall
+    /// and a repeat cast is unchanged. Falls back to the instant raise when the streamer is not
+    /// running (an inactive streamer cannot run the coroutine, but the wall should still build).
+    /// </summary>
+    public void DeformWallRise(Vector3 center, float radius, Vector3 dir)
+    {
+        if (!isActiveAndEnabled)
+        {
+            DeformAt(center, radius, TerrainShape.Wall, dir);
+            return;
+        }
+        StartCoroutine(WallRiseRoutine(center, radius, dir));
+    }
+
+    private System.Collections.IEnumerator WallRiseRoutine(Vector3 center, float radius, Vector3 dir)
+    {
+        // A handful of frames is enough to read as "growing"; more only spends more chunk rebuilds
+        // (each DeformAt step re-emits the touched region + flushes its save). Six overwrites the
+        // WallRiseSteps quantisation in `build` so every height step is shown at least once.
+        const int steps = 6;
+        const float total = 0.45f;
+        for (int i = 1; i <= steps; i++)
+        {
+            DeformAt(center, radius, TerrainShape.Wall, dir, build: i / (float)steps);
+            yield return new WaitForSeconds(total / steps);
+        }
     }
 
     /// <summary>

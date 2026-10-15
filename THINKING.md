@@ -1,3 +1,62 @@
+## 1l91. Earth Wall sequential rise — reasoning trail (SHIPPED, play-test pending)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l90`, so this is `1l91` (rule 1 forbids
+amending).
+
+**Request (verbatim):** "i want the wall to create sequentially, like instead of rise up to the current
+immediate height it would raise step by step." Asked a clarifying question (rule 7's "ask which of the
+two you were given") → user chose **Both: height steps + length sweep**, scope **all raised Wall-shape
+casts**.
+
+**Where the Wall is applied.** Grepped `TerrainShape` / `TerrainDeformer` / `DeformAt` across
+`Assets/Scripts`:
+- `TerrainShape.Wall` appears in exactly two catalog entries: `magic_earth_wall` (Earth Wall,
+  `SkillCatalog.cs:413`) and `magic_earth_boulder_landslide` (Landslide, `SkillCatalog.Magic.cs:541`);
+  both are `SpellDelivery.Zone`.
+- Zone delivery runs `ResolveZone` → `ResolveZoneImpact` (`SpellCaster.Cast.cs`), which applies
+  `TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd)`.
+- **Hypothesis:** `ResolveZoneImpact` is the single choke point for "all raised Wall-shape casts."
+  **Verdict: confirmed** — other `TerrainDeformer.Apply` sites are the Crater path (`SpellEffect.cs`
+  projectile dent — always `TerrainShape.Crater`), `SpellStorm.cs` (storm shapes — no Wall storm in the
+  catalog), the summon path (`SpellCaster.Cast.cs:341` — the golem Crater), and the QA lane. None
+  applies `TerrainShape.Wall`. So one branch in `ResolveZoneImpact` covers the whole request.
+
+**Where one-shot happens.** `WorldStreamer.DeformAt` computes `lift = 2.6` for Wall and writes the whole
+ridge in one loop, then `ApplyHeightEdits` rebuilds the touched chunks once. To animate we must call it
+several times with a partial shape.
+
+**Design choices, and why:**
+- **Monotonic partial writes.** Raised shapes already use `Max(current, base + s*lift)`, so a sequence of
+  increasing-height targets is a safe integrator: each step only adds height, never lowers, and the final
+  step equals the full wall. This is why the animation needs no "undo" and stays idempotent for repeat
+  casts.
+- **One scalar drives both axes.** The user wanted a length sweep AND height steps. A single `build`
+  ∈ [0,1] gives both: a front sweeps `along` the ridge, and the section just ahead of it is quantised to
+  `WallRiseSteps` heights. At any instant the leading edge is a staircase and the front travels, so it
+  reads as a wall clawing up in order. Rejected a 2D (front × per-section time) design as more state for
+  no visible gain.
+- **Padded front range.** First draft used `front = Lerp(-halfLen, halfLen, build)`; at `build = 1` a
+  corner at `along ≈ +halfLen` had `section < 1`, which would have left the far cap permanently short of
+  the old wall — a silent idempotency break. Fixed by padding both ends with `growWidth`, so `build = 1`
+  saturates every section at 1. The dead travel while the front is outside the ridge is invisible.
+- **Optional param, default 1.** `DeformAt(..., bool emitDebris = true, float build = 1f)` keeps every
+  existing caller (positional and `emitDebris:`-named) byte-identical; only the Wall branch reads `build`.
+- **Animation owner.** `TerrainDeformer` is `static` and cannot run a coroutine, and the spell layer
+  should not resolve the streamer (the file's stated contract). So the coroutine lives on
+  `WorldStreamer` (`DeformWallRise`) and `TerrainDeformer.RaiseWallSequential` is the thin router, exactly
+  as `Apply` already is. `DeformAt` runs main-thread only, so the coroutine's per-step call is on the
+  right thread (rule 7's thread point).
+
+**Cost, stated not hidden:** six `DeformAt` calls = six region rebuilds + six save flushes for a ~9×9 m
+footprint (at most two chunks) over ~0.45 s. Bounded and local; flagged as a play-test perf item.
+
+**Verification:** no build (rule 3). Grep + reread the three files; traced both Wall entries to the one
+hook; confirmed the new param is optional; `tools\StaticChecks.ps1` → 0 candidates
+(`WorldStreamer.Deform.cs` braces 70/70, parens 333/333). `skills: none applied` (rule 15).
+
+**Open / follow-up (play-test):** rise speed/steps, sweep direction (rises from one end — arbitrary
+since the user gave no side), and draw-call/save cost on rapid repeated casts.
+
 ## 1l90. Fire Wave floor: wave silhouette, not a slab
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l89`, so this is `1l90` (rule 1 forbids

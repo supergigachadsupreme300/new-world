@@ -1877,6 +1877,13 @@ and **Crater** excavates a **terraced spherical cap** ringed by a raised, idempo
   splash and never the (unbounded) hold-to-overcharge `sizeScale`** (1cw). Charge still enlarges the
   *damage* splash and the zone/ring visuals, but never the ground edit — so a charged Tremor,
   Spire Field, Earth Wall or Landslide rears only its own ~2.6–6 m dish, not a whole chunk.
+  Since **1l91** a raised **Wall**-shape cast (Earth Wall, Landslide) no longer pops to full height:
+  the ridge **rears sequentially** — a build front sweeps along its length while the section ahead of
+  it grows in a few quantised **height steps**, so the wall claws up out of the ground in order instead
+  of appearing at once. The **final animation frame is the identical capped, idempotent wall** (the
+  `Max`-against-current write is unchanged, the front range is padded so `build = 1` saturates every
+  section), so a repeat cast still reproduces the same ridge; every non-Wall shape and every other
+  caller raises in one shot as before.
   ***Crater rears the terrain's strata as a signature**: unlike the capped raises, an excavation
   is **WIDTH-bounded but DEPTH-unbounded** (1cv). The crater's **width** is always the spell's small
   local delivery dish (`DeliveryRadius * 0.5`, ~2 m for Earth Meteor) — never the full blast splash —

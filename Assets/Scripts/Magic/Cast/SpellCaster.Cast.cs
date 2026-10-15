@@ -705,7 +705,14 @@ public partial class SpellCaster
         // game to have no limit.
         float dish = Mathf.Max(spell.Radius > 0f ? spell.Radius : 1.6f, 0.5f);
         float deformRadius = spell.TerrainShape == TerrainShape.Crater ? dish * 0.5f : dish;
-        TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd);
+        // 1l91: a Wall-shape cast (Earth Wall, Landslide) rears SEQUENTIALLY — the ridge claws up in
+        // height steps swept along its length instead of popping to full height. Every other shape
+        // (and its idempotent Max write) is unchanged. Damage/knockback below still resolve this
+        // frame; only the terrain rise is spread over the animation.
+        if (spell.TerrainShape == TerrainShape.Wall)
+            TerrainDeformer.RaiseWallSequential(center, deformRadius, fwd);
+        else
+            TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd);
 
         // Duration > 0 keeps the zone alive: it ticks the spell's damage while it lasts.
         if (spell.Duration > 0f)

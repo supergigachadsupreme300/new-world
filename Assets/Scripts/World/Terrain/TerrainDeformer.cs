@@ -20,6 +20,19 @@ public static class TerrainDeformer
         streamer.DeformAt(center, radius, shape, dir, emitDebris);
     }
 
+    /// <summary>1l91: rear a Wall shape SEQUENTIALLY — the ridge claws up out of the ground in a few
+    /// height steps swept along its length, instead of popping to full height in one shot. Shared by
+    /// every raised Wall-shape cast (Earth Wall, Landslide); <paramref name="dir"/> orients the ridge
+    /// exactly as <see cref="Apply"/>. Routed through here so the spell layer never resolves the
+    /// <see cref="WorldStreamer"/> itself.</summary>
+    public static void RaiseWallSequential(Vector3 center, float radius, Vector3 dir)
+    {
+        if (radius <= 0f) return;
+        var streamer = Object.FindAnyObjectByType<WorldStreamer>();
+        if (streamer == null) return;
+        streamer.DeformWallRise(center, radius, dir);
+    }
+
     /// <summary>
     /// Excavate a small crater pit at a ground point — the tools' digging path (shovel/pickaxe).
     /// Shares the Earth-magic crater shape, so tools and spells carve the same smooth bowls and

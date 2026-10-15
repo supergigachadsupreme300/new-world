@@ -1,3 +1,48 @@
+## 1l91. Earth Wall rears sequentially (height steps + length sweep)
+
+**"i want the wall to create sequentially, like instead of rise up to the current immediate height it
+would raise step by step."**
+
+The Wall-shape cast (Earth Wall, Landslide) applied its full 2.6 m ridge in one `DeformAt` call, so it
+popped to height instantly. Clarified with the user → **both**: a build front sweeps along the ridge's
+length AND each section grows in quantised height steps. Scope → **all raised Wall-shape casts**.
+
+- **Animated raise** — new `WorldStreamer.DeformWallRise(center, radius, dir)` starts a coroutine
+  (`WallRiseRoutine`) that calls the existing `DeformAt` six times over ~0.45 s with a new
+  `build` fraction (1/6 … 1). Each step is the SAME `Max(current, base + s*lift)` write, so the raise
+  is monotonic and the final step (`build = 1`) is byte-identical to the old one-shot wall — a repeat
+  cast still reproduces the same ridge (idempotent). Falls back to the instant raise when the streamer
+  is not active.
+- **The front + height steps** — `DeformAt` gained an optional `float build = 1f` (default 1, so every
+  other caller is unchanged). In the Wall branch it computes
+  `growWidth = Max(wallHalfThick, wallHalfLen * 0.35)`, a `buildFront = Lerp(-halfLen - growWidth,
+  halfLen + growWidth, build)`, and `section = floor(clamp01((buildFront - along) / growWidth) *
+  WallRiseSteps) / WallRiseSteps`, then folds it into `influence`. The front range is padded by
+  `growWidth` at both ends so `build = 1` saturates every section at 1. `WallRiseSteps = 4`.
+- **Routing** — `TerrainDeformer.RaiseWallSequential(center, radius, dir)` (new) resolves the streamer
+  and calls `DeformWallRise`; `SpellCaster.ResolveZoneImpact` branches on
+  `spell.TerrainShape == TerrainShape.Wall` (both Earth Wall and Landslide are Wall/Zone). Damage and
+  knockback still resolve the same frame — only the terrain rise is animated.
+- Files: `World/Streaming/WorldStreamer.Deform.cs` (`DeformAt` signature + Wall branch,
+  `DeformWallRise`, `WallRiseRoutine`, `WallRiseSteps`), `World/Terrain/TerrainDeformer.cs`
+  (`RaiseWallSequential`), `Magic/Cast/SpellCaster.Cast.cs` (`ResolveZoneImpact`).
+- Docs: `game-design.md` §3.8 raised-shapes passage.
+- `skills: none applied` (rule 15) — a C#/terrain edit reviewed by hand, not a DCC/Unity-driving
+  artifact.
+
+### 1l91-status
+
+- **Done** — sequential Wall raise implemented and routed; docs updated. Committed `1l91`.
+- **Verification** — grep + reread (no build, rule 3): `tools\StaticChecks.ps1` → 0 candidates
+  (`WorldStreamer.Deform.cs` braces 70/70, parens 333/333). Traced both Wall-shape catalog entries
+  (Earth Wall, Landslide — both `SpellDelivery.Zone`) to the single `ResolveZoneImpact` hook; no other
+  caller applies `TerrainShape.Wall`. `DeformAt`'s new `build` param is optional, so every existing
+  call site (positional and `emitDebris:`-named) is unchanged.
+- **Pending play-test (Unity):** cast Earth Wall / Landslide on flat ground → the ridge should claw up
+  out of the ground in order (a rising line, each section stepping up in height) over ~half a second
+  instead of appearing at full height. Confirm the finished wall looks identical to before and a
+  repeat cast does not stack it higher.
+
 ## 1l90. Fire Wave floor: real wave silhouette (peaked crest, curved front)
 
 **"the sides of the wave are all equal which wouldn't really create the feeling."**
