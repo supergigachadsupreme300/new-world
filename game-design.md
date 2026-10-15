@@ -2152,6 +2152,13 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   The wave does not spin (`SpellEffect.SpinRate` is a single 600°/s constant for bolts; a wave never
   reaches `SpellEffect` at all since 1l87), so it is drawn flat on the ground instead of rolling about its
   travel axis. Only the roll is gone; the wave is still re-aimed flat to face its travel.
+  **1l88: the floor cubes are smaller, the wave is longer and slower, and each cast rides at a random
+  height.** The floor's cubes are shrunk (fill 0.92 → 0.62, thickness 0.18 → 0.12 m) so it reads as a
+  scatter of small cubes rather than a solid slab, and the run is stretched front-to-back again (14 rows
+  over 7 m, was 9 over 4.2), with the wavelength carried along (2 → 2.6 m) so the longer floor still shows
+  about three crests. Both Wave spells travel at `projectileSpeed` 12 (was 20), so the sweep is visibly
+  slower. And `SpellWave` draws a random ride height per cast (0.12–0.75 m, was a fixed 0.35), so
+  consecutive waves no longer skim at one height and read as "the same wave over and over".
 
 **Sky spells** (`SummonFallingRock`, the meteor/boulder family) drop a **rock formation** from high
 above the ground target and read as the spell landing: the burst (damage, knockback, terrain
@@ -2200,7 +2207,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Soul** | 1l6x: a drifting spectral wisp — a bright cold core leading (+Z) inside a soft translucent halo, with a long tapering frost tail and two stray motes behind — so a homing missile reads as a spirit that hunts. **Display-only:** `ProjectileShape.Soul` carries no behaviour (unlike `Missile` it has no homing of its own), and it is authored-only — never in a `Shape_*` family. Chill Soul wears it while keeping `Missile` as its gameplay shape. |
 | **Hand** | 1l6y: a spectral reaching hand — a flat translucent palm whose four fingers lead (+Z) into the foe, a thumb to one side, a bright cold core in the palm and two ghostly flecks trailing — so a numbing touch reads as a hand reaching out. **Display-only** and authored-only (never in a `Shape_*` family). Chill Touch. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
-| **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellWave` calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) 1l86: the floor is longer front-to-back (9 rows over 4.2 m) and the body does not spin, so it reads as a flat rolling wall, not a tumbling block. Fire Wave and Frozen Touch. **Display-only since 1l87:** the shape names the drawn floor and nothing else — the terrain-glued sweep is now `SpellDelivery.Wave` (§3.8.1 "Ground waves"), so a spell can wear this body only because it is authored. It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the floor body without its asking. |
+| **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellWave` calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) 1l86: the floor is longer front-to-back (9 rows over 4.2 m) and the body does not spin, so it reads as a flat rolling wall, not a tumbling block. 1l88: the cubes are smaller (fill 0.62, thickness 0.12) and the run longer again (14 rows over 7 m, wavelength 2.6 m), so the floor is a longer scatter of small cubes. Fire Wave and Frozen Touch. **Display-only since 1l87:** the shape names the drawn floor and nothing else — the terrain-glued sweep is now `SpellDelivery.Wave` (§3.8.1 "Ground waves"), so a spell can wear this body only because it is authored. It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the floor body without its asking. |
 
 `Auto` picks from the spell's **school family** via `SpellLook.Resolve` (§3.8.3): Fire→Sphere,
 Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Physical→Dart, everything

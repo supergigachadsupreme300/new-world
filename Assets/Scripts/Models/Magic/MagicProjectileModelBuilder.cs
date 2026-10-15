@@ -547,27 +547,31 @@ internal static class MagicProjectileModelBuilder
     /// geometry, so a crest actually rolls across the floor as the wave sweeps. The body stays
     /// static by construction: the ripple component has no <c>Update</c>, so the QA pedestal this
     /// builder also feeds draws the floor motionless.</para>
+    /// <para>1l88: the cells are SHRUNK (fill 0.92 -> 0.62, thickness 0.18 -> 0.12) so the floor reads
+    /// as a scatter of small cubes rather than a solid slab, and the floor is stretched again
+    /// front-to-back (rows 9 -> 14, depth 4.2 -> 7 m) so the wave is longer. The wavelength is carried
+    /// with the stretch (2 -> 2.6 m) so the longer run still shows about three crests.</para>
     /// </summary>
     private static Transform Wave(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
 
-        // Spans the wave's delivery radius; the lattice is denser than the old 5-cube ramp so the
-        // ripple reads as a moving front rather than a handful of bobbing blocks. 1l86: the floor is
-        // longer front-to-back (rows 5 -> 9, depth 2 -> 4.2 m) so the sweep reads as a broad rolling
-        // wall rather than a shallow lip, and the wavelength was stretched with it so a longer floor
-        // still shows about two crests instead of a busy chop.
+        // Spans the wave's delivery radius. 1l86: the floor is longer front-to-back (rows 5 -> 9,
+        // depth 2 -> 4.2 m) so the sweep reads as a broad rolling wall rather than a shallow lip.
+        // 1l88 ("make the particle smaller, the wave should be longer"): the cubes are smaller
+        // (fill 0.62, thickness 0.12) and the run is longer (14 rows over 7 m), with the wavelength
+        // stretched so the longer floor does not chop.
         const int cols = 7;
-        const int rows = 9;
+        const int rows = 14;
         const float width = 3.4f;
-        const float depth = 4.2f;
-        const float thickness = 0.18f;
+        const float depth = 7f;
+        const float thickness = 0.12f;
         const float amplitude = 0.16f;
         const float speed = 7f;
-        const float wavelength = 2f;
+        const float wavelength = 2.6f;
         float sx = width / cols;
         float sz = depth / rows;
-        float cell = Mathf.Min(sx, sz) * 0.92f;
+        float cell = Mathf.Min(sx, sz) * 0.62f;
 
         // The floor's rest colour; the ripple lerps each cell up toward the school colour on the crest.
         Color trough = Color.Lerp(color, Color.black, 0.55f);

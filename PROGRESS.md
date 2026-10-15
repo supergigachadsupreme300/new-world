@@ -1,3 +1,35 @@
+## 1l88. Fire Wave: smaller floor cubes, slower, longer, random ride height
+
+**"make the particle in firewaver smaler, wave move slower, the wave should be longer and wave should
+move at random height rather than same wave over and over."**
+
+Four art-direction tweaks to the Wave, all applied to both Wave spells (Fire Wave and Frozen Touch
+share one floor body and one sweep component).
+
+- **Smaller "particles"** — the wave has no `ParticleSystem`; its particles ARE the voxel floor cubes.
+  `MagicProjectileModelBuilder.Wave` shrinks them: fill `0.92 -> 0.62`, thickness `0.18 -> 0.12 m`, so
+  the floor reads as a scatter of small cubes instead of a solid slab.
+- **Longer** — the same builder stretches the floor front-to-back again: rows `9 -> 14`, depth
+  `4.2 -> 7 m`, with the wavelength carried with it (`2 -> 2.6 m`) so the longer run still shows about
+  three crests instead of a busy chop.
+- **Slower** — both Wave spells drop to `projectileSpeed: 12` (was the 20 default) in
+  `SkillCatalog.Magic.cs`. Travel time is `Range / Speed`, so Fire Wave sweeps 20 m over ~1.67 s (was
+  1.0 s). `SpellWave._speed` already reads `spell.ProjectileSpeed`, so no component change was needed.
+- **Random height per cast** — `SpellWave`'s fixed `Lift = 0.35` becomes an instance `_lift` drawn from
+  `Random.Range(LiftMin=0.12f, LiftMax=0.75f)` in `Initialize`, so consecutive waves do not all skim at
+  one height ("the same wave over and over"). The terrain-glue write in `Update` uses `_lift`.
+- Files: `Models/Magic/MagicProjectileModelBuilder.cs`, `Magic/Cast/SpellWave.cs`,
+  `Combat/Skills/SkillCatalog.Magic.cs`.
+- Docs: `game-design.md` (§3.8.1 ground-waves paragraph + Wave shape row), this entry + `THINKING.md §1l88`.
+
+### 1l88-status
+- [x] Floor cubes smaller, floor longer, both Wave spells slower, ride height randomised per cast.
+- [x] `tools\StaticChecks.ps1` -> 0 candidates. No build (rule 3).
+- [x] `skills: none applied` (rule 15) — C#/geometry tuning verified by review.
+- [ ] **PLAY-TEST (user, Unity):** Fire Wave and Frozen Touch now show a longer floor of smaller cubes,
+  sweep noticeably slower, and different casts ride at different heights. Confirm the QA pedestal body
+  still looks right (it shares the same builder) and the sweep still reaches and shoves as before.
+
 ## 1l87. Wave is its own delivery, not a projectile
 
 **"rework on wave, i dont want wave to be considered a projectile."**

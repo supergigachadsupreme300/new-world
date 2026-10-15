@@ -1,3 +1,34 @@
+## 1l88. Fire Wave: smaller cubes, slower, longer, random ride height
+
+**Q — "make the particle in firewaver smaller".** *H (the "particles" are the voxel floor cubes —
+CONFIRMED by asking).* There is no `ParticleSystem` anywhere on the wave path (grepped `Magic/` and
+`Models/Magic`: none attached to the wave), so the only thing the word can name is the lattice of small
+cubes that makes up the floor body. Confirmed with the user rather than guessing between "floor cubes"
+and "the impact/spark burst". Action: shrink the fill factor `0.92 -> 0.62` and thickness `0.18 -> 0.12`.
+
+**Q — scope: Fire Wave only, or both?** *H (both — CONFIRMED).* `MagicProjectileModelBuilder.Wave` and
+`SpellWave` are shared by Fire Wave and Frozen Touch (1l86 already noted the shared body). A
+Fire-Wave-only variant would fork the one body into two spell paths (rule 13's one-look resolver), so the
+user chose to apply the changes to both and keep a single floor.
+
+**Q — "random height rather than same wave over and over".** *H (per-cast ride height — CONFIRMED).*
+Three readings existed: (a) a random lift each cast; (b) random per-cell rest heights (a jagged floor);
+(c) randomised ripple phase/speed. The phrase "over and over" points at repetition *between* casts, and
+the user picked (a). Action: `SpellWave.Lift` (const 0.35) becomes the instance `_lift` drawn from
+`Random.Range(0.12, 0.75)` in `Initialize`, read by the per-frame glue. The bounds keep the floor low
+enough to still read as a wave hugging the ground. *Rejected:* randomising the ripple (b)/(c) — those
+change one wave's own crest pattern, not the "same wave over and over" the report named.
+
+**Q — "slower" and "longer".** *H (tuning, no mechanism change — CONFIRMED).* "Slower" is a spell value:
+Fire Wave and Frozen Touch already read `spell.ProjectileSpeed` (`SpellWave._speed`), so it is a data edit
+(`projectileSpeed: 12`, was the 20 default), not a component edit — no second spelling of speed. "Longer"
+is the body's front-to-back run: rows `9 -> 14`, depth `4.2 -> 7 m`, wavelength `2 -> 2.6 m` so the longer
+floor keeps ~3 crests. Note the side effect the data edit carries: travel time is `Range / Speed`, so
+slowing also lengthens `_life` (`min(4, Range/Speed)`), which is the desired "visibly slower sweep" and
+not a lifetime change to chase separately.
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l87. Wave as its own SpellDelivery
 
 **Q — "i dont want wave to be considered a projectile".** *H (scoped to a delivery split — CONFIRMED as

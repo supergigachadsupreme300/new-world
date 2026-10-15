@@ -47,9 +47,15 @@ public class SpellWave : MonoBehaviour
     private TerrainChunkCoord _requestedChunk;
     private bool _requestActive;
 
-    /// <summary>1jy: how high above the ground the wave rides. Kept from the pre-1l87 SpellEffect
-    /// sweep so the floor sits the same distance above the terrain.</summary>
-    private const float Lift = 0.35f;
+    /// <summary>1l88: how high above the ground THIS wave rides. Randomised once per cast (see
+    /// <see cref="Initialize"/>) so no two waves skim at the same height — the report was that every
+    /// wave rode at one fixed height and read as "the same wave over and over". Was a fixed 0.35 (1jy).</summary>
+    private float _lift = 0.35f;
+
+    /// <summary>1l88: the ride-height range a cast draws from. Kept low enough that the floor still
+    /// reads as hugging the ground.</summary>
+    private const float LiftMin = 0.12f;
+    private const float LiftMax = 0.75f;
 
     /// <summary>1jy: the coverage cadence — the band re-scans this often so a fast wave does not skip
     /// past half the field. The <see cref="_hit"/> set, not this, is what enforces "once".</summary>
@@ -89,6 +95,9 @@ public class SpellWave : MonoBehaviour
         if (spell != null && spell.Range > 0f)
             _life = Mathf.Min(4f, spell.Range / Mathf.Max(1f, _speed));
 
+        // 1l88: draw this cast's ride height once, so consecutive waves do not all skim at one height.
+        _lift = Random.Range(LiftMin, LiftMax);
+
         _ripple = GetComponentInChildren<WaveRipple>();
 
         Vector3 ground = transform.position;
@@ -123,12 +132,13 @@ public class SpellWave : MonoBehaviour
             _requestActive = true;
         }
 
-        // Ride the terrain at a fixed lift. Ground colliders are judged the same way SpellEffect does.
+        // Ride the terrain at this cast's (randomised) lift. Ground colliders are judged the same way
+        // SpellEffect does.
         Vector3 pos = transform.position;
         if (Physics.Raycast(pos + Vector3.up * 0.5f, Vector3.down, out RaycastHit ground, 4f)
             && IsGroundCollider(ground.collider))
         {
-            pos.y = ground.point.y + Lift;
+            pos.y = ground.point.y + _lift;
             transform.position = pos;
         }
 
