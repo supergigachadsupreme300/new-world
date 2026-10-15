@@ -137,8 +137,10 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
             _body.transform.SetParent(transform, false);
             // Same builder and resolver a live cast uses, so the held body is the one that will fly.
             // Render-only: the builder strips every primitive collider and the root keeps none.
-            var look = SpellLook.Resolve(spell);
-            MagicProjectileModelBuilder.AttachDefaultProjectileVisual(_body, look, spell.SummonFallingRock);
+            // Named spellLook, not look: Show already declares a Quaternion `look` in the enclosing
+            // method scope (CS0136 — a nested block cannot reuse an enclosing scope's local name).
+            var spellLook = SpellLook.Resolve(spell);
+            MagicProjectileModelBuilder.AttachDefaultProjectileVisual(_body, spellLook, spell.SummonFallingRock);
             _spell = spell;
             // Same rate the released bolt will spin at (rule 13), and start the hold aligned to a
             // fresh launch (its bolt starts at phase 0).
@@ -146,7 +148,7 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
             _spin = 0f;
             // 1l92: the charge motes take the spell's own colour (whitened so they read as sparks,
             // not as the body) - resolved once here, never re-resolved per frame (rule 13).
-            _moteColor = Color.Lerp(look.Core, Color.white, 0.3f);
+            _moteColor = Color.Lerp(spellLook.Core, Color.white, 0.3f);
             EnsureMotes();
             ApplyMoteLook();
         }

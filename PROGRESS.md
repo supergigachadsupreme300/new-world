@@ -36,6 +36,12 @@ hold is up, so the charge reads as gathering.
   mutate" — the motes only assign it). `ChargedProjectilePreview` sits in the global namespace and
   `SkillFx`/`MagicProjectileModelBuilder` are global statics reachable from it; the shader is the same
   `Sprites/Default` the body's cubes wear, so colour and material family match the bolt.
+- **Compile fix (rule 3, new commit)** — Unity's console reported `CS0136` at
+  `ChargedProjectilePreview.cs(140,17)`: the new `var look = SpellLook.Resolve(spell)` (inside `Show`'s
+  rebuild `if`) collided with the pre-existing `Quaternion look` in the *enclosing* method scope. Renamed
+  the inner to `spellLook` and **swept the whole class** for the same class — every method's locals are
+  unique to it, so it was the only instance. `StaticChecks.ps1` checks 4/5 cover uninitialised locals and
+  switch cases but not nested-vs-enclosing shadowing, which is why it reported 0.
 - **Pending play-test (Unity):** charge a Projectile spell (e.g. Fireball / a magic bolt) → a ring of
   sparks should stream inward to the held bolt as it charges, matching the spell's colour and scaling up
   with the body as charge grows, then vanish the instant the shot fires. Confirm no stray cubes at the
