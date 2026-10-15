@@ -39,6 +39,11 @@ it its own `SpellDelivery` and a dedicated component; the projectile path is lef
 - [x] `ProjectileShape.Wave` documented as display-only; grep confirms no behaviour rides it.
 - [x] `tools\StaticChecks.ps1` -> 0 candidates. No build (rule 3).
 - [x] `skills: none applied` (rule 15) — C# refactor verified by review.
+- [x] **Post-ship syntax fix:** the 1l87 doc edit to `MagicProjectileModelBuilder.Wave` fused
+  `/// </summary>` and `private static Transform Wave(...)` onto one line, so the compiler read the
+  class as closed and flooded CS1519/CS1022 from line 551 on. Split back into two lines; swept the tree
+  for any other comment/code fusion (none). StaticChecks 0 candidates, brace/paren 38/38 280/280.
+  Shipped as a follow-up commit (rule 3 — not an amend).
 - [ ] **PLAY-TEST (user, Unity):** Fire Wave and Frozen Touch still sweep and ripple, glue to the terrain,
   and shove foes as before (should be behaviour-identical to 1l86); the aim preview draws for a Wave;
   the QA pedestal floor is still motionless and un-swept.

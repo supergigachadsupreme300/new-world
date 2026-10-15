@@ -547,7 +547,8 @@ internal static class MagicProjectileModelBuilder
     /// geometry, so a crest actually rolls across the floor as the wave sweeps. The body stays
     /// static by construction: the ripple component has no <c>Update</c>, so the QA pedestal this
     /// builder also feeds draws the floor motionless.</para>
-    /// </summary>    private static Transform Wave(string name, Shader shader, Color color)
+    /// </summary>
+    private static Transform Wave(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
 

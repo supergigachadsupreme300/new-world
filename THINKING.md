@@ -36,6 +36,16 @@ is defined by range, not speed x lifetime).
 `SpellEffect.Launch` while "cleaning up" — wrong: projectiles must not ring-flash, and the call belonged
 to no surviving path. Reverted in the same session.
 
+**Post-ship failure (recorded, rule 3):** the doc-rewrite to `MagicProjectileModelBuilder.Wave` matched an
+oldString whose final line was `/// </summary>` alone, but the file had that same close **fused to the
+method signature** on one line — my replacement emitted `/// </summary>    private static Transform Wave(...)`
+and the class appeared to end at the Wave method, producing a wall of CS1519/CS1022 "invalid token / type
+or namespace definition expected". No build happens here (rule 3), so StaticChecks' brace/paren balance
+stayed green (38/38) — a fused line is balanced, it is just illegal — and the only tell was Unity's paste.
+Lesson folded into the habit: a doc-comment edit is still a structural edit; after any `///` replacement,
+grep the touched file for a doc-close token followed by non-space (`</summary>\s+\S`) rather than trusting
+the balance counter. Swept the whole `Assets\Scripts` tree for the same fusion: only this one site.
+
 **Status: OPEN until play-test.** No build here (rule 3).
 
 ## 1l86. Fire Wave range/length, wave spin
