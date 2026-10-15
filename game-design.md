@@ -2420,6 +2420,12 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   spin phase kept in `ChargedProjectilePreview.Update` and composed into the per-frame `LookRotation`, so
   "not launched" reads as the shot rather than a static prop. The phase resets on each hold so it starts
   aligned to a fresh launch.
+  **1l92: the hold also gathers — motes stream inward while it charges.** A ring of twelve small cubes
+  spirals from a rim (0.5 m at charge scale 1, scaled by the same charge ladder as the body) into the
+  body's centre, so a charge reads as gathering energy rather than sitting inert. They take the spell's
+  resolved `look.Core` whitened (one `SpellLook.Resolve`, rule 13) through the project's shared
+  colour-keyed material, are per-frame work in the preview's own charge-gated `Update` (rule 19 — the
+  shared shape builder stays time-free), and hide with the body on release. `ChargedProjectilePreview.cs`.
 - Zone/vortex spells additionally show a **ground AoE preview** ring that also grows with charge,
   tinted by the spell's resolved core colour (1ij), matching the projectile **ray** colour (1iq turned
   that shared charge readout from a cone into a ray) so a charge reads in one colour from aim to release.

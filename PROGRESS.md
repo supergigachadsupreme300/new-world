@@ -1,3 +1,47 @@
+## 1l92. Charged projectile gathers — motes stream into the held body
+
+**"ad particle flying to projectile when charging."**
+
+While a `SpellDelivery.Projectile` spell charged, the held body (1l1) sat inert apart from its spin
+(1l71). Added an inward draft: twelve small cubes spiral from a rim into the body's centre while the
+hold is up, so the charge reads as gathering.
+
+- **Motes** — `ChargedProjectilePreview` builds a `ChargedProjectileMotes` container on the first hold
+  (`EnsureMotes`, fully preallocated like `TrailStrip`'s buffers — no per-frame allocation) and drives
+  twelve cubes each frame in the new `UpdateMotes`, called from the hold-gated `Update` beside the spin.
+  Each mote rides a spiral from `MoteSpawnRadius` (0.5 m × charge scale) to the body centre in the plane
+  perpendicular to the aim (the same degenerate-aim fallback `CastingCircle` uses), with a signed random
+  sweep so the ring reads as a draft, and a `sin(π·phase)` size curve so nothing pops in or out hard.
+  Phases are staggered at build (`i/12`) so the stream is continuous, not one pulse per cycle.
+- **One resolver, one palette (rule 13)** — the colour is `Color.Lerp(look.Core, Color.white, 0.3f)`,
+  resolved from the same `SpellLook` the body already resolves, delivered through the project's shared
+  colour-keyed `SkillFx.SharedSpriteMaterial` (assigned to `sharedMaterial`, never mutated). Motes grow
+  with the body from the same charge scale the caller read (rule 8).
+- **Rule 19** — the per-frame work lives in the preview's own charge-gated loop, NOT in
+  `MagicProjectileModelBuilder` (the shared shape builder whose other callers are motionless pedestals) —
+  the same split 1l71 made for the spin. Motes are born at zero scale, so a frame ordering that renders
+  them before the first `UpdateMotes` cannot flash full-size cubes at the origin.
+- Files: `Magic/Fx/ChargedProjectilePreview.cs`.
+- Docs: `game-design.md` §3.8 held-projectile passage.
+- `skills: loaded scenario-unity-vfx (rule 15)` — informative, not authoritative: it confirmed the
+  mesh-first stance and the fade-in/out + no-linear-curve rules this edit follows, but its measurement
+  toolkit (`ut_vfx`, AgentKit over Unity MCP/CLI) cannot run in this project (rule 3).
+
+### 1l92-status
+
+- **Done** — inward charge draft implemented; docs updated. Committed `1l92`.
+- **Verification** — grep + reread (no build, rule 3): `tools\StaticChecks.ps1` → 0 candidates.
+  Confirmed the two first-use symbols against their declarations: `SpellLook.Core` (`SpellLook.cs:253`,
+  a `readonly Color`) and `SkillFx.SharedSpriteMaterial` (a colour-keyed cache whose doc says "never
+  mutate" — the motes only assign it). `ChargedProjectilePreview` sits in the global namespace and
+  `SkillFx`/`MagicProjectileModelBuilder` are global statics reachable from it; the shader is the same
+  `Sprites/Default` the body's cubes wear, so colour and material family match the bolt.
+- **Pending play-test (Unity):** charge a Projectile spell (e.g. Fireball / a magic bolt) → a ring of
+  sparks should stream inward to the held bolt as it charges, matching the spell's colour and scaling up
+  with the body as charge grows, then vanish the instant the shot fires. Confirm no stray cubes at the
+  world origin on the first charge frame, and that a ground-wave projectile (spin rate 150) looks the
+  same.
+
 ## 1l91. Earth Wall rears sequentially (height steps + length sweep)
 
 **"i want the wall to create sequentially, like instead of rise up to the current immediate height it

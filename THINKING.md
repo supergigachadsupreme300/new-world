@@ -1,3 +1,57 @@
+## 1l92. Charged projectile gathers — reasoning trail (SHIPPED, play-test pending)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l91`, so this is `1l92` (rule 1 forbids
+amending; enumerate headings first — rule 8).
+
+**Request (verbatim):** "ad particle flying to projectile when charging." Read as: while a projectile
+spell charges, draw particles that fly *into* the held shot — i.e. an inward gathering draft around the
+charge body, not a trail behind it.
+
+**Where the charge state lives.** Read `PlayerController.Interactions.cs` (aim loop, line ~331 calls
+`UpdateChargedProjectile`; line ~285 calls the hide) → `PlayerController.Combat.cs`
+`UpdateChargedProjectile` (line ~676) → `ChargedProjPreview()` (line ~700) →
+`ChargedProjectilePreview.Instance.Show/Hide`. **Hypothesis:** `ChargedProjectilePreview` is the one
+component that both owns the held body and has an `Update` that already runs only while a hold is up.
+**Verdict: confirmed** — its `Update` opens `if (!_active || _body == null) return;`, so "only charging
+draws motes" is free, not a condition someone must remember.
+
+**Rule 19 check (the trap here).** The obvious home would be `MagicProjectileModelBuilder`, where every
+projectile body is born. But it has four callers and only one moves: a projectile in flight, the QA
+pedestal (motionless), a summoned turret's bolt (never flies), and this hold. A per-frame emission
+there would hang cubes in mid-air on the pedestals — the artifact 1gb/1jg were filed for. `ChargedProjectilePreview`'s
+own class doc already records the identical split for the 1l71 spin. **Verdict: motes live in the
+preview's charge-gated loop.**
+
+**ParticleSystem vs script-built primitives.** Grepped `ParticleSystem`: the only use in the repo is in
+quarantined `Legacy/Cutscenes/CutsceneManager.EndingDemon.cs` (read-only, rule 18). Every live FX is
+script-built primitives (`SkillFx`, `TrailStrip`, `CastingCircle`). **Verdict: build the motes as small
+cubes**, matching the codebase. Loaded `scenario-unity-vfx` (rule 15): its stance is mesh-first,
+texture over particle clouds on mobile, effects fade in/out, no linear curves, something always moving —
+all consistent with this edit; not authoritative here because its tooling is Unity MCP/CLI (rule 3).
+
+**Colour and material (rule 13 / first-use API).** The spell's identity is already resolved once by
+`SpellLook.Resolve`. Used `look.Core`, whitened. For the material, first-use check: grepped the body
+builder — it makes a `new Material(shader)` per part, and `MagicImpactModelBuilder` warns that mutating
+a shared material's colour corrupts other live flashes. `SkillFx.SharedSpriteMaterial` is the project's
+colour-keyed cache with the documented contract "never mutate the returned material." **Verdict: assign
+it to `sharedMaterial`, never touch `.color`.** Confirmed `SpellLook.Core` exists (`SpellLook.cs:253`).
+
+**Time gate, not distance (rule 19 nuance).** 1jq's flight trail emits per *distance* because it is
+drawn along a path. A charge is a *time*-gated state (it can be held stationary), so the mote phase
+advances on `Time.deltaTime`. Recorded at the field and in `UpdateMotes`'s doc.
+
+**First-frame flash.** The motes are parented under a container toggled with the hold, activated at the
+end of the `Show` that builds them. If this component's `Update` runs *before* the caller's on that first
+frame, the motes are never positioned. **Verdict: born at `localScale = Vector3.zero`** so a
+zero-position default cube cannot be seen before the first `UpdateMotes`.
+
+**One-shot control.** `Hide()` deactivates the mote container with the body; `_active` gates the loop,
+so release/cancel/weapon-switch all stop the draft the same way they stop the spin.
+
+**Open:** none. The look itself (density, inward speed, whether 12 reads on screen) is a play-test item —
+a measurement lane was not warranted for a purely additive, non-geometry effect (rule 7 applies to
+geometry reports).
+
 ## 1l91. Earth Wall sequential rise — reasoning trail (SHIPPED, play-test pending)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l90`, so this is `1l91` (rule 1 forbids
