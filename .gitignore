@@ -10,3 +10,6 @@
 /UserSettings/
 /Assets/AssetStoreTools*
 /Assets/_Recovery/
+# Local scratch (pasted Unity console output / temp notes) — never commit
+/compile error.txt
+/temp.txt
