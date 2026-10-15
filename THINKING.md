@@ -1,3 +1,42 @@
+## 1l90. Fire Wave floor: wave silhouette, not a slab
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l89`, so this is `1l90` (rule 1 forbids
+amending).
+
+**Q — "the sides of the wave are all equal which wouldn't really create the feeling".** *H (ambiguous —
+asked, did not guess).* Four readings: (a) the front edge is a straight wall; (b) the height is uniform
+across the width; (c) the side edges are hard rectangles; (d) the block sizes are all identical. The user
+picked **"curved front + peaked crest"** — i.e. (a)+(b): the leading edge should bow forward in the
+middle and the floor should be taller at the centre and taper to the sides. (c)/(d) were rejected.
+
+**H — the fix is in the cell REST data, not a new component.** *CONFIRMED by reading `WaveRipple`.* The
+ripple already offsets each cell by `_restY[i] + sin(time*speed - z*waveNumber) * amplitude` and never
+touches x/z. So a silhouette needs no new writer: give each column a rest height (dome) at build time and
+`WaveRipple` rides on top of it, still recomputed from the authored rest (no accumulation — its own
+documented invariant). Action: `rest = crestLift * (1 - xf²)`.
+
+**H — the curved crest line comes FREE from the bowed front, if the phase reads z.** *CONFIRMED by the
+same read.* `Apply`'s phase term is `-p.z * _waveNumber`, i.e. it is a function of the cell's stored z.
+So if the build step also draws the side columns back in z (`zBow = -frontBow * xf²`), the crest phase
+varies across x automatically and the travelling crest line bows to match the front — one derivation,
+not a second hand-authored crest curve (rule 8: do not spell the same curve twice). This is why the bow
+went into the position write rather than a separate ripple parameter.
+
+**Rejected — a new ripple parameter (per-cell amplitude / crest curve).** A domed *amplitude* would need
+`WaveRipple` to hold a per-cell amplitude array and a divider; a rest-height dome needs nothing new,
+because `_restY` already exists. Smaller surface wins; the amplitude stays constant and the crest height
+comes from the rest offset.
+
+**Rejected — scaling the crest/bow with charge `extent`.** Kept the two constants absolute for now: a
+wider charged floor gets a relatively gentler curve, which reads fine and avoids inventing a second
+ladder. Flagged as a possible follow-up if a charged wave looks too flat, not implemented speculatively.
+
+**Values:** `crestLift = 0.35 m` (about 2× the `amplitude` 0.16, so the centre is always the high point
+even at the sine trough), `frontBow = 1.2 m` (≈ a third of the half-width 1.7, a clear bow without
+shortening the sides too far). The QA pedestal (extent 1, no `SpellWave`) now shows this crest statically.
+
+**Status: OPEN until play-test.** No build (rule 3); StaticChecks → 0 candidates. No signature change.
+
 ## 1l89. Fire Wave floor: flush blocks, charge adds blocks
 
 Follow-up to 1l88 (already committed). New task id because rule 1 forbids amending: enumerate

@@ -563,6 +563,12 @@ internal static class MagicProjectileModelBuilder
     /// passes its charge size scale here and no longer touches <c>go.localScale</c>, so the cubes stay
     /// a constant size at every charge. The count is capped (1400 cells); past the cap the cubes grow
     /// instead, so an unbounded hold-to-overcharge cannot spawn an unbounded floor.</para>
+    /// <para>1l90: the floor is a CREST, not a slab. The centre columns rest higher
+    /// (<c>crestLift</c>) and fall to zero at the side edges, and the side columns are drawn back in z
+    /// (<c>frontBow</c>) so the front edge curves forward in the middle — a wave silhouette rather than
+    /// a rectangle of equal-height cubes. Because the ripple's phase reads each cell's z, a bowed
+    /// column also curves the travelling crest line to match the front. The QA pedestal (extent 1) shows
+    /// this shape statically.</para>
     /// </summary>
     private static Transform Wave(string name, Shader shader, Color color, float extent = 1f)
     {
@@ -580,6 +586,11 @@ internal static class MagicProjectileModelBuilder
         const float wavelength = 2.6f;
         const float fill = 1.01f;
         const int waveCellCap = 1400;
+        // 1l90 silhouette: the floor is no longer a flat rectangle of equal-width rows — the centre of
+        // the floor rides higher (crestLift) and falls away to nothing at the side edges, and the side
+        // columns are pulled back (frontBow) so the leading edge curves instead of standing straight.
+        const float crestLift = 0.35f;
+        const float frontBow = 1.2f;
 
         // Charge/radius extent grows the floor AND the count together, so the pitch — and therefore
         // the block size — stays fixed while a charged wave is simply larger. Clamped so a pathological
@@ -604,6 +615,7 @@ internal static class MagicProjectileModelBuilder
         float sz = depth / rows;
         float cellX = sx * fill;
         float cellZ = sz * fill;
+        float halfW = width * 0.5f;
 
         // The floor's rest colour; the ripple lerps each cell up toward the school colour on the crest.
         Color trough = Color.Lerp(color, Color.black, 0.55f);
@@ -613,17 +625,24 @@ internal static class MagicProjectileModelBuilder
         int n = 0;
         for (int ix = 0; ix < cols; ix++)
         {
-            float x = (ix + 0.5f) * sx - width * 0.5f;
+            float x = (ix + 0.5f) * sx - halfW;
+            // Cross-section across the width: 1 at the centre, 0 at the side edges. It lifts the
+            // centre into a crest and pulls the side columns back (the front bows, it is not a wall).
+            // A bowed column also carries its own ripple phase, because the phase reads the cell's z —
+            // so the travelling crest line curves to match the front instead of staying a straight bar.
+            float xf = halfW > 0.0001f ? x / halfW : 0f;
+            float rest = crestLift * (1f - xf * xf);
+            float zBow = -frontBow * xf * xf;
             for (int iz = 0; iz < rows; iz++)
             {
-                float z = (iz + 0.5f) * sz - depth * 0.5f;
+                float z = (iz + 0.5f) * sz - depth * 0.5f + zBow;
                 var cube = Primitive(PrimitiveType.Cube, "WaveCell_" + n, root);
-                cube.localPosition = new Vector3(x, 0f, z);
+                cube.localPosition = new Vector3(x, rest, z);
                 cube.localScale = new Vector3(cellX, thickness, cellZ);
                 Materialize(cube, shader, trough);
                 mats[n] = cube.GetComponent<MeshRenderer>().material;
                 cells[n] = cube;
-                restY[n] = 0f;
+                restY[n] = rest;
                 n++;
             }
         }

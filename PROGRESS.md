@@ -1,3 +1,32 @@
+## 1l90. Fire Wave floor: real wave silhouette (peaked crest, curved front)
+
+**"the sides of the wave are all equal which wouldn't really create the feeling."**
+
+Follow-up to 1l89: the floor was a rectangle of equal cubes at a uniform height. Clarified with the
+user → **"curved front + peaked crest"**: the wave needs a silhouette, not a slab.
+
+- **Peaked crest** — `MagicProjectileModelBuilder.Wave` gives each column a rest height
+  `crestLift * (1 - xf²)` (`xf` = x across the half-width), so the centre rests `0.35 m` higher and the
+  sides taper to zero. `restY[i]` carries it, so `WaveRipple` still offsets from the authored rest
+  (no accumulation) and the rolling sine rides on the crest.
+- **Curved front** — each column is drawn back in z by `frontBow * xf²` (`1.2 m` at the edges), so the
+  front edge bulges forward in the middle. Because `WaveRipple`'s phase reads the cell's z, a bowed
+  column also curves the travelling crest line to match the front — one derivation, not two.
+- Constants `crestLift = 0.35f`, `frontBow = 1.2f` in `Wave`. The QA pedestal (extent 1) now shows the
+  crest statically.
+- Files: `Models/Magic/MagicProjectileModelBuilder.cs` (`Wave`).
+- Docs: `game-design.md` (§3.8.1 "Ground waves" + the Wave shape row).
+
+### 1l90-status
+
+- **Done** — crest lift + front bow in the floor builder; docs updated. Committed `1l90`.
+- **Verification** — grep + reread (no build, rule 3): `tools\StaticChecks.ps1` → 0 candidates
+  (`MagicProjectileModelBuilder.cs` braces 39/39, parens 292/292). No signature change; only the cell
+  loop and two constants moved.
+- **Pending play-test (Unity):** the floor should read as a wave — higher in the middle, curving
+  forward, crest rolling — not a flat uniform slab. Check the sides fall away and the crest line bows
+  with the front. Note the pedestal shape changed too (same builder).
+
 ## 1l89. Fire Wave floor: flush blocks, and charge adds blocks instead of scaling them
 
 **"the wave block should not have gaps between, and make the blocks smaller and fitter, increase amount
