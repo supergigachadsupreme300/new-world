@@ -1,3 +1,25 @@
+## 1l86. Fire Wave range/length, wave spin
+
+**Q — "remove the projectile rotate".** Where can a Wave actually rotate? Two writers exist and only
+one survives. `SpellEffect.Update` spins every projectile with `transform.Rotate(0,0,SpinRate(_wave)*dt)`
+(150 for a wave), but the wave branch then OVERWRITES the whole transform with
+`transform.rotation = Quaternion.LookRotation(_dir)` — so the fired floor never visibly rolls; the 150
+only ever shows on the HELD body, because `ChargedProjectilePreview` reads the same `SpinRate` and rolls
+the held floor about its travel axis. A wide flat floor rolling that way reads exactly as "the projectile
+turning over". *Fix:* `SpinRate` returns **0** for a wave — one edit, one source (rule 13), so both the
+fired frame and the held preview stop rolling. The wave branch's flat re-aim is kept: the floor must
+still face its travel (it is 7 wide x 9 deep, so heading matters) and the flatten is what keeps it lying
+on the ground rather than pitched to the aim. *Rejected:* deleting the re-aim — that would leave the
+spawn rotation (`LookRotation(fwd)`, pitched by the aim) and tilt the floor.
+
+**Q — "extend the range" and "the length of the wave" are two different axes.** Range is gameplay
+(`spell.Range`, and 1jy already ties the wave's lifetime to it), length is the drawn floor's depth along
+travel. So: `deliveryRange` 12 -> 20 on Fire Wave only (the request named fire), and the shared builder's
+rows/depth 5/2 -> 9/4.2. The builder is shared with Frozen Touch, so its floor lengthens too — stated as a
+play-test item rather than forked, since one body for one shape is the rule-13 default.
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l85. Flamethrower size, Firestorm ring gaps, Wave floor
 
 **Q1 — Flamethrower "enlarging too big."** *H (the cone compounded its own breathe — CONFIRMED).*

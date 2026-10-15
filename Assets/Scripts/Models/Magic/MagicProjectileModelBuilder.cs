@@ -554,15 +554,18 @@ internal static class MagicProjectileModelBuilder
         var root = new GameObject(name).transform;
 
         // Spans the wave's delivery radius; the lattice is denser than the old 5-cube ramp so the
-        // ripple reads as a moving front rather than a handful of bobbing blocks.
+        // ripple reads as a moving front rather than a handful of bobbing blocks. 1l86: the floor is
+        // longer front-to-back (rows 5 -> 9, depth 2 -> 4.2 m) so the sweep reads as a broad rolling
+        // wall rather than a shallow lip, and the wavelength was stretched with it so a longer floor
+        // still shows about two crests instead of a busy chop.
         const int cols = 7;
-        const int rows = 5;
+        const int rows = 9;
         const float width = 3.4f;
-        const float depth = 2f;
+        const float depth = 4.2f;
         const float thickness = 0.18f;
         const float amplitude = 0.16f;
         const float speed = 7f;
-        const float wavelength = 1.6f;
+        const float wavelength = 2f;
         float sx = width / cols;
         float sz = depth / rows;
         float cell = Mathf.Min(sx, sz) * 0.92f;

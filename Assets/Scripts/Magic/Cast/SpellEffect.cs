@@ -144,12 +144,15 @@ public class SpellEffect : MonoBehaviour
 
     /// <summary>1l6x: spin about the travel axis (deg/s) for a flying or held projectile. One source
     /// (rule 13) shared with <c>ChargedProjectilePreview</c>, so the held body cannot drift from the
-    /// bolt that replaces it. A wave is slower so its sweep stays readable.</summary>
-    public static float SpinRate(bool wave) => wave ? 150f : 600f;
+    /// bolt that replaces it. 1l86: a wave does not spin at all — it is a flat floor laid on the
+    /// ground, and rolling it about its travel axis read as the whole projectile turning over, so the
+    /// rate is 0 for waves. This is the single place that decides it, so the held body stops rolling
+    /// too (the preview reads this same value).</summary>
+    public static float SpinRate(bool wave) => wave ? 0f : 600f;
 
     private void Update()
     {
-        // Spin around Z (travel) axis - always, whether launched or still held
+        // Spin around Z (travel) axis for a bolt (a wave's rate is 0, so this is a no-op for it).
         transform.Rotate(0f, 0f, SpinRate(_wave) * Time.deltaTime);
         if (!_launched) return;
 

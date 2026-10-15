@@ -1,3 +1,31 @@
+## 1l86. Fire Wave reaches further, longer floor, no wave spin
+
+Follow-up to 1l85's Wave rework (play-test feedback).
+
+- **"extend the firewave range"** — Fire Wave `deliveryRange` 12 -> 20 (`SkillCatalog.Magic.cs`);
+  Frozen Touch stays 10. Travel time is `Range / ProjectileSpeed` (speed 20 -> 0.6 s becomes 1.0 s),
+  so the sweep reaches a third further across the field.
+- **"the length of the wave"** — the shared Wave floor (`MagicProjectileModelBuilder.Wave`) is longer
+  front-to-back: rows 5 -> 9, depth 2 -> 4.2 m, and the ripple wavelength 1.6 -> 2 m so the longer
+  floor still shows about two crests instead of a busy chop. Applies to both Wave spells (one body).
+- **"remove the projectile rotate"** — the wave no longer rolls. `SpellEffect.SpinRate` (the ONE source,
+  rule 13, also read by `ChargedProjectilePreview`) returns **0** for a wave (was 150), so the travelling
+  floor is not spun about its travel axis — and because the held preview reads the same value, the
+  charged hold stops rolling too. The wave is still re-aimed flat to face travel each frame; only the
+  roll is removed.
+- Files: `Combat/Skills/SkillCatalog.Magic.cs`, `Models/Magic/MagicProjectileModelBuilder.cs`,
+  `Magic/Cast/SpellEffect.cs`.
+- Docs: `game-design.md` (§3.8.1 ground-waves paragraph + Wave shape row), `magic-skills.md` (Fire Wave
+  range), this entry + `THINKING.md §1l86`.
+
+### 1l86-status
+- [x] Range, floor length and spin fixed; `SpinRate` remains the single source (preview reads it).
+- [x] `tools\StaticChecks.ps1` -> 0 candidates. No build (rule 3).
+- [x] `skills: none applied` (rule 15) — C# tuning edit verified by review.
+- [ ] **PLAY-TEST (user, Unity):** Fire Wave sweeps ~20 m; its floor is a longer rolling wall; neither
+  the fired wave nor the charged hold rolls/spins. Frozen Touch body shares the longer floor (its own
+  range is still 10) — confirm that reads fine.
+
 ## 1l85. Flamethrower cone holds its size, Firestorm funnel rings close, Wave becomes a ripple floor
 
 Three `testing.md` reports, all drawn-geometry.

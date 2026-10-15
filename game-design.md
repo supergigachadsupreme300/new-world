@@ -2128,7 +2128,7 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   on a short cadence so the band keeps up with a fast wave. A wave deliberately never detonates on the
   ground it rides, never dies on the first foe it touches (it passes through and shoves), and leaves no
   trail strip — it is a sweep, not a bolt. Fire Wave and Frozen Touch are the two Wave spells: a 3.4 m
-  and 3.2 m-wide band sweeping 12 m and 10 m, knockback shoving foes away from the caster along the
+  and 3.2 m-wide band sweeping 20 m and 10 m, knockback shoving foes away from the caster along the
   ground.
   **The body (1l85) is a flat floor of small voxel cubes** spanning the band — no longer the old
   diagonal ramp of five cubes, which was a wave *shape*, not a wave. The crest is drawn by a traveling
@@ -2137,6 +2137,14 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   ripple lives in the flying loop, never in the shape factory, so the QA pedestal that same builder
   feeds draws the floor motionless). Each offset is recomputed from the cell's authored rest, never
   accumulated, so the ripple cannot drift.
+  **1l86: Fire Wave reaches further, the floor is longer, and the wave no longer rolls.** Fire Wave's
+  `Range` is 20 m (was 12); Frozen Touch stays at 10. The shared floor is longer front-to-back (9 rows
+  over 4.2 m, was 5 rows over 2 m) so the sweep reads as a broad rolling wall rather than a shallow lip,
+  and its wavelength was stretched (2 m, was 1.6) so the longer floor still shows about two crests.
+  The wave does not spin: `SpellEffect.SpinRate` returns 0 for a wave (were 150), so it is drawn flat on
+  the ground instead of rolling about its travel axis — and because the held `ChargedProjectilePreview`
+  reads that same value (rule 13), the charged hold stops rolling with it. The wave is still re-aimed
+  flat to face its travel every frame; only the roll is gone.
 
 **Sky spells** (`SummonFallingRock`, the meteor/boulder family) drop a **rock formation** from high
 above the ground target and read as the spell landing: the burst (damage, knockback, terrain
@@ -2185,7 +2193,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Soul** | 1l6x: a drifting spectral wisp — a bright cold core leading (+Z) inside a soft translucent halo, with a long tapering frost tail and two stray motes behind — so a homing missile reads as a spirit that hunts. **Display-only:** `ProjectileShape.Soul` carries no behaviour (unlike `Missile` it has no homing of its own), and it is authored-only — never in a `Shape_*` family. Chill Soul wears it while keeping `Missile` as its gameplay shape. |
 | **Hand** | 1l6y: a spectral reaching hand — a flat translucent palm whose four fingers lead (+Z) into the foe, a thumb to one side, a bright cold core in the palm and two ghostly flecks trailing — so a numbing touch reads as a hand reaching out. **Display-only** and authored-only (never in a `Shape_*` family). Chill Touch. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
-| **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellEffect`'s wave branch calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) Fire Wave and Frozen Touch. This shape is *also behaviour*, not just a look: a Wave-shaped projectile is fully transformed by `SpellEffect` into a terrain-glued forward sweep (§3.8.1 below). It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the sweep without its asking. |
+| **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellEffect`'s wave branch calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) 1l86: the floor is longer front-to-back (9 rows over 4.2 m) and the body does not spin (`SpellEffect.SpinRate` is 0 for a wave), so it reads as a flat rolling wall, not a tumbling block. Fire Wave and Frozen Touch. This shape is *also behaviour*, not just a look: a Wave-shaped projectile is fully transformed by `SpellEffect` into a terrain-glued forward sweep (§3.8.1 below). It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the sweep without its asking. |
 
 `Auto` picks from the spell's **school family** via `SpellLook.Resolve` (§3.8.3): Fire→Sphere,
 Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Physical→Dart, everything
