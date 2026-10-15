@@ -94,7 +94,6 @@ public class ThirdPersonCamera : MonoBehaviour
 
         // When locked on, orient the camera toward the LockOnTarget so the
         // character (and camera) both face the enemy.
-        Quaternion lookRot;
         if (_lockOnActive && LockOnTarget != null)
         {
             Vector3 toTarget = LockOnTarget.position - pivotPos;

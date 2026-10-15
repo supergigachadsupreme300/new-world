@@ -27,7 +27,7 @@ public static class ComponentRegistry
             return (T)cached;
 
         T found = null;
-        foreach (var component in UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None))
+        foreach (var component in UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Exclude))
         {
             found = component;
             break;

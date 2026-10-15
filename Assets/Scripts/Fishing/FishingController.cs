@@ -70,7 +70,7 @@ public class FishingController : MonoSingleton<FishingController>
         base.Awake();
         _uiManager = GameManager.Instance?.UIManager;
         var hudCanvasGo = GameObject.Find("HUD_Canvas");
-        _canvas = hudCanvasGo != null ? hudCanvasGo.GetComponent<Canvas>() : FindObjectOfType<Canvas>();
+        _canvas = hudCanvasGo != null ? hudCanvasGo.GetComponent<Canvas>() : FindAnyObjectByType<Canvas>();
         if (_canvas == null)
         {
             var canvasGo = new GameObject("FishingCanvas");

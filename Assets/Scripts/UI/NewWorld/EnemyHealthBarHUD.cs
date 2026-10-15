@@ -96,7 +96,7 @@ public sealed class EnemyHealthBarHUD : MonoBehaviour
 
         _scanTimer = ScanInterval;
         _enemies.Clear();
-        foreach (var e in Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None))
+        foreach (var e in Object.FindObjectsByType<EnemyController>(FindObjectsInactive.Exclude))
             _enemies.Add(e);
         return _enemies;
     }

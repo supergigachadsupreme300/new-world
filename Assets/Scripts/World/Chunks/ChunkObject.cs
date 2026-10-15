@@ -266,6 +266,7 @@ public class ChunkObject : MonoBehaviour
     /// volume ops survive rebuilds that merely overlay surface edits. Null for smooth chunks. The
     /// column run data is also the save source — the file is written from this store at flush.
     /// </summary>
+    [System.NonSerialized]
     public VoxelChunkData VoxelStore;
 
     // Incremental prop spawning (one deterministic Random per chunk, spread over ticks).

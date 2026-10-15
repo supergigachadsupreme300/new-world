@@ -1162,7 +1162,7 @@ public class RandomEventManager : MonoSingleton<RandomEventManager>
 
     private IEnumerator DancingAnimalsEffect()
     {
-        var spawner = FindObjectOfType<LivestockSpawner>();
+        var spawner = FindAnyObjectByType<LivestockSpawner>();
         if (spawner == null) yield break;
 
         var animals = spawner.GetActiveAnimals();

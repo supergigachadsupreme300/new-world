@@ -142,7 +142,7 @@ public sealed class PlayerBarsHUD : MonoBehaviour
             tmp.fontSize = 12f;
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.enableWordWrapping = false;
+            tmp.textWrappingMode = TextWrappingModes.NoWrap;
             tmp.raycastTarget = false;
 
             _statusChips.Add(new StatusChip { Root = chipRect, Target = chipColor, Text = tmp });

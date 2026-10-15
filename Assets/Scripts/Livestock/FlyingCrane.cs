@@ -595,7 +595,7 @@ public class FlyingCrane : MonoBehaviour
         foreach (Transform child in transform)
             Destroy(child.gameObject);
 
-        var spawner = FindObjectOfType<LivestockSpawner>();
+        var spawner = FindAnyObjectByType<LivestockSpawner>();
         if (spawner != null)
             spawner.ReturnCrane(this);
         else

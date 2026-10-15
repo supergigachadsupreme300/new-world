@@ -345,7 +345,7 @@ public sealed class MagicWheelUI : MonoBehaviour
         var label = MakeLabel(slot.transform, "Label", Vector2.zero, Vector2.one,
             Mathf.Max(7f, slotSize * 0.42f), Color.white);
         label.text = skill != null && !string.IsNullOrEmpty(skill.displayName) ? skill.displayName : skill != null ? skill.id : "?";
-        label.enableWordWrapping = false;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
         label.overflowMode = TextOverflowModes.Ellipsis;
         _slotLabels.Add(label);
         _slotIds.Add(skill != null ? skill.id : "");

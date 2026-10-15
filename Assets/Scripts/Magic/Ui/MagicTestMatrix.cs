@@ -226,7 +226,7 @@ public sealed class MagicTestMatrix : MonoBehaviour
         tmp.color = color;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
-        tmp.enableWordWrapping = true;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
         ApplyFont(tmp);
         return tmp;
     }
@@ -308,7 +308,7 @@ public sealed class MagicTestMatrix : MonoBehaviour
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Left;
         tmp.raycastTarget = false;
-        tmp.enableWordWrapping = false;
+        tmp.textWrappingMode = TextWrappingModes.NoWrap;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.text = skill.displayName ?? skill.id;
         ApplyFont(tmp);

@@ -1,3 +1,61 @@
+## 1l96. Unity console warnings: fix live code, skip legacy - reasoning trail (SHIPPED)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l95`, so this is `1l96` (enumerate first - rule 8).
+Source: the user pasted Unity's console into `compile error.txt` (repo root) and asked to fix the warnings.
+
+**H1 - which warnings are even actionable. CONFIRMED.** Rule 18 quarantines `Assets/Scripts/Legacy/`
+read-only, so any diagnostic whose only fix site is a legacy file is **report-only**. Splitting the paste by
+first-appearance path: CS0618 (`FindObjects*` + TMP `enableWordWrapping`), CS0114 (`OnDestroy` hiding
+`MonoSingleton.OnDestroy`), CS0162 (unreachable), CS0168/CS0219 (unused), CS0675 (sign-extend), UAC1001
+(serialized-field). Only three legacy sites exist (`CutsceneManager.cs:143`, `CutsceneManager.EndingDemon.cs:340`,
+`WorldBuilder.cs:547-549`) plus one legacy RUNTIME warning (below) - every other site is live code and IS
+fixable. So the task is not "fix all of these" but "fix the live ones, name the legacy ones".
+
+**H2 - the CS0618 replacements are behaviour-exact, checked not assumed. CONFIRMED.** In Unity 6
+`FindObjectsByType<T>(FindObjectsSortMode.None)` and `FindObjectsByType<T>(FindObjectsInactive.Exclude)` are
+the same query (exclude inactive, unsorted); `FindObjectOfType<T>()` / `FindFirstObjectByType<T>()` were
+deprecated for `FindAnyObjectByType<T>()` ("first active, any order"). The codebase already pinned the
+semantics with the `FindObjectsSortMode.None` spelling everywhere, so I changed the ARGUMENT, never a sort
+mode. Same discipline for TMP: `enableWordWrapping=true|false` -> `textWrappingMode = TextWrappingModes.Normal|NoWrap`.
+Rule 3 says a first-use API is an unverified assumption, so I grepped a PRE-EXISTING use of the enum before
+trusting the spelling: `UIHelper.cs:29`, `WifeNPC.cs:1398`, `TypingMinigame.cs:267/273`, `UIManager.cs:1159`,
+`UIManager.Feedback.cs:81` all use `TextWrappingModes` (plural, `TMPro`) + `textWrappingMode`, so the mapping
+is the project's own idiom, not a guess. Then confirmed each edited TMP file carries `using TMPro;`.
+
+**H3 - the CS0162 in `FarShell.cs` is the one that resists the obvious fix. CONFIRMED.** `private const bool
+FarBakeEnabled = false` makes both `if (!FarBakeEnabled)` guards compile-time constant -> the whole far-shell
+bake path is provably unreachable (CS0162) at BOTH sites. I could not delete the guard (it is real dormant
+code kept for when the combined-mesh winding bug is fixed), and I could not flip the value (that re-enables a
+known-broken feature). Fix: `static readonly` keeps the value `false` but makes it a runtime read, so the guard
+is a real branch again and the bake stays disabled exactly as before. Extended the doc-comment to say why it
+must not be `const`, so a later "tidy" edit does not silently reintroduce the warning.
+
+**H4 - `WifeDonationField.OnDestroy` was hiding a latent bug, not only a warning. CONFIRMED.**
+`MonoSingleton<T>` declares `protected virtual void OnDestroy()` (`Core/MonoSingleton.cs:21`) which nulls
+`Instance`. `WifeDonationField`'s `OnDestroy` had no `override` (CS0114) and no `base.OnDestroy()`, so the
+singleton's `Instance` was never cleared - a dangling reference. Fixing the warning (`protected override void
+OnDestroy()` + `base.OnDestroy();`) fixes the bug too; the two share one cause.
+
+**H5 - CS0675 sign extension in `LookKey`. CONFIRMED (cast-only, value unchanged).** `(ulong)(int)look.X`
+sign-extends a negative `int` into the key's high 32 bits. The fields are small non-negative enums, so the key
+value is unchanged today, but the `(int)` cast bought nothing. All `(ulong)(int)` -> `(ulong)(uint)` (incl. the
+r/g/b bytes) removes the sign-extension class entirely, with a stated no-delta.
+
+**H6 - the runtime `BoxCollider` warning is legacy. CONFIRMED (report-only).**
+"BoxCollider does not support negative scale or size" on `WorldRoot/StructurePart_Church_Roof/Cube`.
+`CreatePartGableSteps` (`Legacy/WorldBuilder/WorldBuilder.Blueprints.cs:1042`) computes
+`across = Vector3.Cross(Vector3.up, normal)`; for the church gable `normal = Vector3.right`, so `across =
+(0,0,-1)` and `size = normal*thickness + up*(top-wallTop) + across*(outer-inner)` gets a **negative Z scale**
+on every band cube (`CreatePartBoxOn` -> `CreatePrimitive(PrimitiveType.Cube)`, hence the child literally named
+`Cube`). It is a real inside-out-collider defect, but it lives wholly in `Legacy/` -> no edit (rule 18); the
+mechanism is named here for the owner, and the fix is a one-line `Cross` order flip if ever authorised.
+
+**H7 - what was deliberately not "fixed".** The UAC1001 suppression (`[System.NonSerialized]` on
+`ChunkObject.VoxelStore`) is correct: `VoxelStore` is a runtime-only container, not a scene-serialized field,
+so the attribute states the intent rather than hiding data loss. The four legacy diagnostics + the church-roof
+runtime warning are left per rule 18.
+
+`skills: none applied` (rule 15) - a C# compile-warning sweep; no DCC/asset artifact.
 ## 1l95. Needle Field "only a lump": the raise cap was deleting the spike accent — reasoning trail (SHIPPED; play-test pending)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l94`, so this is `1l95` (rule 1 forbids

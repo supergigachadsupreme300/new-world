@@ -77,7 +77,7 @@ public class LootContainer : MonoBehaviour
     private ILootLuckProvider FindFirstLuckProvider()
     {
         // A full integration reads the interacting player; for now locate the live player stats.
-        var ps = UnityEngine.Object.FindFirstObjectByType<PlayerStats>();
+        var ps = UnityEngine.Object.FindAnyObjectByType<PlayerStats>();
         return ps as ILootLuckProvider;
     }
 

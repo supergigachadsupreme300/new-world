@@ -745,7 +745,6 @@ public partial class WorldStreamer
         out int bndBothEdited, out int bndNeither)
     {
         int keepFar = view + FarOuterKeep;
-        int cs = TerrainChunkCoord.ChunkSize;
         bndNodes = 0;
         bndNoFar = 0;
         worstRealFar = 0f;

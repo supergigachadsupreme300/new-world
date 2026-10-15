@@ -1210,13 +1210,13 @@ public class WifeNPC : MonoSingleton<WifeNPC>
         if (_pendingFatedEnding)
         {
             _pendingFatedEnding = false;
-            var cm = FindFirstObjectByType<CutsceneManager>();
+            var cm = FindAnyObjectByType<CutsceneManager>();
             if (cm != null) cm.RequestFatedEnding();
         }
         else if (_pendingHappyEnding)
         {
             _pendingHappyEnding = false;
-            var cm = FindFirstObjectByType<CutsceneManager>();
+            var cm = FindAnyObjectByType<CutsceneManager>();
             if (cm != null) cm.RequestHappyEnding();
         }
     }
@@ -1235,7 +1235,7 @@ public class WifeNPC : MonoSingleton<WifeNPC>
     private void CreateDialogPanel()
     {
         if (_canvas == null)
-            _canvas = FindFirstObjectByType<Canvas>();
+            _canvas = FindAnyObjectByType<Canvas>();
         if (_canvas == null) return;
 
         float sw = Screen.width;

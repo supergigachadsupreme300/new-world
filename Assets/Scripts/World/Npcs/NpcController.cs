@@ -29,7 +29,7 @@ public class NpcController : MonoBehaviour
 
     private void Start()
     {
-        _shop = Object.FindObjectOfType<VendorShopManager>();
+        _shop = Object.FindAnyObjectByType<VendorShopManager>();
     }
 
     private void Update()
@@ -73,7 +73,7 @@ public class NpcController : MonoBehaviour
 
     private void OpenVendor()
     {
-        if (_shop == null) _shop = Object.FindObjectOfType<VendorShopManager>();
+        if (_shop == null) _shop = Object.FindAnyObjectByType<VendorShopManager>();
         if (_shop == null)
         {
             GameManager.Instance?.UIManager?.ShowMessage("Vendor unavailable.", 1.5f);

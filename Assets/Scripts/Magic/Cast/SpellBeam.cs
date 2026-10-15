@@ -406,7 +406,6 @@ public class SpellBeam : MonoBehaviour
     /// odd count always puts one ray dead centre.</summary>
     private Vector3 RayDirection(int i)
     {
-        if (ConeRays <= 1) return Direction;
         float a = (i / (float)(ConeRays - 1) * 2f - 1f) * _coneHalfRad;
         return Quaternion.AngleAxis(a * Mathf.Rad2Deg, Vector3.up) * Direction;
     }

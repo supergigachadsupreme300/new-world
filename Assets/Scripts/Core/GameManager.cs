@@ -266,7 +266,7 @@ public class GameManager : MonoSingleton<GameManager>
         ToolManager = ComponentRegistry.Find<ToolManager>();
         CutsceneManager = ComponentRegistry.Find<CutsceneManager>();
         RandomEventManager = ComponentRegistry.Find<RandomEventManager>();
-        Pets = new List<PetController>(Object.FindObjectsByType<PetController>(FindObjectsSortMode.None));
+        Pets = new List<PetController>(Object.FindObjectsByType<PetController>(FindObjectsInactive.Exclude));
 
         if (UIManager == null)
         {

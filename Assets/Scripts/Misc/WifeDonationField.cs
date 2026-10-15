@@ -148,8 +148,9 @@ private BoxCollider _triggerCol;
         if (_label != null)
             _label.text = Localization.T("Bỏ vật phẩm nhiệm vụ hàng ngày vào đây");
     }
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
         Localization.OnLanguageChanged -= RefreshLabel;
     }
     private void BuildTrigger()

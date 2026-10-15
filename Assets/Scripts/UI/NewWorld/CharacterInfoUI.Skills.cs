@@ -60,13 +60,13 @@ public sealed partial class CharacterInfoUI
         _detailTitle.alignment = TextAlignmentOptions.Center;
 
         _detailDesc = MakeBodyText(pane.transform, "DetailDesc", P(-190f, 116f), Sz(360f, 60f));
-        _detailDesc.enableWordWrapping = true;
+        _detailDesc.textWrappingMode = TextWrappingModes.Normal;
 
         _detailMeta = MakeBodyText(pane.transform, "DetailMeta", P(-190f, 56f), Sz(360f, 100f));
 
         _detailLearnHint = MakeBodyText(pane.transform, "DetailHint", P(-190f, -46f), Sz(360f, 24f));
         _detailLearnHint.fontSize = Mathf.Max(14f, Screen.height / 64f);
-        _detailLearnHint.enableWordWrapping = true;
+        _detailLearnHint.textWrappingMode = TextWrappingModes.Normal;
 
         var learn = MakeButton(pane.transform, "LearnBtn", "Learn", P(-100f, -80f), LearnSelectedSkill);
         learn.GetComponent<RectTransform>().sizeDelta = Sz(160f, 38f);
@@ -974,7 +974,7 @@ public sealed partial class CharacterInfoUI
         tmp.text = skill.displayName;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.enableWordWrapping = true;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 2f;
@@ -1189,7 +1189,7 @@ public sealed partial class CharacterInfoUI
         tmp.text = skill.displayName;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.enableWordWrapping = true;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 2f;
@@ -1411,7 +1411,7 @@ public sealed partial class CharacterInfoUI
         tmp.text = skill.displayName;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.enableWordWrapping = true;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 2f;

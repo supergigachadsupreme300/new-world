@@ -1,3 +1,64 @@
+## 1l96. Silence Unity console warnings in live code (CS0618/CS0114/CS0162/CS0168/CS0675/UAC1001)
+
+The user pasted Unity's console into `compile error.txt` (repo root) and asked for the warnings to be
+fixed. Every *actionable* diagnostic in live code is fixed; the four whose only fix site is
+`Assets/Scripts/Legacy/` are left exactly as-is per rule 18 (read-only quarantine) and reported below.
+
+**Fixed:**
+- **CS0618 `FindObjects*` -> `FindObjectsInactive.Exclude` / `FindAnyObjectByType<T>()`** (behaviour-exact:
+  the replacement overloads both mean "exclude inactive, unsorted"). 14 sites: `GameManager`,
+  `ComponentRegistry`, `EnemyHealthBarHUD`, `NewWorldSystems` (4), `FishingController`, `FlyingCrane`,
+  `WifeNPC` (3), `LootContainer`, `NpcController` (2), `RandomEventManager`, `NewWorldTestGround`.
+- **CS0618 TMP `enableWordWrapping` -> `textWrappingMode = TextWrappingModes.Normal|NoWrap`** (the
+  project's own established idiom, confirmed against pre-existing use). 14 sites: `MagicTestMatrix` (2),
+  `MagicWheelUI`, `CharacterInfoUI.Skills` (5), `CharacterInfoUI.Stats`, `ItemTooltipUI` (2),
+  `PlayerBarsHUD`, `SkillBarHUD`.
+- **CS0114** `WifeDonationField.OnDestroy` -> `protected override void OnDestroy()` + `base.OnDestroy();`
+  (also fixes a latent bug: `MonoSingleton`'s `Instance` was never nulled on destroy).
+- **CS0162** `SpellBeam.cs`: deleted a provably-dead `if (ConeRays <= 1) return Direction;` (`ConeRays` is
+  `public const int = 7`). `WorldStreamer.FarShell.cs`: `private const bool FarBakeEnabled = false` ->
+  `private static readonly bool FarBakeEnabled = false` - value still `false` (feature stays disabled), but
+  the two `if (!FarBakeEnabled)` guards are real runtime branches again; the doc-comment was extended to say
+  why it must NOT be `const`.
+- **CS0168** `ThirdPersonCamera.cs`: deleted unused `Quaternion lookRot;`.
+- **CS0219** deleted unused `float cross = 0.35f;` (`PlayerAnimator.cs`) and `int cs = TerrainChunkCoord.ChunkSize;`
+  (`WorldStreamer.CornerAudit.cs`).
+- **CS0675** `NewWorldTestGround.LookKey`: all `(ulong)(int)look.X` -> `(ulong)(uint)look.X` (incl. the r/g/b
+  bytes) to remove sign extension; the key value is unchanged (all fields non-negative).
+- **UAC1001** `ChunkObject.VoxelStore` -> `[System.NonSerialized]` (runtime-only store; uploaded meshes are
+  not scene-serialized).
+
+**Files (25):** `Animation/PlayerAnimator.cs`, `Core/GameManager.cs`, `Fishing/FishingController.cs`,
+`Livestock/FlyingCrane.cs`, `Magic/Cast/SpellBeam.cs`, `Magic/Ui/MagicTestMatrix.cs`,
+`Magic/Ui/MagicWheelUI.cs`, `Misc/WifeDonationField.cs`, `NPCs/WifeNPC.cs`, `Opt/ComponentRegistry.cs`,
+`Opt/NewWorldTestGround.cs`, `Player/Controller/ThirdPersonCamera.cs`, `Quests/RandomEventManager.cs`,
+`UI/NewWorld/CharacterInfoUI.Skills.cs`, `UI/NewWorld/CharacterInfoUI.Stats.cs`,
+`UI/NewWorld/EnemyHealthBarHUD.cs`, `UI/NewWorld/ItemTooltipUI.cs`, `UI/NewWorld/NewWorldSystems.cs`,
+`UI/NewWorld/PlayerBarsHUD.cs`, `UI/NewWorld/SkillBarHUD.cs`, `World/Chunks/ChunkObject.cs`,
+`World/Loot/LootContainer.cs`, `World/Npcs/NpcController.cs`, `World/Streaming/WorldStreamer.CornerAudit.cs`,
+`World/Streaming/WorldStreamer.FarShell.cs`.
+
+### 1l96-status
+- **Done** - all live-code warnings fixed and docs updated.
+- **Verification** - grep + reread, no build (rule 3): `tools\StaticChecks.ps1` -> **0 candidates**;
+  `enableWordWrapping` / `FindObjectsSortMode` / `FindObjectOfType<` / `FindFirstObjectByType<` left **0**
+  occurrences OUTSIDE `Legacy/`; `TextWrappingModes` (plural) + `textWrappingMode` spelling confirmed against
+  pre-existing usage (`UIHelper.cs:29`, `WifeNPC.cs:1398`, `TypingMinigame.cs:267/273`, `UIManager.cs:1159`,
+  `UIManager.Feedback.cs:81`); each edited TMP file confirmed to carry `using TMPro;`.
+- **Left per rule 18 (report-only, legacy)** - `CutsceneManager.cs:143` (CS0114), `CutsceneManager.EndingDemon.cs:340`
+  (CS0618 TMP), `WorldBuilder.cs:547-549` (CS0618 FindObjects), and the runtime `BoxCollider` negative-scale
+  warning on `WorldRoot/StructurePart_Church_Roof/Cube` (root cause: `CreatePartGableSteps`
+  `across = Vector3.Cross(Vector3.up, normal)` is `(0,0,-1)` for the church's `normal = Vector3.right`, so
+  `size` gets a negative Z scale - `Legacy/WorldBuilder/WorldBuilder.Blueprints.cs:1042`; the child is the
+  `CreatePrimitive(Cube)` from `CreatePartBoxOn`). Fixing any of these needs an authorised legacy exception
+  (as 1jj) or new code outside `Legacy/`.
+- **Pending play-test** - none required (this is a warning-only change). Behaviour-relevant deltas to note:
+  `WifeDonationField` now correctly nulls its singleton `Instance` on destroy; `FarBakeEnabled` is still
+  `false`, so the far-shell bake remains disabled exactly as before; the `FindObjects*` and TMP-wrap swaps are
+  behaviour-identical.
+
+`skills: none applied` (rule 15) - a C# compile-warning sweep; the installed set is DCC-side and none governs
+a C# edit reviewed by hand.
 ## 1l95. TerrainShape.Spikes: discrete spires, charge scales height + density
 
 **Needle Field** (`magic_earth_spires_needles`, `TerrainShape.Spikes`) produced a smooth mound instead of spikes. Root cause: the profile blended `fall^2 -> smootherstep` with an accent that `Min(target, baseY + lift)` clamped away (near-certainly entirely at the centre), so it never read as needles.
@@ -5428,7 +5489,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-15 (1l95). Read this first in a new session; then continue with the
+Last updated: 2026-10-15 (1l96). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

@@ -1820,14 +1820,14 @@ public sealed class NewWorldTestGround : MonoBehaviour
             int r = Mathf.Clamp(Mathf.RoundToInt(look.Core.r * 255f), 0, 255);
             int g = Mathf.Clamp(Mathf.RoundToInt(look.Core.g * 255f), 0, 255);
             int b = Mathf.Clamp(Mathf.RoundToInt(look.Core.b * 255f), 0, 255);
-            return ((ulong)(int)look.Impact << 33)
-                 | ((ulong)(int)look.Cast << 30)
-                 | ((ulong)(int)look.DisplayShape << 26)
-                 | ((ulong)(int)look.SkyRock << 24)
-                 | ((ulong)(int)look.CastAnchor << 36)
-                 | ((ulong)(int)look.ZoneModel << 38)
-                 | ((ulong)(int)look.StormBodyModel << 40)
-                 | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
+            return ((ulong)(uint)look.Impact << 33)
+                 | ((ulong)(uint)look.Cast << 30)
+                 | ((ulong)(uint)look.DisplayShape << 26)
+                 | ((ulong)(uint)look.SkyRock << 24)
+                 | ((ulong)(uint)look.CastAnchor << 36)
+                 | ((ulong)(uint)look.ZoneModel << 38)
+                 | ((ulong)(uint)look.StormBodyModel << 40)
+                 | ((ulong)(uint)r << 16) | ((ulong)(uint)g << 8) | (ulong)(uint)b;
         }
 
 private static string Describe(in SpellLook look)
@@ -2565,7 +2565,7 @@ private static string Describe(in SpellLook look)
     /// </summary>
       private void SnapshotTrailAudit()
     {
-        TrailStrip[] strips = Object.FindObjectsByType<TrailStrip>(FindObjectsSortMode.None);
+        TrailStrip[] strips = Object.FindObjectsByType<TrailStrip>(FindObjectsInactive.Exclude);
 
         int live = 0, drawn = 0, young = 0, undrawnWithGeometry = 0;
         int segs = 0, verts = 0, tris = 0;

@@ -208,7 +208,7 @@ public sealed class SkillBarHUD : MonoBehaviour
         tmp.fontSize = Mathf.Max(12f, h / 90f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.enableWordWrapping = true;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
         _labels.Add(tmp);
     }
 }

@@ -467,7 +467,6 @@ public sealed class PlayerAnimator : MonoBehaviour
                     }
                 }
             }
-              float cross = 0.35f;
               float armLA = Mathf.Lerp(wArmL, rArmL, runBlend) * gL.SwingScale;
               float armRA = Mathf.Lerp(wArmR, rArmR, runBlend) * gR.SwingScale;
               float elbowLA = Mathf.Lerp(wElbowL, rElbowL, runBlend) * gL.ElbowScale;

@@ -120,8 +120,11 @@ public partial class WorldStreamer
     /// <summary>Far-shell static bake master switch (1eh). DISABLED: the once-combined batch (via
     /// <see cref="StaticBatchingUtility.Combine"/>) rendered far meshes only from below — a back-face/
     /// combined-mesh artifact, so the whole shell renders dynamic again (known-good from 1ef). Re-enable
-    /// only after a Unity-side root cause on combined-mesh winding. See §1eh-status in PROGRESS.md.</summary>
-    private const bool FarBakeEnabled = false;
+    /// only after a Unity-side root cause on combined-mesh winding. See §1eh-status in PROGRESS.md.
+    /// Deliberately `static readonly`, NOT `const`: as a `const false` the two `if (!FarBakeEnabled)`
+    /// guards below make the whole bake path compile-time unreachable (CS0162). The value is still
+    /// false, so the feature stays disabled exactly as before.</summary>
+    private static readonly bool FarBakeEnabled = false;
 
     // --- Far shell state ---
     private readonly Dictionary<FarCell, GameObject> _farSectors = new Dictionary<FarCell, GameObject>();

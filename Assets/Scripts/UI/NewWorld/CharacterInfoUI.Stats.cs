@@ -200,7 +200,7 @@ public sealed partial class CharacterInfoUI
         tmp.fontSize = Mathf.Max(14f, Screen.height / 52f);
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.MidlineLeft;
-        tmp.enableWordWrapping = false;
+        tmp.textWrappingMode = TextWrappingModes.NoWrap;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
 
         var btnGo = new GameObject("RankUpBtn");

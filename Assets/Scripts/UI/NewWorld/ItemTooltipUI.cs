@@ -121,7 +121,7 @@ public sealed class ItemTooltipUI : MonoBehaviour
         _title.fontStyle = FontStyles.Bold;
         _title.fontSize = Mathf.Max(16f, Screen.height / 44f);
         _title.color = new Color(1f, 0.92f, 0.6f, 1f);
-        _title.enableWordWrapping = true;
+        _title.textWrappingMode = TextWrappingModes.Normal;
 
         var bodyGo = new GameObject("Body");
         bodyGo.transform.SetParent(rootGo.transform, false);
@@ -136,7 +136,7 @@ public sealed class ItemTooltipUI : MonoBehaviour
         _body.raycastTarget = false;
         _body.fontSize = Mathf.Max(13f, Screen.height / 54f);
         _body.color = Color.white;
-        _body.enableWordWrapping = true;
+        _body.textWrappingMode = TextWrappingModes.Normal;
 
         _root.gameObject.SetActive(false);
     }
