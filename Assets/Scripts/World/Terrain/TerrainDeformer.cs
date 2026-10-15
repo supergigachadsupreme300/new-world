@@ -24,13 +24,17 @@ public static class TerrainDeformer
     /// height steps swept along its length, instead of popping to full height in one shot. Shared by
     /// every raised Wall-shape cast (Earth Wall, Landslide); <paramref name="dir"/> orients the ridge
     /// exactly as <see cref="Apply"/>. Routed through here so the spell layer never resolves the
-    /// <see cref="WorldStreamer"/> itself.</summary>
-    public static void RaiseWallSequential(Vector3 center, float radius, Vector3 dir)
+    /// <see cref="WorldStreamer"/> itself.
+    /// <para>1l93: <paramref name="wallGrowth"/> is the caster's charge size ladder
+    /// (<c>SpellCaster.SizeScale(charge)</c>), scaled onto the ridge's length, thickness and height
+    /// by <see cref="WorldStreamer.DeformWallRise"/>. It defaults to 1 so an uncharged Wall — and
+    /// every non-zone caller — is unchanged.</para></summary>
+    public static void RaiseWallSequential(Vector3 center, float radius, Vector3 dir, float wallGrowth = 1f)
     {
         if (radius <= 0f) return;
         var streamer = Object.FindAnyObjectByType<WorldStreamer>();
         if (streamer == null) return;
-        streamer.DeformWallRise(center, radius, dir);
+        streamer.DeformWallRise(center, radius, dir, wallGrowth);
     }
 
     /// <summary>

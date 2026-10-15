@@ -36,9 +36,24 @@ public partial class WorldStreamer
     /// </para>
     /// </summary>
     public void DeformAt(Vector3 center, float radius, TerrainShape shape, Vector3 dir = default,
-        bool emitDebris = true, float build = 1f)
+        bool emitDebris = true, float build = 1f, float wallGrowth = 1f)
     {
         if (shape == TerrainShape.None || radius <= 0f) return;
+
+        // 1l93: charge growth for the Wall shape. `wallGrowth` is the caster's charge size ladder
+        // (SpellCaster.SizeScale(charge)), handed down from ResolveZoneImpact through
+        // RaiseWallSequential. The ridge's footprint (`radius`, hence BOTH its length and its
+        // thickness) and its lift scale by it, so a fully charged Earth Wall / Landslide is a
+        // proportionally longer, thicker and taller barricade. At charge 0 wallGrowth is 1 and the
+        // wall is byte-identical to the pre-1l93 cast. This is DELIBERATELY unbounded with
+        // overcharge (the user's call, overriding the Wall's slice of 1cv): the sizeScale that 1cv
+        // kept OFF the deform width is re-applied here, on purpose, for the Wall shape ONLY — the
+        // write bounds below derive from the scaled `radius`, so the widened ridge is fully written
+        // rather than clipped. Every non-Wall shape passes the 1f default (only ResolveZoneImpact's
+        // Wall branch supplies a value), so they are untouched.
+        float wallScale = Mathf.Max(0.01f, wallGrowth);
+        if (shape == TerrainShape.Wall)
+            radius *= wallScale;
 
         // Never raise the ground directly beneath the player's feet: a Wall/ring/pillar rearing
         // up under the capsule embeds it in the rebuilt chunk collider, and the next physics step
@@ -95,7 +110,7 @@ public partial class WorldStreamer
         // enough to fully block the player). Pillar: a tall column. Crater: a wide dish, dug down.
         float lift = shape == TerrainShape.Ring ? 0.9f
             : shape == TerrainShape.Pillar ? 1.8f
-            : shape == TerrainShape.Wall ? 2.6f
+            : shape == TerrainShape.Wall ? 2.6f * wallScale // 1l93: taller with charge
             : 0.7f; // Spikes
         // Excavation step per Crater cast/swing (~1.1 m at full influence, feathered at the rim).
         // Unlike the raised shapes (which are IDEMPOTENT and capped), a crater ratchets the floor
@@ -408,17 +423,17 @@ public partial class WorldStreamer
     /// and a repeat cast is unchanged. Falls back to the instant raise when the streamer is not
     /// running (an inactive streamer cannot run the coroutine, but the wall should still build).
     /// </summary>
-    public void DeformWallRise(Vector3 center, float radius, Vector3 dir)
+    public void DeformWallRise(Vector3 center, float radius, Vector3 dir, float wallGrowth = 1f)
     {
         if (!isActiveAndEnabled)
         {
-            DeformAt(center, radius, TerrainShape.Wall, dir);
+            DeformAt(center, radius, TerrainShape.Wall, dir, wallGrowth: wallGrowth);
             return;
         }
-        StartCoroutine(WallRiseRoutine(center, radius, dir));
+        StartCoroutine(WallRiseRoutine(center, radius, dir, wallGrowth));
     }
 
-    private System.Collections.IEnumerator WallRiseRoutine(Vector3 center, float radius, Vector3 dir)
+    private System.Collections.IEnumerator WallRiseRoutine(Vector3 center, float radius, Vector3 dir, float wallGrowth)
     {
         // A handful of frames is enough to read as "growing"; more only spends more chunk rebuilds
         // (each DeformAt step re-emits the touched region + flushes its save). Six overwrites the
@@ -427,7 +442,7 @@ public partial class WorldStreamer
         const float total = 0.45f;
         for (int i = 1; i <= steps; i++)
         {
-            DeformAt(center, radius, TerrainShape.Wall, dir, build: i / (float)steps);
+            DeformAt(center, radius, TerrainShape.Wall, dir, build: i / (float)steps, wallGrowth: wallGrowth);
             yield return new WaitForSeconds(total / steps);
         }
     }

@@ -1,3 +1,46 @@
+## 1l93. Earth Wall grows with charge — reasoning trail (OPEN)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l92`, so this is `1l93` (rule 1 forbids
+amending; enumerate headings first — rule 8).
+
+**Request (verbatim):** "increase earthwall width and height with charges." Read as: a charged / full /
+overcharged Earth Wall should rear a bigger ridge.
+
+**The guard found first (1cv/1cw).** Read `SpellCaster.Cast.cs` `ResolveZoneImpact` (~688) and
+`WorldStreamer.DeformAt`. The comment there is explicit: the deform **width** is the spell's local
+delivery dish (`spell.Radius`), and is **NEVER** scaled by the overcharge `sizeScale`; feeding the
+blast radius into the deformer once carved/reared a whole 30-tile chunk. `lift = 2.6` is fixed. So the
+request, taken literally, re-opens a shipped bug. **Hypothesis:** the user may not want the 1cv cost.
+**Verdict: asked (rule 7).** User chose **unbounded overcharge** and scope **Earth Wall + Landslide**
+(all Wall-shape casts) — i.e. they accept the 1cv cost for the Wall, deliberately.
+
+**Where the size ladder is.** `PlayerController.Combat.cs` picks `SpellChargeLevel` (uncapped, armed
+magic) vs `MagicChargeLevel` (clamp01) → `SpellCaster.ResolveZone(charge, sizeScale)` where
+`sizeScale = SizeScale(charge) * mods.RadiusMult`; `SizeScale(c) = 1 + c * ChargeSizeBonus(1.2)`.
+`ResolveZoneImpact` already receives `sizeScale`. **Verdict: pass `sizeScale` as the growth factor**
+(rule 8 — read the existing ladder, do not invent a second one; `mods.RadiusMult` is 1 today, so this
+is the charge ladder).
+
+**Threading & the one write point.** Added an optional `wallGrowth` (= `sizeScale`) through
+`RaiseWallSequential` → `DeformWallRise`/`WallRiseRoutine` → `DeformAt`. In `DeformAt`, for
+`TerrainShape.Wall` only, scaled `radius` at the very top (before `reach`, the loop bounds,
+`wallHalfThick`/`wallHalfLen`, `growWidth`, `buildFront`) and `lift`. **Hypothesis:** scaling `radius`
+once makes length, thickness, the sequential-rise front AND the write bounds all follow. **Verdict:
+confirmed** — every Wall term is derived from `radius`/`lift` downstream, and the loop bounds come from
+`reach = radius + feather`, so a widened ridge is fully written, not clipped.
+
+**Idempotency / back-compat.** Optional params default to `1f`, so every other caller is unchanged and
+at charge 0 (`SizeScale = 1`) the wall is byte-identical to 1l91 — the `Max(current, base + s*lift)`
+write is untouched. A repeat cast at the *same* charge is still idempotent.
+
+**Doc rot.** The 1cv comment in `SpellCaster.Cast.cs` names Wall among the capped raised shapes and
+says width is "NEVER scaled" — that is now false for Wall, so it was edited to name the exception and
+to list only Ring/Spikes/Pillar as capped. `game-design.md` §3.8 likewise corrected.
+
+**Open:** none blocking. The look/magnitude is a play-test item (a bigger charged wall is the intended
+outcome; whether the growth reads well, and whether extreme overcharge hitches as 1cv predicts) —
+measured in Unity, not here (rule 3).
+
 ## 1l92. Charged projectile gathers — reasoning trail (SHIPPED, play-test pending)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l91`, so this is `1l92` (rule 1 forbids

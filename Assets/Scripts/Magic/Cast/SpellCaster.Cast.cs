@@ -697,20 +697,28 @@ public partial class SpellCaster
         // blast radius (spell.Radius × charge sizeScale, up to ~13+ tiles) straight into the
         // deformer made a single cast carve/rear every corner of a 30-tile chunk at once, reading
         // as "the whole chunk / whole terrain moving" — for Crater (Meteor, 1cv) AND for the
-        // raised shapes (Ring/Spikes/Wall/Pillar — Tremor, Spire Field, Earth Wall, Landslide).
-        // Width is therefore capped to a small local dish from the spell's own delivery Radius
-        // (spell.Radius, the `deliveryRadius:` catalog arg); the Crater's per-cast DEPTH ratchet
-        // (current − s·CraterStep in WorldStreamer.DeformAt) stays deliberately UNBOUNDED — each
-        // cast digs a fresh CraterStep deeper with no floor, no cap, no limit. Player wants the
-        // game to have no limit.
+        // raised shapes (Ring/Spikes/Pillar — Tremor, Spire Field). Width is therefore capped to a
+        // small local dish from the spell's own delivery Radius (spell.Radius, the `deliveryRadius:`
+        // catalog arg); the Crater's per-cast DEPTH ratchet (current − s·CraterStep in
+        // WorldStreamer.DeformAt) stays deliberately UNBOUNDED — each cast digs a fresh CraterStep
+        // deeper with no floor, no cap, no limit. Player wants the game to have no limit.
+        //
+        // 1l93 EXCEPTION — the Wall shape (Earth Wall, Landslide) now GROWS with charge, at the
+        // user's explicit request and after being shown the 1cv risk: `sizeScale` is handed down as
+        // `wallGrowth` and scales the ridge's length, thickness and height, UNBOUNDED with
+        // overcharge. This is the one place the sizeScale reaches a deform width on purpose; every
+        // other shape keeps the dish cap above. A fully overcharged Wall is expected to be very
+        // large (and, at extreme charge, to reach the 1cv "whole chunk" cost) — that is the
+        // accepted behaviour, not a regression.
         float dish = Mathf.Max(spell.Radius > 0f ? spell.Radius : 1.6f, 0.5f);
         float deformRadius = spell.TerrainShape == TerrainShape.Crater ? dish * 0.5f : dish;
         // 1l91: a Wall-shape cast (Earth Wall, Landslide) rears SEQUENTIALLY — the ridge claws up in
         // height steps swept along its length instead of popping to full height. Every other shape
         // (and its idempotent Max write) is unchanged. Damage/knockback below still resolve this
-        // frame; only the terrain rise is spread over the animation.
+        // frame; only the terrain rise is spread over the animation. 1l93: `sizeScale` grows the
+        // ridge (see the exception note above).
         if (spell.TerrainShape == TerrainShape.Wall)
-            TerrainDeformer.RaiseWallSequential(center, deformRadius, fwd);
+            TerrainDeformer.RaiseWallSequential(center, deformRadius, fwd, sizeScale);
         else
             TerrainDeformer.Apply(center, deformRadius, spell.TerrainShape, fwd);
 

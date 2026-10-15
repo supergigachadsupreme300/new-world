@@ -1,3 +1,50 @@
+## 1l93. Earth Wall grows with charge (width + height, unbounded overcharge)
+
+**"increase earthwall width and height with charges."**
+
+A charged Earth Wall / Landslide reared the same capped ridge as an uncharged one: since 1cv the
+deform **width** is pinned to the spell's local delivery dish (`spell.Radius`) and deliberately
+**never** scaled by the overcharge ladder. Flagged that guard, then asked (rule 7) → the user chose
+**unbounded overcharge** and scope **Earth Wall + Landslide** (every Wall-shape cast).
+
+- **Threaded a growth factor** — the charge size ladder (`SpellCaster.SizeScale(charge)`, already the
+  value flowing into `ResolveZoneImpact` as `sizeScale`) is passed as a new `wallGrowth` argument down
+  `ResolveZoneImpact` → `TerrainDeformer.RaiseWallSequential` → `WorldStreamer.DeformWallRise` /
+  `WallRiseRoutine` → `DeformAt`. Rule 8: the existing charge ladder is read, not re-derived.
+- **`DeformAt`** (Wall only) — `radius *= wallScale`, so the ridge's **length** (`wallHalfLen`) and
+  **thickness** (`wallHalfThick`) both grow and — because the write bounds derive from `radius` — the
+  widened ridge is fully written rather than clipped; and `lift = 2.6f * wallScale`, so it grows
+  **taller**. `wallScale = Max(0.01, wallGrowth)` and is applied for `TerrainShape.Wall` alone.
+- **Back-compat** — `wallGrowth` is optional (`= 1f`) on every new signature, so all other
+  `DeformAt` / `RaiseWallSequential` / `DeformWallRise` callers (positional and named) are unchanged.
+  At charge 0 `SizeScale` is 1, so an uncharged Wall is byte-identical to the pre-1l93 cast; the
+  1l91 sequential rise and the idempotent `Max` write are untouched.
+- **Deliberate 1cv exception** — this re-applies the `sizeScale` that 1cv kept OFF the deform width,
+  for the **Wall shape only** (the user accepted the "whole chunk at extreme charge" cost). The 1cv
+  guard comment in `SpellCaster.Cast.cs` was updated to name the exception, and the note now lists the
+  capped shapes as Ring/Spikes/Pillar.
+- Files: `World/Streaming/WorldStreamer.Deform.cs` (`DeformAt` signature + Wall radius/lift scaling,
+  `DeformWallRise`, `WallRiseRoutine`), `World/Terrain/TerrainDeformer.cs` (`RaiseWallSequential`),
+  `Magic/Cast/SpellCaster.Cast.cs` (`ResolveZoneImpact` call + 1cv comment).
+- Docs: `game-design.md` §3.8 raised-shapes passage.
+- `skills: none applied` (rule 15) — a C#/terrain edit reviewed by hand, not a DCC/Unity-driving
+  artifact.
+
+### 1l93-status
+
+- **Done** — charge growth for the Wall shape implemented and routed for both Wall-shape casts; docs
+  updated. Committed `1l93`.
+- **Verification** — grep + reread (no build, rule 3): `tools\StaticChecks.ps1` → 0 candidates
+  (`WorldStreamer.Deform.cs` braces 70/70, parens 335/335). Traced every caller of
+  `RaiseWallSequential` / `DeformWallRise` (only `ResolveZoneImpact`) and confirmed `DeformAt`'s new
+  param is optional so existing call sites — e.g. `NewWorldTestGround.cs`'s two positional `Apply(...)
+  Wall` casts — still compile and keep the 1f default.
+- **Pending play-test (Unity):** cast **Earth Wall / Landslide** uncharged → ridge identical to before
+  (~7 m long, ~2.6 m tall). Then charge to full → the wall should be visibly **longer, thicker and
+  taller**; at overcharge it keeps growing (watch for the 1cv hitch where an extreme charge touches a
+  whole chunk). Confirm it still **rises sequentially** (1l91), and that a charged **Tremor Ring /
+  Spire Field / Stone Pillars / a Crater** are UNCHANGED (only the Wall shape scales).
+
 ## 1l92. Charged projectile gathers — motes stream into the held body
 
 **"ad particle flying to projectile when charging."**
