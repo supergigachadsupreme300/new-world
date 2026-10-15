@@ -109,7 +109,7 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
             _spell = spell;
             // Same rate the released bolt will spin at (rule 13), and start the hold aligned to a
             // fresh launch (its bolt starts at phase 0).
-            _spinRate = SpellEffect.SpinRate(spell.Shape == ProjectileShape.Wave);
+            _spinRate = SpellEffect.SpinRate;
             _spin = 0f;
         }
 

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -38,23 +37,6 @@ public class SpellEffect : MonoBehaviour
     private bool _locked;
     private Transform _homingTarget;
     private Vector3 _homingAim;
-
-    // 1jy: the ground-hugging wave sweep (ProjectileShape.Wave). _waveHit tracks which roots this
-    // wave has already hit so each foe takes ONE resolved hit + one knockback as the band passes
-    // over it — never a per-frame re-resolve, and no tick tuning to keep a sweep honest.
-    private bool _wave;
-    private float _waveTick;
-    private readonly HashSet<Transform> _waveHit = new HashSet<Transform>();
-    private const float WaveLift = 0.35f;
-    private const float WaveTickInterval = 0.15f;
-
-    /// <summary>1l85: the wave body's ripple driver — the floor of cubes that bobs in sequence. Found
-    /// once from the body the builder attaches (<see cref="MagicProjectileModelBuilder"/>'s Wave). Null
-    /// for every non-wave projectile and for a body built without one; the wave branch null-checks it.
-    /// <para>Driven from here, not from the component's own <c>Update</c> (rule 19): the same builder
-    /// draws motionless QA pedestals, and the per-frame ripple must run only while the wave MOVES.</para>
-    /// </summary>
-    private WaveRipple _waveRipple;
 
     // Collider-on-demand (1dq): the projectile keeps its current chunk in the
     // ColliderRequestRegistry so a long-range bolt still lands on far terrain, while every other
@@ -123,37 +105,19 @@ public class SpellEffect : MonoBehaviour
         Speed = speed;
         if (_spell != null && _spell.Shape == ProjectileShape.Missile)
             _homing = true;
-        if (_spell != null && _spell.Shape == ProjectileShape.Wave)
-        {
-            // 1jy: a wave sweeps forward along the ground for exactly the authored Range, then is
-            // spent. Travel time is Range / Speed, so the sweep's reach is a number on the spell,
-            // never a leftover of Lifetime (the 4 s default would let it run 80 m).
-            _wave = true;
-            _waveRipple = GetComponentInChildren<WaveRipple>();
-            if (_spell.Range > 0f)
-                Lifetime = Mathf.Min(Lifetime, _spell.Range / Mathf.Max(1f, Speed));
-
-            // Kicks the wave off with a ground ring at its TELLING point — on the ground the wave is
-            // about to ride, not at the hand height where it was spawned.
-            Vector3 ground = transform.position;
-            if (Physics.Raycast(ground + Vector3.up * 0.5f, Vector3.down, out RaycastHit kick, 6f))
-                ground = kick.point;
-            SkillFx.RingFlash(ground, Vector3.up, _look.Core, SplashRadius, 0.4f, _look.Scale);
-        }
     }
 
-    /// <summary>1l6x: spin about the travel axis (deg/s) for a flying or held projectile. One source
-    /// (rule 13) shared with <c>ChargedProjectilePreview</c>, so the held body cannot drift from the
-    /// bolt that replaces it. 1l86: a wave does not spin at all — it is a flat floor laid on the
-    /// ground, and rolling it about its travel axis read as the whole projectile turning over, so the
-    /// rate is 0 for waves. This is the single place that decides it, so the held body stops rolling
-    /// too (the preview reads this same value).</summary>
-    public static float SpinRate(bool wave) => wave ? 0f : 600f;
+    /// <summary>1l1/1l87: the rate a fired bolt rolls around its travel axis (degrees/second). One
+    /// source (rule 13) shared with <c>ChargedProjectilePreview</c>, so the held body cannot drift from
+    /// the bolt that replaces it. A Wave never reaches this component since 1l87 — its floor body is
+    /// owned by <see cref="SpellWave"/> and never spins — so this value no longer carries a wave
+    /// branch.</summary>
+    public const float SpinRate = 600f;
 
     private void Update()
     {
-        // Spin around Z (travel) axis for a bolt (a wave's rate is 0, so this is a no-op for it).
-        transform.Rotate(0f, 0f, SpinRate(_wave) * Time.deltaTime);
+        // Spin around Z (travel) axis for a bolt.
+        transform.Rotate(0f, 0f, SpinRate * Time.deltaTime);
         if (!_launched) return;
 
         // Keep the chunk we're flying over collider-enabled (1dq). Only track the single current
@@ -171,11 +135,6 @@ public class SpellEffect : MonoBehaviour
         Lifetime -= Time.deltaTime;
         if (Lifetime <= 0f)
         {
-            // 1jy: a spent wave finishes with a burst where its reach ran out — the same pooled
-            // impact family the spell's look resolves, so the end reads like the wave hitting the
-            // far edge of its sweep. No dent: the wave never strikes the ground, it rides it.
-            if (_wave && _spell != null)
-                SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Mathf.Max(0.8f, SplashRadius));
             Destroy(gameObject);
             return;
         }
@@ -191,35 +150,6 @@ public class SpellEffect : MonoBehaviour
         }
 
         float step = Speed * Time.deltaTime;
-
-        // 1jy: ground-wave branch (ProjectileShape.Wave). Replaces the flight probes with a
-        // terrain-glued forward sweep: flatten the aim to horizontal and re-face the body, ride the
-        // ground at a fixed lift, then sweep the band and move. Deliberately does NOT detonate on
-        // the ground probe, its own enemies-on-first-contact raycast, or the trail strip — a wave is
-        // supposed to ride the terrain and pass THROUGH foes, shoving each once, not die on the
-        // first thing it touches (its knockback push is caster-outward, the existing wave feel).
-        if (_wave)
-        {
-            _dir.y = 0f;
-            if (_dir.sqrMagnitude < 0.001f) _dir = transform.forward;
-            _dir.Normalize();
-            transform.rotation = Quaternion.LookRotation(_dir);
-
-            Vector3 wavePos = transform.position;
-            if (Physics.Raycast(wavePos + Vector3.up * 0.5f, Vector3.down, out RaycastHit waveGround, 4f)
-                && IsGroundCollider(waveGround.collider))
-            {
-                wavePos.y = waveGround.point.y + WaveLift;
-                transform.position = wavePos;
-            }
-
-            SweepWave();
-            // 1l85: roll the crest across the floor. Driven here (not in the body component) so only a
-            // MOVING wave ripples; the same floor on the QA pedestal stays flat (rule 19).
-            if (_waveRipple != null) _waveRipple.Apply(Time.time);
-            transform.position += _dir * step;
-            return;
-        }
 
         // Hitbox 1 — the "normal" probe: a full-step raycast that detonates on enemies, walls,
         // and props (the caster's own body is excluded so a bolt spawned at the hand never
@@ -469,9 +399,9 @@ public class SpellEffect : MonoBehaviour
             // and the shape choice is per-spell while the fade/lifetime stay shared. The sphere
             // survives as the Sphere family, so no spell lost its old look by accident.
             // 1l6n: the flash reads at the charge-scaled SplashRadius — the SAME burst radius the
-            // damage walk above uses and the SAME expression the wave end-burst (Update) uses —
-            // so an overcharged bolt explodes as big as its grown body instead of at the authored
-            // radius. Before this it was the one chargeable thing on the spell that ignored charge.
+            // damage walk above uses — so an overcharged bolt explodes as big as its grown body
+            // instead of at the authored radius. Before this it was the one chargeable thing on the
+            // spell that ignored charge.
             SpellImpactFx.Spawn(transform.position, Vector3.up, _look, Mathf.Max(0.8f, SplashRadius));
 
             // 1jh: rock chips off the impact, ADDITIVE to the sphere above rather than replacing it —
@@ -492,29 +422,6 @@ public class SpellEffect : MonoBehaviour
         if (c == null) return false;
         return c.name == "Ground" || c.name == "FieldVisual"
             || c.GetComponentInParent<ChunkObject>() != null;
-    }
-
-    /// <summary>1jy: the wave's damage band — everything within SplashRadius of the wave center,
-    /// once per root per wave. The throttle is only a coverage cadence (so the band keeps up with a
-    /// fast wave instead of skipping past half the field); the <see cref="_waveHit"/> set is what
-    /// enforces "once", so no foe can be re-resolved (and re-knocked) on a later tick.</summary>
-    private void SweepWave()
-    {
-        _waveTick += Time.deltaTime;
-        if (_waveTick < WaveTickInterval) return;
-        _waveTick -= WaveTickInterval;
-
-        int count = Physics.OverlapSphereNonAlloc(transform.position, SplashRadius,
-            _splashBuffer, HitLayers);
-        for (int i = 0; i < count; i++)
-        {
-            Collider col = _splashBuffer[i];
-            if (col == null) continue;
-            if (_caster != null && col.transform.root == _caster.transform.root) continue;
-            Transform root = col.transform.root;
-            if (root == null || !_waveHit.Add(root)) continue;
-            _caster?.ResolveHitAt(col.gameObject, _spell, _power);
-        }
     }
 
     private void ResolveZone()

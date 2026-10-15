@@ -1,3 +1,43 @@
+## 1l87. Wave as its own SpellDelivery
+
+**Q — "i dont want wave to be considered a projectile".** *H (scoped to a delivery split — CONFIRMED as
+the reading).* The literal request admits two sizes: (a) tiny — stop spawning a `SpellEffect` for a wave
+and give it a small mover that does not call itself a projectile; (b) proper — make `Wave` a
+`SpellDelivery` with its own resolver, so "wave" is a first-class way to deliver a spell and the
+projectile pipeline never sees one. Chose (b): it is what the words say (`a projectile` is a category,
+not an implementation detail), it removes the `SpellEffect` wave branch entirely rather than hiding it,
+and it makes the shape/delivery split honest — `ProjectileShape.Wave` becomes display-only, matching
+`Soul`/`Shard` which already stopped meaning behaviour.
+
+**Q — does moving Wave out of `SpellEffect` change behaviour?** *H (no, if every writer is moved too —
+verifying).* The sweep had exactly four couplings inside `SpellEffect`: the flat re-aim, the ground glue
+(`point.y + lift`), the `SweepWave` band, and `WaveRipple.Apply`. All four were lifted verbatim into a
+new `SpellWave` with the same constants (`WaveLift` -> `0.35`, `WaveTickInterval` -> 0.15) and the same
+gate (`if (!_launched) return;` becomes the component simply existing). The one thing that had to be
+carried over, not copied, is the **collider request**: `SpellEffect` asks `ColliderRequestRegistry` for
+the chunk it rides (1dq) so its ground raycast lands past the player's collider ring; a wave far from the
+player would silently float or fall otherwise. So `SpellWave` registers the chunk per-frame and releases
+in `OnDestroy`, replicating `IsGroundCollider` verbatim. *Rejected:* leaving the request to the (now
+absent) `SpellEffect`.
+
+**Q — must the shape stay coupled?** *H (no; decouple — CONFIRMED).* `Resolution`'s family lists
+deliberately never contained `Wave`, so no spell ever got the sweep by deterministic pick; the only two
+wave spells authored `projectileShape: Wave` explicitly. So the shape can be pure look with no reachability
+loss. Kept `ProjectileShape.Wave` (removing an enum member would churn the look resolver and the QA bench
+for nothing) and documented it as display-only.
+
+**Q — the aim.** A wave leaves flat and then rides the ground, so it should launch like a straight shot,
+not a lob. `SpellCaster.Cast`'s straight-aim branch (which uses `StraightFlightDirection`) now includes
+`SpellDelivery.Wave`, and `ResolveWave` reuses `FireProjectile`'s muzzle-offset spawn. The path preview in
+`PlayerController.Combat.UpdatePathPreview` gained a Wave branch (reach = `spell.Range`, since the sweep
+is defined by range, not speed x lifetime).
+
+**Dead end (recorded):** an intermediate edit added a `SpawnGround()`/`SkillFx.RingFlash` to
+`SpellEffect.Launch` while "cleaning up" — wrong: projectiles must not ring-flash, and the call belonged
+to no surviving path. Reverted in the same session.
+
+**Status: OPEN until play-test.** No build here (rule 3).
+
 ## 1l86. Fire Wave range/length, wave spin
 
 **Q — "remove the projectile rotate".** Where can a Wave actually rotate? Two writers exist and only

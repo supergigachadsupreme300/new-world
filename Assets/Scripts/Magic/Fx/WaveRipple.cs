@@ -1,14 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// 1l85: the traveling ripple for the Wave projectile's floor body. The floor is a flat lattice of
+/// 1l85: the traveling ripple for the Wave floor body. The floor is a flat lattice of
 /// small cubes (see <c>MagicProjectileModelBuilder.Wave</c>); this component holds those cells and
 /// their authored resting heights, and <see cref="Apply"/> offsets each cell along local Y by a sine
 /// that advances with time — so a crest travels along local +Z while the wave flies, reading as a wave
 /// rolling across the ground instead of a frozen silhouette. The same sine brightens the crest, because
 /// a vertical offset alone is nearly invisible on flat-topped cubes whose normals never change.
 /// <para><b>No <c>Update</c> of its own, on purpose.</b> The per-frame write is driven from
-/// <c>SpellEffect</c>'s <c>ProjectileShape.Wave</c> branch — the loop that runs while the thing MOVES
+/// <c>SpellWave</c>'s <c>Update</c> — the loop that runs while the thing MOVES
 /// (rule 19: a per-frame effect belongs there, never in the shape factory). The factory also draws
 /// MOTIONLESS QA pedestals for every castable spell through <c>CreateProjectileDisplay</c>; a
 /// self-updating component would ripple on every one of them, which is the same pedestal artifact the

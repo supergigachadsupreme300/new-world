@@ -538,18 +538,16 @@ internal static class MagicProjectileModelBuilder
 
     /// <summary>
     /// Ground-hugging wave front (1jy): a floor of voxel cubes that ripples as it travels. The parent
-    /// projectile's rotation is flattened to horizontal every frame by <c>SpellEffect</c> (the Wave
-    /// branch re-aims <c>LookRotation</c> at the flattened <c>_dir</c>), so the floor always lies flat
-    /// on the terrain instead of inheriting the release aim's pitch. Assumes local +Z is the travel
-    /// direction.
+    /// wave's rotation is flattened to horizontal by <c>SpellWave</c> (whose <c>Initialize</c> re-aims
+    /// <c>LookRotation</c> at the flattened direction), so the floor always lies flat on the terrain
+    /// instead of inheriting the release aim's pitch. Assumes local +Z is the travel direction.
     /// <para>1l85 rework: the old body was a short diagonal ramp of 5 cubes — a wave SHAPE, not a wave.
     /// It is now a flat lattice of small cubes, and the crest is DRAWN by a traveling sine
-    /// (<see cref="WaveRipple"/>, driven from SpellEffect's wave branch) rather than baked into the
-    /// geometry, so a crest actually rolls across the floor as the projectile flies. The body stays
+    /// (<see cref="WaveRipple"/>, driven from <c>SpellWave</c>'s update loop) rather than baked into the
+    /// geometry, so a crest actually rolls across the floor as the wave sweeps. The body stays
     /// static by construction: the ripple component has no <c>Update</c>, so the QA pedestal this
     /// builder also feeds draws the floor motionless.</para>
-    /// </summary>
-    private static Transform Wave(string name, Shader shader, Color color)
+    /// </summary>    private static Transform Wave(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
 

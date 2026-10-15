@@ -1829,7 +1829,7 @@ A spell is a data asset carrying:
 - `DamageType` (one of the 10 damage types, §3.7) — or **none** for pure utility/heal spells
 - base power
 - **FP cost**, **cast time**, **cooldown**
-- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell) / **beam** / **summon** / **storm** (see §3.8.1 Delivery Behaviors)
+- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell) / **beam** / **summon** / **storm** / **wave** (1l87: a ground-hugging sweep that rides the terrain forward for `Range`, hitting each foe once as its band passes — see §3.8.1 Delivery Behaviors "Ground waves")
 - **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **selfTeleport** (1l78: Instant delivery moves the CASTER instead — e.g. **Leap Bolt**: the player is teleported up to `Range` in the direction they are **choosing on WASD** — `PlayerController.MoveInput` through `transform.TransformDirection`, exactly the direction the character would walk — cleared of obstructions, and the ground under the landing is found with the shared `GroundUnder` probe. With no move key held the leap falls back to the flat camera look, then the body's forward. A jagged bolt links where the caster WAS to where they land, and everything within `Radius` at the landing takes the hit. The one delivery that moves the player.)
@@ -1843,10 +1843,11 @@ A spell is a data asset carrying:
   spell. When a spell leaves it `Auto`, the body shape comes from the spell's resolved **display
   shape** (§3.8.3) — picked from its school's shape family by `SpellLook`, deterministically per
   spell so it never changes between casts. Every bolt/lance/blade/spear-named spell sets `Shape`
-  explicitly so projectiles read as their name. **`Shape` never writes `spell.Shape`**: it is a
-  gameplay flag (homing/large-projectile behaviour), while the drawn body is `SpellLook.DisplayShape`
-  — two fields with different jobs, so a spell can be a homing missile and still draw as its family
-  demands.
+  explicitly so projectiles read as their name. **`Shape` never writes `spell.Shape`**: `Missile` is
+  also a gameplay flag (homing), while the drawn body is `SpellLook.DisplayShape` — two fields with
+  different jobs, so a spell can be a homing missile and still draw as its family demands. **`Wave` is
+  display-only** since 1l87 (the sweep is `SpellDelivery.Wave`), so it names a drawn floor body and no
+  behaviour.
 - **look profile** (`SpellLookProfile`, §3.8.3, 1ib): an optional authored override pinning this
   spell's impact family, cast family, body shape, core/edge colour and scale/tempo. 21 spells carry
   one; the other 151 resolve from their school.
@@ -2120,31 +2121,37 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   Every `SpellCaster` in the tree is the player's (`WeaponRigBuilder` adds it to `playerRoot`; everything
   else is `GetComponent<SpellCaster>()` on the player or the QA bench), so aiming from `Camera.main` is
   player-scoped in practice — a property this rule now depends on, which is why it is written down.
-- **Ground waves (1jy, `ProjectileShape.Wave`).** A Wave-shaped projectile does **not** fly straight: it is
-  re-aimed flat and rides the terrain. `SpellEffect` flattens the release direction to horizontal every
-  frame, re-faces the body to it, clamps itself to the ground at a fixed lift, and sweeps forward for
-  exactly the spell's `Range`, hitting each enemy **once** (plus the spell's knockback, pushed outward
-  from the caster) as its `Radius`-wide band passes over them — a per-wave `HashSet` of hit roots, ticked
-  on a short cadence so the band keeps up with a fast wave. A wave deliberately never detonates on the
-  ground it rides, never dies on the first foe it touches (it passes through and shoves), and leaves no
-  trail strip — it is a sweep, not a bolt. Fire Wave and Frozen Touch are the two Wave spells: a 3.4 m
-  and 3.2 m-wide band sweeping 20 m and 10 m, knockback shoving foes away from the caster along the
-  ground.
+- **Ground waves (1jy; its own `SpellDelivery.Wave` since 1l87).** A wave is **not a projectile**: it
+  rides the terrain instead of flying straight, and it is now its own delivery — `SpellCaster.ResolveWave`
+  spawns a dedicated `SpellWave` component. `SpellWave.Initialize` flattens the release direction to
+  horizontal (so it leaves the caster on the same straight-look aim an arrow uses) and re-faces the body,
+  and each `Update` clamps the wave to the ground at a fixed lift, sweeps forward for exactly the spell's
+  `Range`, and dies with an impact burst where the reach ran out. As the band sweeps it hits each enemy
+  **once** (plus the spell's knockback, pushed outward from the caster) as its `Radius`-wide band passes
+  over them — a per-wave `HashSet` of hit roots, ticked on a short cadence so the band keeps up with a
+  fast wave. A wave deliberately never detonates on the ground it rides, never dies on the first foe it
+  touches (it passes through and shoves), and leaves no trail strip — it is a sweep, not a bolt. It also
+  registers the chunk it rides with `ColliderRequestRegistry` (1dq) so its ground raycast still lands past
+  the player's collider ring. Fire Wave and Frozen Touch are the two Wave spells: a 3.4 m and 3.2 m-wide
+  band sweeping 20 m and 10 m, knockback shoving foes away from the caster along the ground.
+  **`ProjectileShape.Wave` is now display-only:** the shape carries the drawn floor body only (an authored
+  shape wins; the deterministic families never pick it), while the sweep behaviour lives entirely in
+  `SpellDelivery.Wave`. The two are independent — moving a spell to `ProjectileShape.Wave` without the
+  delivery would draw the floor without a sweep, and vice versa.
   **The body (1l85) is a flat floor of small voxel cubes** spanning the band — no longer the old
   diagonal ramp of five cubes, which was a wave *shape*, not a wave. The crest is drawn by a traveling
   sine: a `WaveRipple` component holds the floor's cells and offsets each along local Y in order as
-  time advances, and `SpellEffect`'s wave branch calls it on every frame the wave MOVES (rule 19 — the
-  ripple lives in the flying loop, never in the shape factory, so the QA pedestal that same builder
+  time advances, and `SpellWave` calls it on every frame the wave MOVES (rule 19 — the
+  ripple lives in the moving loop, never in the shape factory, so the QA pedestal that same builder
   feeds draws the floor motionless). Each offset is recomputed from the cell's authored rest, never
   accumulated, so the ripple cannot drift.
   **1l86: Fire Wave reaches further, the floor is longer, and the wave no longer rolls.** Fire Wave's
   `Range` is 20 m (was 12); Frozen Touch stays at 10. The shared floor is longer front-to-back (9 rows
   over 4.2 m, was 5 rows over 2 m) so the sweep reads as a broad rolling wall rather than a shallow lip,
   and its wavelength was stretched (2 m, was 1.6) so the longer floor still shows about two crests.
-  The wave does not spin: `SpellEffect.SpinRate` returns 0 for a wave (were 150), so it is drawn flat on
-  the ground instead of rolling about its travel axis — and because the held `ChargedProjectilePreview`
-  reads that same value (rule 13), the charged hold stops rolling with it. The wave is still re-aimed
-  flat to face its travel every frame; only the roll is gone.
+  The wave does not spin (`SpellEffect.SpinRate` is a single 600°/s constant for bolts; a wave never
+  reaches `SpellEffect` at all since 1l87), so it is drawn flat on the ground instead of rolling about its
+  travel axis. Only the roll is gone; the wave is still re-aimed flat to face its travel.
 
 **Sky spells** (`SummonFallingRock`, the meteor/boulder family) drop a **rock formation** from high
 above the ground target and read as the spell landing: the burst (damage, knockback, terrain
@@ -2193,7 +2200,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Soul** | 1l6x: a drifting spectral wisp — a bright cold core leading (+Z) inside a soft translucent halo, with a long tapering frost tail and two stray motes behind — so a homing missile reads as a spirit that hunts. **Display-only:** `ProjectileShape.Soul` carries no behaviour (unlike `Missile` it has no homing of its own), and it is authored-only — never in a `Shape_*` family. Chill Soul wears it while keeping `Missile` as its gameplay shape. |
 | **Hand** | 1l6y: a spectral reaching hand — a flat translucent palm whose four fingers lead (+Z) into the foe, a thumb to one side, a bright cold core in the palm and two ghostly flecks trailing — so a numbing touch reads as a hand reaching out. **Display-only** and authored-only (never in a `Shape_*` family). Chill Touch. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
-| **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellEffect`'s wave branch calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) 1l86: the floor is longer front-to-back (9 rows over 4.2 m) and the body does not spin (`SpellEffect.SpinRate` is 0 for a wave), so it reads as a flat rolling wall, not a tumbling block. Fire Wave and Frozen Touch. This shape is *also behaviour*, not just a look: a Wave-shaped projectile is fully transformed by `SpellEffect` into a terrain-glued forward sweep (§3.8.1 below). It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the sweep without its asking. |
+| **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellWave` calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) 1l86: the floor is longer front-to-back (9 rows over 4.2 m) and the body does not spin, so it reads as a flat rolling wall, not a tumbling block. Fire Wave and Frozen Touch. **Display-only since 1l87:** the shape names the drawn floor and nothing else — the terrain-glued sweep is now `SpellDelivery.Wave` (§3.8.1 "Ground waves"), so a spell can wear this body only because it is authored. It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the floor body without its asking. |
 
 `Auto` picks from the spell's **school family** via `SpellLook.Resolve` (§3.8.3): Fire→Sphere,
 Ice→Shard, Lightning→Bolt, Wind→Blade, Water→Splash, Earth→Debris, Physical→Dart, everything
@@ -2660,7 +2667,8 @@ Deep Freeze's profile swapped `zoneBody:` for `stormBody:`, so its zone bits fal
 F4 impact: `storm bodies:` reads Funnel = 1 (Firestorm) and **FrozenField = 1** (Deep Freeze);
 `zone bodies:` returns to Funnel-singleton + VortexCircle = 1; `authored` stays **27** (Deep Freeze
 kept its Pillar/Halo profile). The same data-driven pass also gave Frost Pierce and Glacial Impale
-**Instant** delivery, Frozen Touch a **Wave** projectile, Tundra a new identity as the **Snow Drift**
+**Instant** delivery, Frozen Touch a **Wave** spell (its own delivery since 1l87), Tundra a new identity
+as the **Snow Drift**
 caster-anchored familiar, and Witching Chill a **Frost vortex** — see magic-skills.md; keys are
 unchanged, so the skill tree holds.
 

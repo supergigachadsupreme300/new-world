@@ -18,7 +18,17 @@ public enum SpellDelivery
     /// lands along the aim, then the bolt jumps a fixed radius to nearby un-hit foes a limited
     /// number of times (Chain Lightning). Resolved in SpellCaster.ResolveChain; no projectile body,
     /// no zone — the drawn jagged bolts connect the victims.</summary>
-    Chain = 7
+    Chain = 7,
+
+    /// <summary>1l87: a ground-hugging wave front that sweeps forward along the aim instead of flying
+    /// straight. The behaviour lives in <see cref="SpellWave"/> (spawned by SpellCaster.ResolveWave):
+    /// flatten the aim, ride the terrain at a fixed lift, hit each foe once as the band passes over it,
+    /// and die after the authored <see cref="SpellData.Range"/>. It is deliberately NOT
+    /// <see cref="Projectile"/>: a wave never detonates on contact, passes THROUGH foes, and has no
+    /// homing, no held-body charge preview and no spin. Before 1l87 the sweep rode a hidden flag on
+    /// <c>ProjectileShape.Wave</c> inside the projectile pipeline, which is why it read everywhere as a
+    /// projectile; the shape value now carries only its drawn floor body.</summary>
+    Wave = 8
 }
 
 /// <summary>
@@ -100,19 +110,19 @@ public enum ProjectileShape
     /// world's breakable-rock debris (grey <c>Color.Lerp(Color.gray, Color.black, rand)</c> cubes).</summary>
     Debris = 11,
 
-    /// <summary>1jy: a ground-hugging wave front that sweeps forward instead of flying straight.
-    /// <b>This value is ALSO behaviour, like <see cref="Missile"/>:</b> it turns on the terrain-glued
-    /// sweep in <c>SpellEffect</c> (flatten the aim, ride the ground at a fixed lift, hit each foe
-    /// once as the band passes over it, die after the authored Range). It must therefore never appear
-    /// in any <c>Shape_*</c> family — the deterministic pick would hand it to a spell as a display
-    /// only, and the look layer would grant the sweep without the spell asking. Only an authored
-    /// <c>spell.Shape</c> may grant it. Fire Wave is the only user.</summary>
+    /// <summary>1jy/1l87: the ground-hugging wave front's drawn floor body — a flat lattice of small
+    /// cubes (see <c>MagicProjectileModelBuilder.Wave</c>), with the crest painted by a traveling
+    /// sine (<see cref="WaveRipple"/>) while the wave moves. <b>Display-only since 1l87:</b> the sweep
+    /// BEHAVIOUR this value used to also mean now lives in <see cref="SpellDelivery.Wave"/>, so a spell
+    /// wears this shape purely for its body and nothing rides on it at the delivery layer. Like
+    /// <see cref="Soul"/> and <see cref="Hand"/> it must never appear in a <c>Shape_*</c> family — only
+    /// an authored <c>spell.Shape</c> may grant it. Fire Wave and Frozen Touch are the two users.</summary>
     Wave = 12,
 
     /// <summary>1l6x: a drifting spectral wisp — a cold soul that hunts (Chill Soul's drawn body).
-    /// <b>Display-only:</b> unlike <see cref="Missile"/> and <see cref="Wave"/> this value carries NO
-    /// behaviour — it is a body and nothing else. Like them it must never appear in a <c>Shape_*</c>
-    /// family: the deterministic pick may only hand out school bodies, so an authored
+    /// <b>Display-only:</b> unlike <see cref="Missile"/> this value carries NO behaviour — it is a body
+    /// and nothing else. Like <see cref="Wave"/> and <see cref="Hand"/> it must never appear in a
+    /// <c>Shape_*</c> family: the deterministic pick may only hand out school bodies, so an authored
     /// <c>SpellLookProfile.DisplayShape</c> is the one thing that grants it.</summary>
     Soul = 13,
 
@@ -123,8 +133,8 @@ public enum ProjectileShape
 
     /// <summary>1l71: a thin long flat triangle — the "frost &amp; stone chip" look that the old
     /// diamond (renamed <see cref="Ball"/>) carried, rebuilt as a sliver that tapers to a point along
-    /// the flight line. A plain chip body with NO behaviour (not homing like <see cref="Missile"/>, not a
-    /// sweep like <see cref="Wave"/>), so unlike Soul/Hand it MAY sit in the school <c>Shape_*</c> families —
+    /// the flight line. A plain chip body with NO behaviour (not homing like <see cref="Missile"/>), so
+    /// unlike Soul/Hand/Wave it MAY sit in the school <c>Shape_*</c> families —
     /// 1l71 swapped it into the seven families where the diamond used to sit; Fire keeps
     /// <see cref="Ball"/> so the fireball reads as a ball.</summary>
     Shard = 15
@@ -182,7 +192,7 @@ public class SpellData : ScriptableObject
     [Header("Presentation")]
     public GameObject CastEffectPrefab;
     public GameObject ImpactEffectPrefab;
-    [Tooltip("Projectile-delivery visual shape. Auto = element default (SpellCaster). NOTE: this is ALSO behaviour — ProjectileShape.Missile turns on homing (SpellEffect.cs:75-76) and ProjectileShape.Wave turns on the ground-hugging forward sweep (1jy). Per-spell look variation goes in Look.DisplayShape, never here (1ib).")]
+    [Tooltip("Projectile-delivery visual shape. Auto = element default (SpellCaster). NOTE: ProjectileShape.Missile is ALSO behaviour — it turns on homing (SpellEffect.cs). ProjectileShape.Wave is display-ONLY (the sweep now lives in SpellDelivery.Wave, 1l87). Per-spell look variation goes in Look.DisplayShape, never here (1ib).")]
     public ProjectileShape Shape = ProjectileShape.Auto;
     [Tooltip("Hand-authored per-spell visual identity (1ib). Null = fully deterministic from the spell id. Every field is a multiplier or an Inherit sentinel, so a profile can shift a spell within its school but never repaint it out of its school.")]
     public SpellLookProfile Look;

@@ -1,3 +1,48 @@
+## 1l87. Wave is its own delivery, not a projectile
+
+**"rework on wave, i dont want wave to be considered a projectile."**
+
+The Wave was a `ProjectileShape` that hijacked `SpellEffect`'s projectile update into a terrain-glued
+sweep, so "a wave is a projectile with a special shape" was baked into the delivery pipeline. 1l87 gives
+it its own `SpellDelivery` and a dedicated component; the projectile path is left to real projectiles.
+
+- **New `SpellDelivery.Wave = 8`** (`SpellData.cs`). `SpellCaster.Cast` dispatches it to a new
+  `ResolveWave(...)`, which mirrors `FireProjectile`'s muzzle offset and body build
+  (`MagicProjectileModelBuilder.AttachDefaultProjectileVisual`) but attaches a `SpellWave` component
+  instead of a `SpellEffect`. The aim branch in `Cast` now covers `Projectile || Wave`.
+- **New `Magic/Cast/SpellWave.cs`** owns the whole sweep, moved out of `SpellEffect`: flat re-aim from
+  the release direction, per-frame ground glue (`point.y + 0.35`), the `_hit`-HashSet band sweep
+  (0.15 s cadence, 128 false-positive buffer, `~0` mask), `WaveRipple.Apply`, life `min(4, Range / Speed)`,
+  and an impact burst on end-of-reach. It registers the chunk it rides with `ColliderRequestRegistry`
+  (1dq) and releases it in `OnDestroy`, so the ground raycast still lands past the player's collider ring.
+  The QA bench `CreateProjectileDisplay` still keys off `spell.Shape`, so the pedestal body is unchanged.
+- **`SpellEffect` sheds all wave logic** (`_wave`/`_waveTick`/`_waveHit`/`_waveRipple`,
+  `WaveLift`/`WaveTickInterval`, the Launch wave block, the Update wave branch, `SweepWave`) and keeps a
+  single `public const float SpinRate = 600f` for bolts. An accidental `SpawnGround()`/ring-flash insert
+  in `Launch` was reverted; the unused `using System.Collections.Generic;` was pruned (`using System;`
+  stays for `Array.Sort`).
+- **`ProjectileShape.Wave` is now display-only** — it names the drawn floor body and no behaviour; the
+  deterministic families still never pick it, so it stays authored-only. `SpellLook` / `WaveRipple` /
+  `MagicProjectileModelBuilder.Wave` docs updated to point at `SpellWave`.
+- **Data**: Fire Wave and Frozen Touch move to `SpellDelivery.Wave` (`SkillCatalog.Magic.cs`).
+  `ChargedProjectilePreview` reads `SpellEffect.SpinRate` directly (a wave is never pre-viewed).
+  `PlayerController.Combat.UpdatePathPreview` gains a Wave branch (reach = `armedSpell.Range`).
+- Files: `Magic/Cast/SpellData.cs`, new `Magic/Cast/SpellWave.cs` (+ `.meta`), `Magic/Cast/SpellCaster.Cast.cs`,
+  `Magic/Cast/SpellEffect.cs`, `Magic/Fx/WaveRipple.cs`, `Magic/Fx/ChargedProjectilePreview.cs`,
+  `Magic/Look/SpellLook.cs`, `Models/Magic/MagicProjectileModelBuilder.cs`,
+  `Combat/Skills/SkillCatalog.Magic.cs`, `Player/PlayerController.Combat.cs`.
+- Docs: `game-design.md` (§3.8.1 ground-waves paragraph + Wave shape row + delivery list + projectile-shape
+  bullet), this entry + `THINKING.md §1l87`.
+
+### 1l87-status
+- [x] Wave is a first-class delivery; the projectile pipeline no longer contains wave code.
+- [x] `ProjectileShape.Wave` documented as display-only; grep confirms no behaviour rides it.
+- [x] `tools\StaticChecks.ps1` -> 0 candidates. No build (rule 3).
+- [x] `skills: none applied` (rule 15) — C# refactor verified by review.
+- [ ] **PLAY-TEST (user, Unity):** Fire Wave and Frozen Touch still sweep and ripple, glue to the terrain,
+  and shove foes as before (should be behaviour-identical to 1l86); the aim preview draws for a Wave;
+  the QA pedestal floor is still motionless and un-swept.
+
 ## 1l86. Fire Wave reaches further, longer floor, no wave spin
 
 Follow-up to 1l85's Wave rework (play-test feedback).

@@ -547,6 +547,23 @@ public partial class PlayerController
             return;
         }
 
+        // 1l87: a Wave leaves the caster on the same straight-look aim as a projectile (SpellCaster
+        // uses the same StraightFlightDirection branch), so its readout is the same straight ray — but
+        // its reach is the authored Range, the length of the sweep (SpellWave), NOT the Speed*4 flight
+        // envelope above. Reading Range keeps the line the length the wave actually travels.
+        if (armedSpell != null && armedSpell.Delivery == SpellDelivery.Wave)
+        {
+            var waveCombat = CombatCached;
+            var waveHand = MagicHand(waveCombat);
+            if (waveHand == null) { HidePathPreview(); return; }
+
+            Vector3 wpos = waveHand.transform.position;
+            Vector3 wfwd = SpellCaster.StraightFlightDirection(MainCam, PlayerCameraPivot, waveHand.transform.forward);
+            PathPreview().Show(wpos + wfwd * 0.5f, wfwd, armedSpell.Range,
+                0f, SpellLook.Resolve(armedSpell).Core, transform);
+            return;
+        }
+
         // 1ir: a cone BEAM is the one magic delivery whose spread is real. A beam has no flight
         // envelope (SpellCaster.ResolveBeam passes deliveryRange as the beam's length, not a
         // speed*time), so it gets its own branch rather than borrowing the projectile one above.
@@ -642,10 +659,12 @@ public partial class PlayerController
     /// <see cref="SpellCaster.SizeScale"/> charge ladder, so it grows with the charge and the released
     /// bolt appears exactly where and how big this showed it.</para>
     ///
-    /// <para>Only Projectile-delivery magic gets it; beam/zone/summon/instant and ranged weapons keep
-    /// their own feedback. A spell with an authored <see cref="SpellData.CastEffectPrefab"/> is skipped
-    /// because the launch would wear that prefab, not the generated body this can build — showing a body
-    /// that then changes on release would be a lie about the shot. (No spell sets that field today.)</para>
+    /// <para>Only Projectile-delivery magic gets it; wave/beam/zone/summon/instant and ranged weapons
+    /// keep their own feedback. A wave never shows a held body because the launched floor body would
+    /// not change shape on release the way a bolt does (1l87). A spell with an authored
+    /// <see cref="SpellData.CastEffectPrefab"/> is skipped because the launch would wear that prefab,
+    /// not the generated body this can build — showing a body that then changes on release would be a
+    /// lie about the shot. (No spell sets that field today.)</para>
     ///
     /// <para><b>Scale is read, never re-derived (rule 8).</b> <c>SizeScale</c> is called on the caster.
     /// With no caster there is no ladder to read; the honest answer is to hide, following the beam

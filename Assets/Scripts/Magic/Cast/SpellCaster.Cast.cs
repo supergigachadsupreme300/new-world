@@ -105,13 +105,15 @@ public partial class SpellCaster
         Vector3 fwd = origin != null ? origin.forward : transform.forward;
 
         Camera cam = Camera.main;
-        if (spell.Delivery == SpellDelivery.Projectile)
+        if (spell.Delivery == SpellDelivery.Projectile || spell.Delivery == SpellDelivery.Wave)
         {
             // 1jm: fly straight along the look direction. The old aim below converged on a point
             // Range metres in front of the camera, which in third person (and again since 1jl moved the
             // camera sideways) is not where the player is standing — the flight line skews off to the
             // side. See StraightFlightDirection for why not the hand's forward either.
             // 1jo: the pivot is passed so the aim is the CURRENT frame's look (see the helper).
+            // 1l87: a Wave leaves the caster on the SAME straight look — it sweeps forward along the aim
+            // rather than converging on a point — so it shares this branch instead of the ground aim.
             var owner = transform.root.GetComponent<PlayerController>();
             fwd = StraightFlightDirection(cam, owner != null ? owner.PlayerCameraPivot : null, fwd);
         }
@@ -149,6 +151,8 @@ public partial class SpellCaster
                 return ResolveSummon(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Storm:
                 return ResolveStorm(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
+            case SpellDelivery.Wave:
+                return ResolveWave(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
             default:
                 return new DamageResult();
         }
@@ -600,6 +604,34 @@ public partial class SpellCaster
         if (victim.transform == transform.root) return null;
         if (victim.CompareTag("Player") || victim.CompareTag("Companion")) return null;
         return victim;
+    }
+
+    /// <summary>
+    /// 1l87: spawn a ground-hugging wave (SpellDelivery.Wave). Built at the muzzle on the straight-look
+    /// aim line, dressed by the same body builder a QA pedestal uses, then handed to
+    /// <see cref="SpellWave"/>, which owns the terrain-glued sweep, the per-foe band hit and the
+    /// Range-derived reach. Deliberately NOT routed through <c>FireProjectile</c>/<c>SpellEffect</c>: a
+    /// wave never detonates on contact, has no homing, no spin and no held-body charge preview — those
+    /// are the projectile properties a wave is not.
+    /// </summary>
+    private DamageResult ResolveWave(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale)
+    {
+        pos += fwd * CastMuzzleOffset;
+
+        var go = new GameObject("SpellWave");
+        go.transform.position = pos;
+        go.transform.rotation = Quaternion.LookRotation(fwd);
+
+        // The floor body comes from the same builder the QA pedestal uses (rule 13): the spell's
+        // ProjectileShape.Wave is display-only since 1l87, so this is its only reader on the body path.
+        MagicProjectileModelBuilder.AttachDefaultProjectileVisual(go, SpellLook.Resolve(spell));
+
+        // Charge scales the whole wave body, exactly as it did when the wave rode the projectile path.
+        if (charge > 0f)
+            go.transform.localScale *= sizeScale;
+
+        go.AddComponent<SpellWave>().Initialize(spell, power, fwd, this, sizeScale);
+        return new DamageResult();
     }
 
     private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
