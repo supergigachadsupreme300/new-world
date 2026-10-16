@@ -10,8 +10,10 @@ using UnityEngine;
 /// <see cref="SpellLook.StormBodyModel"/> gates it: only an authored profile grants
 /// <see cref="StormBody.Funnel"/> (Firestorm alone), <see cref="StormBody.FrozenField"/>
 /// (1l70: Deep Freeze) or <see cref="StormBody.VortexCircle"/> (1l100: Blizzard, wearing the
-/// conflagration's model), and that funnel spins its root 240 deg/s,
-/// the same spin the pre-1kc conflagration's <c>SpellZone</c> ran while it pulled. The other 12
+/// conflagration's model) — and 1l111 added <see cref="StormBody.Rain"/> (Downpour) and
+/// <see cref="StormBody.Thunderhead"/> (Thunderhead, which also swaps Devastation's generic cloud
+/// puff for a body of its own at its own altitude) — and that funnel spins its root 240 deg/s,
+/// the same spin the pre-1kc conflagration's <c>SpellZone</c> ran while it pulled. The other 10
 /// storms resolve <see cref="StormBody.None"/> and are byte-for-byte unchanged. Spin and build
 /// share ONE predicate — the body's presence — so they cannot drift apart.</para>
 /// </summary>
@@ -27,6 +29,23 @@ public class SpellStorm : MonoBehaviour
     /// mounts its dark cloud — the source every strike's bolt falls FROM. Visual only: the bolt is
     /// segments with no collider, so this is a picture height, not a projectile runway.</summary>
     public const float StormCloudHeight = 45f;
+
+    /// <summary>1l111: how high a <see cref="StormBody.Rain"/> storm hangs its rain shelf — low on
+    /// purpose, so the curtain reads as driving rain over the area rather than a ceiling the player
+    /// cannot see. Visual only, like <see cref="StormCloudHeight"/>.</summary>
+    public const float RainCloudHeight = 5f;
+
+    /// <summary>1l111: how high a <see cref="StormBody.Thunderhead"/> thunderhead sits. Lower than
+    /// <see cref="StormCloudHeight"/> because the thunderhead is a model worth looking at, while
+    /// Devastation's puff is a horizon prop; the strike bolts fall from this altitude either way
+    /// (see <c>_cloudY</c>).</summary>
+    public const float ThunderheadHeight = 16f;
+
+    /// <summary>1l111: the altitude the long strike bolts fall FROM — Devastation's 45 m cloud, or the
+    /// Thunderhead body's own. Written once in <c>Initialize</c> from the resolved body and read by
+    /// both the body mount and <c>SpawnStrikeFx</c>, so the cloud and the bolts it throws can never
+    /// be authored against two different numbers (rule 8).</summary>
+    private float _cloudY;
 
     /// <summary>1l77: the storm cloud's dark tint. Public so the QA bench mounts the SAME colour
     /// rather than re-spelling it (rule 13).</summary>
@@ -64,6 +83,7 @@ public class SpellStorm : MonoBehaviour
         // used the real Radius. Zone/Beam/Tornado all seed the fallback for this reason;
         // read as a sibling rather than re-derived per class.
         _look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Wind, ProjectileShape.Auto);
+        _cloudY = _look.StormBodyModel == StormBody.Thunderhead ? ThunderheadHeight : StormCloudHeight;
         if (spell != null)
         {
             Radius = Mathf.Max(spell.Radius * radiusMult, 1.5f);
@@ -104,15 +124,32 @@ public class SpellStorm : MonoBehaviour
         if (_look.StormBodyModel == StormBody.VortexCircle)
             SpellZoneModelBuilder.BuildConflagration(transform, Radius, _color, _look.Edge);
 
+        // 1l111: Downpour's body — a low rain shelf hung with a falling curtain (the motion lives in
+        // SpellZoneModelBuilder.RainFall, not here). Ground-level like the other area bodies, so it
+        // sits under the strikes rather than over them, and it deliberately does NOT spin.
+        if (_look.StormBodyModel == StormBody.Rain)
+            SpellZoneModelBuilder.BuildRainCloud(transform, Radius, RainCloudHeight, StormCloudTint, _color);
+
+        // 1l111: Thunderhead's body — a cumulonimbus at _cloudY, the altitude the strike bolts fall
+        // from, so the cloud the player sees IS the cloud the bolts come out of. Size: the radius
+        // drives the shelf span (0.85x, with a floor so a narrow storm still hangs a readable
+        // thunderhead); the altitude is the shared constant, never the radius.
+        if (_look.StormBodyModel == StormBody.Thunderhead)
+            SpellZoneModelBuilder.BuildThunderhead(transform, Mathf.Max(Radius * 0.85f, 2.5f),
+                _cloudY, StormCloudTint, _color);
+
         // 1l77: a StormCloud storm (Devastation, testing.md #8) mounts a dark cloud high above the
         // area; every strike then falls as a long jagged bolt from that cloud down to the strike
         // point, so the spell reads as a sky-fury instead of ground pings. The cloud is parented to
         // the storm's own transform, so it lives exactly as long as the storm and needs no lifetime
         // of its own. The dark tint + Renderer walk mirror RandomEventManager's rain cloud (the
         // proven local use of MapBuilder.BuildCloud — rule 3).
-        if (_stormCloud)
+        // 1l111: a Thunderhead-bodied storm keeps the SKY-BOLT behaviour (it still passes
+        // stormCloud: true) but draws its own voxel cloud at the same altitude instead of this puff —
+        // two gates, one behaviour: this branch is the generic fallback, not the definition.
+        if (_stormCloud && _look.StormBodyModel != StormBody.Thunderhead)
         {
-            Vector3 cloudPos = transform.position + Vector3.up * StormCloudHeight;
+            Vector3 cloudPos = transform.position + Vector3.up * _cloudY;
             var cloud = MapBuilder.BuildCloud(transform, cloudPos, 5f);
             foreach (var r in cloud.GetComponentsInChildren<Renderer>())
                 r.material.color = StormCloudTint;
@@ -272,7 +309,7 @@ public class SpellStorm : MonoBehaviour
                 // to the strike point — the cloud is the spell's identity, so it does NOT draw the
                 // crossed-bar flash the other lightning storms use. Pure visual (no collider); the
                 // 0.5 s lifetime matches the SkyStrikeBolt one-shot (Rule 13: one bolt, one look).
-                Vector3 cloud = transform.position + Vector3.up * StormCloudHeight;
+                Vector3 cloud = transform.position + Vector3.up * _cloudY;
                 SpellBoltModelBuilder.BuildBolt(null, cloud, at, SkillFx.SharedSpriteMaterial(c),
                     0.5f, segments: 12, width: 0.2f, jitterAmplitude: 0.7f);
             }

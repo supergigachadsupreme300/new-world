@@ -152,9 +152,11 @@ public enum ZoneBody
 /// have changed resolution, added the pull and lost the per-strike flashes). <see cref="Inherit"/>
 /// resolves to <see cref="None"/> — storms draw only their spawn ring and per-strike flashes unless
 /// a profile says otherwise — and only an authored profile may grant <see cref="Funnel"/>,
-/// <see cref="FrozenField"/> or <see cref="VortexCircle"/>; Firestorm authors <see cref="Funnel"/>
+/// <see cref="FrozenField"/>, <see cref="VortexCircle"/>, <see cref="Rain"/> or
+/// <see cref="Thunderhead"/>; Firestorm authors <see cref="Funnel"/>
 /// (1kf), Deep Freeze authors <see cref="FrozenField"/> (1l70), Blizzard authors
-/// <see cref="VortexCircle"/> (1l100).
+/// <see cref="VortexCircle"/> (1l100), Downpour authors <see cref="Rain"/> and Thunderhead authors
+/// <see cref="Thunderhead"/> (both 1l111).
 /// <para><b>Read by <c>SpellStorm</c> (builds the body and spins its root the 240 deg/s the
 /// pre-1kc <c>SpellZone</c> pulled-vortex spin) and by the QA spell band's bench, so the axis has
 /// an acceptance readout.</b> Placement/sizing come from the storm's own charge-scaled Radius;
@@ -164,9 +166,9 @@ public enum StormBody
     /// <summary>No authored opinion — <see cref="None"/> (the storm draws no persistent body).</summary>
     Inherit = 0,
     /// <summary>No body: only the spawn ring and the per-strike flashes — every Storm spell
-    /// resolves here unless a profile grants <see cref="Funnel"/>, <see cref="FrozenField"/> or
-    /// <see cref="VortexCircle"/> (other deliveries never read this axis; their own body axis is
-    /// <see cref="ZoneBody"/>).</summary>
+    /// resolves here unless a profile grants <see cref="Funnel"/>, <see cref="FrozenField"/>,
+    /// <see cref="VortexCircle"/>, <see cref="Rain"/> or <see cref="Thunderhead"/> (other deliveries
+    /// never read this axis; their own body axis is <see cref="ZoneBody"/>).</summary>
     None = 1,
     /// <summary>The generic whirling pull funnel: 7 spinning rings + 6 orbiting debris blocks
     /// (tornado/vortex) — the body Conflagration drew before 1kc, spinning with the storm root.
@@ -185,11 +187,26 @@ public enum StormBody
     /// One builder (<see cref="SpellZoneModelBuilder.BuildConflagration"/>), three gates: the
     /// Conflagration Zone, this storm axis, and the QA bench. It does <b>not</b> spin its root — the
     /// rising rings carry their own spin; only <see cref="Funnel"/> turns the storm root.</summary>
-    VortexCircle = 4
+    VortexCircle = 4,
+    /// <summary>1l111 Downpour's body: a low, dark rain shelf (a jittered voxel slab in the storm
+    /// cloud's tint) hung with a curtain of thin vertical streaks that a <c>RainFall</c> component
+    /// scrolls downward and recycles, so the rain falls forever without a particle system. Mounted
+    /// through <see cref="SpellZoneModelBuilder.BuildRainCloud"/>. Does <b>not</b> spin the storm
+    /// root — the falling streaks are the body's own motion (rule 19: the per-frame work lives on the
+    /// component that moves, not in the shape factory).</summary>
+    Rain = 5,
+    /// <summary>1l111 Thunderhead's body: a stacked cumulonimbus — dark base slab, billowing mid band
+    /// and a lightning-lit underside in the spell's Core — replacing the generic cloud puff
+    /// (<c>MapBuilder.BuildCloud</c>) for this spell only; Devastation's cloud is untouched.
+    /// It is the only storm body that lives above the field: the storm's strike bolts fall from
+    /// <c>SpellStorm._cloudY</c>, which for this body is the thunderhead's own altitude rather than
+    /// the 45 m Devastation one, so the bolts start at the cloud. Mounted through
+    /// <see cref="SpellZoneModelBuilder.BuildThunderhead"/>. Does <b>not</b> spin.</summary>
+    Thunderhead = 6
 }
 
 /// <summary>
-/// Drawn body family for a <c>SpellDelivery.Summon</c> spell (1lv1) — what a persistent construct
+/// Drawn body family for a <c>SpellDelivery.Summon</c> spell (1l110) — what a persistent construct
 /// looks like while it lives. <b>Authored-only, like <see cref="ZoneBody"/>/<see cref="StormBody"/>:</b>
 /// a summon body is a structural statement about what the construct IS (a walking totem, a familiar's
 /// ring, a stationary coil), not a jitter, so there is no school family and no deterministic
@@ -212,7 +229,7 @@ public enum SummonBody
     /// when the summon follows the caster, otherwise the base-and-pillar totem. Every summon resolves
     /// here unless a profile grants <see cref="TeslaCoil"/>.</summary>
     Default = 1,
-    /// <summary>1lv1 Static Coil's body: a stationary spire — a base disc under a tapering stack of
+    /// <summary>1l110 Static Coil's body: a stationary spire — a base disc under a tapering stack of
     /// coil rings, capped by one bright emitter orb from which its bolts leave. No spin, no orbit; it
     /// is bolted to the ground and reads as a turret rather than a walking summon.</summary>
     TeslaCoil = 2
@@ -251,7 +268,7 @@ public sealed class SpellLookProfile
     public ZoneBody ZoneBody = ZoneBody.Inherit;
     [Tooltip("Persistent-storm body for a Storm spell (1kf). Inherit = none — spawn ring + strike flashes only.")]
     public StormBody StormBody = StormBody.Inherit;
-    [Tooltip("Drawn body for a Summon spell (1lv1). Inherit = the component's own choice (familiar ring when caster-anchored, else totem).")]
+    [Tooltip("Drawn body for a Summon spell (1l110). Inherit = the component's own choice (familiar ring when caster-anchored, else totem).")]
     public SummonBody SummonBody = SummonBody.Inherit;
 }
 
@@ -344,7 +361,7 @@ public readonly struct SpellLook
     /// (<see cref="StormBody.None"/> for every spell but Firestorm and Blizzard) because there is no
     /// deterministic pick for this axis.</summary>
     public readonly StormBody StormBodyModel;
-    /// <summary>Drawn summon body (1lv1). Same write-only sentinel contract as
+    /// <summary>Drawn summon body (1l110). Same write-only sentinel contract as
     /// <see cref="ZoneModel"/>: a resolved look is always a real body
     /// (<see cref="SummonBody.Default"/> for every non-authored summon) because there is no
     /// deterministic pick for this axis.</summary>
@@ -495,7 +512,7 @@ public readonly struct SpellLook
         // grant the pre-1kc conflagration funnel. See StormBody's remarks.
         StormBody stormBody = StormBody.None;
 
-        // 1lv1: the summon body follows the same authored-only pattern, but its default is the
+        // 1l110: the summon body follows the same authored-only pattern, but its default is the
         // component's own choice (Default), not a single body — see SummonBody's remarks. Only an
         // authored profile (Static Coil's) may grant TeslaCoil.
         SummonBody summonBody = SummonBody.Default;

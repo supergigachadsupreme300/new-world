@@ -2188,7 +2188,12 @@ a school read distinctly instead of feeling like copies:
   a dark cloud (`MapBuilder.BuildCloud`, tinted `SpellStorm.StormCloudTint`) `StormCloudHeight` (45 m)
   above the area and draws each strike as a long multi-segment `SpellBoltModelBuilder` bolt from that
   cloud down to the strike point, in place of the crossed bars — the cloud is the spell's identity.
-  The cloud is a child of the storm, so it lives exactly as long as the storm.
+  The cloud is a child of the storm, so it lives exactly as long as the storm. **1l111**: the cloud mount
+  and the strike origin both read the storm's single `_cloudY` field (rule 8 — the cloud the player sees
+  is always the cloud the bolts leave), and a `StormBody`-authored storm supplies its own cloud: a
+  **Thunderhead** storm mounts its voxel cumulonimbus **instead of** `MapBuilder.BuildCloud` (its
+  `_stormCloud` mount is gated `… && _look.StormBodyModel != StormBody.Thunderhead`) and strikes from the
+  body's own altitude (16 m) rather than 45 m.
 - **Chain** — 1l76 (testing.md #7): an instant strike that **bounces between foes**. `SpellCaster`
   hits whatever the aim ray meets if it is a combatant, else the nearest combatant within `Range`
   (so a cast aimed into a crowd still starts on someone); then up to `ChainMaxJumps` (2) leaps to the
@@ -2336,6 +2341,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **VoltBolt** | 1l110: a short, chunky jagged streak - 6 segments over 0.9 m tapering 0.20→0.09, with the front half ramping toward white-hot (`Color.Lerp(color, white, t*t*0.7f)`) so the leading cube reads as the zap's point. Volt. Display-only, granted through the spell's own `projectileShape` (`spell.Shape`, the route `Wave` already uses for an authored-only body); deliberately **not** added to `Shape_Lightning`, so no other Lightning spell's `Auto` pick moves. |
 | **SparkSwarm** | 1l110: nine tiny bright motes jittered in a loose cloud around the travel axis (±0.13 on X/Y, -0.16→0.22 on Z, sizes 0.045-0.09, a third of them lerped 0.6 toward white) - a crackle of static rather than a dart volley. **Display-only and authored-only** (same contract as **Soul**/**Hand**): the homing that makes Volt Spark seek rides on `Missile` in `spell.Shape`, and this body is granted through `Look.DisplayShape`. |
 | **GreatBolt** | 1l110: the heavy bolt - 10 segments over 1.7 m tapering 0.26→0.10 wrapped around a 0.07 white-hot core rod and shedding 3 trailing flecks, so a charged bolt reads as more mass than a plain zap. Volt Bolt. Display-only, granted through `spell.Shape` like **VoltBolt**, not in `Shape_Lightning`. |
+| **StormWave** | 1l111: the Lightning wave floor — the same `Wave` lattice (a 12 × 18 crest over 6 m deep, a jagged spike column rising from each floor column) re-tinted to the spell's own colour, its crest carrying a `WaveRipple` so the ground-running crest shimmers as `SpellWave` sweeps it. Display-only and authored-only, granted through `spell.Shape` (the route **VoltBolt**/**GreatBolt** take), never in a `Shape_*` family. Storm Lash (`magic_lightning_storm_wrack`, a `Wave` delivery). |
 | **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the spell's own impact family from the pooled `SpellImpactFx` dispatcher (1id) rather than the *excavation* cube burst (that one is stratum-tinted dirt thrown upward — 1gb), and 1jh adds grey rock chips thrown forward from the hit point on top of it; the embedded model cubes only remain as the pickaxe/mining look (1de). |
 | **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
@@ -2871,6 +2877,48 @@ per-ring vertical span opened past 1 the stack read as separate plates with dayl
 firestorm skill models has gaps between cubes"). Each ring is now given a thickness that overlaps its
 neighbour, the same overlap the beam funnel uses at its mouth, so the tornado reads as one body. Drawn
 only: `Funnel` stays `Funnel` for every non-authored zone, so no F4 key moves and `authored` is unchanged.
+
+**1l111 gives the two Storm-raised storms their own sky bodies (`StormBody.Rain` = 5, `StormBody.Thunderhead`
+= 6).** Phase 2 of the L2 Lightning rework reworked the Storm bank: Stormcall became **Thunderhead** (a
+bigger storm, power 46 / cd 11 s, still `stormCloud: true`) and Storm Rain became **Downpour** (a long
+9 s drench, no cloud). Both bodies are authored-only on the same axis as `FrozenField`/`VortexCircle`,
+built in `SpellZoneModelBuilder` (where the other persistent bodies live) and mounted by
+`SpellStorm.Initialize` from the resolved `_look.StormBodyModel`:
+- `BuildRainCloud(transform, radius, height, cloud, core)` — a static low shelf of three lobed tiers
+  (`count = 8 - tier`, widening as they descend) hung with 26 `RainStreak_i` cubes whose radial placement
+  is area-biased (`Mathf.Sqrt(Random.value)`) so the curtain is not hollow at the centre; each streak owns
+  a `RainFall` component that scrolls it from `top` to `bottom` and wraps. **Downpour is NOT a `StormCloud`
+  storm** — its strikes are the ordinary in-radius bolts, and the streaks are the body's own motion, so
+  `RainFall` carries the animation rather than a sky-bolt.
+- `BuildThunderhead(transform, radius, height, cloud, core)` — three stacked bands (widest at the base),
+  five `ThunderheadGlow_i` Core cubes tucked under the base to read as an underlit cloud, and a
+  `ThunderheadSeat` marker. **Thunderhead keeps `stormCloud: true`**, so its strikes are drawn as long
+  cloud-to-ground bolts — and the cloud they leave is the body's own voxel cumulonimbus (this body
+  REPLACES the generic `MapBuilder.BuildCloud` puff for that spell).
+
+**The `_cloudY` seam keeps a thunderhead's cloud and its bolts at the same altitude (rule 8).** Where a
+`StormCloud` storm hard-codes 45 m for both the cloud mount and the strike origin, the two bodies sit lower
+(a rain shelf at 5 m, a thunderhead at 16 m), so `SpellStorm.Initialize` computes `_cloudY` **once** from
+the resolved body and both the body mount and `SpawnStrikeFx`'s bolt origin read that one field — a
+corner-copy invariant: the cloud the player sees is always the cloud the bolts leave. `Devastation` is
+unchanged: its `_stormCloud` gate is `… && _look.StormBodyModel != StormBody.Thunderhead`, so it still
+mounts the legacy 45 m `MapBuilder.BuildCloud` and strikes from 45 m exactly.
+
+**F4 impact (predicted, verified by lane re-press):** the two new authored profiles (Downpour, Thunderhead)
+flip the `authored` count **+2**; because `StormBody` already packed three bits at `<<40` (0-7), the two
+new values need **no** `LookKey` change — the header's bit range is untouched. `storm bodies:` gains
+`Rain = 1`, `Thunderhead = 1`; every other key holds because the axis is authored-only and still resolves
+to `None`/`Funnel` for the rest. Storm Fan (a cone) and Storm Lash (a `Wave`) carry **no** profile — Storm
+Fan's axis is `spell.BeamHalfAngle` and Storm Lash's is `spell.Shape` (both read straight off the spell, not
+the look) — so neither adds to `authored`.
+
+**The QA bench mounts the rain shelf and thunderhead low (1.4 m / 1.8 m), not at live altitude.**
+`NewWorldTestGround` has no ground under the pedestal, so a body drawn at 5 m / 16 m would float far above
+the model; the bench passes a low height instead. `RainFall` still self-updates, so the curtain animates on
+the pedestal; only a thunderhead's sky-bolt strike origin is live-only. The bench's Thunderhead branch also
+draws one cloud-to-ground `SpellBoltModelBuilder.BuildBolt` (segments 8, jitter 0.7, long lifetime) so the
+pedestal shows the sky-bolt the live `stormCloud: true` spell strikes with, and its branch sits **before**
+the generic `spell.StormCloud` puff branch, so a Thunderhead never also draws the legacy cloud.
 
 #### 3.8.6 Ground-Summon Bodies - `SummonBody` (1l110)
 

@@ -232,6 +232,114 @@ public static class SpellZoneModelBuilder
         emitter.Init(radius, Mathf.Max(3.2f, radius * 2.2f), hotMat);
     }
 
+    /// <summary>1l111: Downpour's body (<c>StormBody.Rain</c>) — a low, lobed rain shelf hung with a
+    /// curtain of falling streaks. Body-only like every builder here: every collider is destroyed and
+    /// the storm's own tick decides who is struck, so no piece is ever queried. Both parts are placed
+    /// in the parent's local frame so the body rides the storm root for free; only the streaks move,
+    /// through <see cref="RainFall"/> (rule 19: the per-frame work lives on the component that moves —
+    /// a per-frame loop in this factory would also be dead code on the QA bench, where no storm ever
+    /// ticks). <c>height</c> is the shelf's altitude: the storm passes it, so the live body and the
+    /// pedestal body are one shape at two altitudes.</summary>
+    public static void BuildRainCloud(Transform parent, float radius, float height,
+        Color cloudColor, Color core)
+    {
+        Material cloudMat = SkillFx.SharedSpriteMaterial(cloudColor);
+        Material coreMat = SkillFx.SharedSpriteMaterial(core);
+
+        // Three tiers of jittered lobes, each thinner and narrower than the one above, so the shelf
+        // reads as a ceiling of cloud rather than a floating box. Every size is radius-relative: a
+        // wider storm hangs a wider shelf.
+        for (int tier = 0; tier < 3; tier++)
+        {
+            float y = height + (1f - tier) * 0.42f;
+            float span = radius * (1.75f - tier * 0.28f);
+            int count = 8 - tier;
+            for (int i = 0; i < count; i++)
+            {
+                float ang = (i / (float)count) * Mathf.PI * 2f + tier * 0.5f;
+                float rr = span * Random.Range(0.55f, 0.95f);
+                Cube(parent, "RainCloud_" + tier + "_" + i,
+                    new Vector3(Mathf.Cos(ang) * rr, y + Random.Range(-0.12f, 0.12f), Mathf.Sin(ang) * rr),
+                    new Vector3(Random.Range(0.55f, 0.95f), Random.Range(0.30f, 0.52f), Random.Range(0.55f, 0.95f)),
+                    cloudMat);
+            }
+        }
+
+        // The curtain: thin vertical streaks in the spell's Core, recycled forever by RainFall. The
+        // top sits under the lowest lobe and the bottom just above the ground, so a streak is never
+        // seen poking through the shelf or sinking into the dirt.
+        float top = height - 0.55f;
+        float bottom = 0.12f;
+        for (int i = 0; i < 26; i++)
+        {
+            float ang = Random.Range(0f, Mathf.PI * 2f);
+            float rr = radius * Mathf.Sqrt(Random.value) * 0.95f;
+            var streak = Cube(parent, "RainStreak_" + i,
+                new Vector3(Mathf.Cos(ang) * rr, Random.Range(bottom, top), Mathf.Sin(ang) * rr),
+                new Vector3(0.09f, 0.55f, 0.09f), coreMat);
+            streak.gameObject.AddComponent<RainFall>().Init(top, bottom, Random.Range(3.6f, 5.4f));
+        }
+    }
+
+    /// <summary>1l111: Thunderhead's body (<c>StormBody.Thunderhead</c>) — a stacked cumulonimbus that
+    /// replaces the generic cloud puff for this one spell. Three lobed bands (wide flat base,
+    /// billowing middle, narrow cap) in the storm cloud's tint, with a ring of lit blocks in the
+    /// spell's Core under the base: the bolts read as falling from that underside, and
+    /// <c>SpellStorm._cloudY</c> puts the strike origin at exactly this altitude. Like
+    /// <see cref="BuildRainCloud"/> this is body-only and motion-free; the spawner on the storm root
+    /// keeps the root free to be the thing the strikes hang from.</summary>
+    public static void BuildThunderhead(Transform parent, float radius, float height,
+        Color cloudColor, Color core)
+    {
+        Material cloudMat = SkillFx.SharedSpriteMaterial(cloudColor);
+        Material coreMat = SkillFx.SharedSpriteMaterial(core);
+
+        for (int band = 0; band < 3; band++)
+        {
+            float y = height + band * 0.78f;
+            float span = radius * (1.55f - band * 0.38f);
+            int count = 9 - band * 2;
+            for (int i = 0; i < count; i++)
+            {
+                float ang = (i / (float)count) * Mathf.PI * 2f + band * 0.7f;
+                float rr = span * Random.Range(0.45f, 0.95f);
+                Cube(parent, "Thunderhead_" + band + "_" + i,
+                    new Vector3(Mathf.Cos(ang) * rr, y + Random.Range(-0.15f, 0.15f), Mathf.Sin(ang) * rr),
+                    new Vector3(Random.Range(0.65f, 1.05f), Random.Range(0.55f, 0.95f), Random.Range(0.65f, 1.05f)),
+                    cloudMat);
+            }
+        }
+
+        // The lit underside the bolts fall from — a short ring of Core-coloured blocks tucked under
+        // the base band, plus one brighter block at the very centre so the strike origin has a seat.
+        for (int i = 0; i < 5; i++)
+        {
+            float ang = (i / 5f) * Mathf.PI * 2f;
+            float rr = radius * 0.55f;
+            Cube(parent, "ThunderheadGlow_" + i,
+                new Vector3(Mathf.Cos(ang) * rr, height - 0.42f, Mathf.Sin(ang) * rr),
+                new Vector3(0.34f, 0.16f, 0.34f), coreMat);
+        }
+        Cube(parent, "ThunderheadSeat", new Vector3(0f, height - 0.48f, 0f),
+            new Vector3(0.52f, 0.14f, 0.52f), coreMat);
+    }
+
+    /// <summary>1l111: one shared cube primitive, parented, collider-destroyed and material-applied —
+    /// the four lines every builder in this file repeats, factored so the two new bodies do not carry
+    /// forty copies of them. Returns the transform so a caller can attach a motion component.</summary>
+    private static Transform Cube(Transform parent, string name, Vector3 localPos, Vector3 size,
+        Material sharedMat)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = name;
+        DestroyCollider(go);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        go.transform.localScale = size;
+        ApplyShared(go, sharedMat);
+        return go.transform;
+    }
+
     /// <summary>1l6u: spawns the conflagration's ember rings continuously. Rule 19: the shape factory
     /// builds the static disc, and the component that runs while the pieces MOVE owns the motion — but
     /// this motion is a <i>stream</i>, so its home is a spawner on the zone root rather than a
@@ -389,6 +497,33 @@ public static class SpellZoneModelBuilder
                 Vector3 p = t.localPosition;
                 t.localPosition = new Vector3(p.x, h * 0.5f, p.z);
             }
+        }
+    }
+
+    /// <summary>1l111: scrolls one rain streak downward and wraps it back to the shelf, forever. Each
+    /// streak owns one of these (attached by <see cref="BuildRainCloud"/>); it writes only
+    /// localPosition, so the curtain keeps working if the storm root moves and dies with it. The fall
+    /// is distance per second, not distance per frame, so the spacing between streaks stays even at
+    /// any framerate.</summary>
+    private sealed class RainFall : MonoBehaviour
+    {
+        private float _top = 4f;
+        private float _bottom = 0.1f;
+        private float _speed = 4f;
+
+        public void Init(float top, float bottom, float speed)
+        {
+            _top = top;
+            _bottom = bottom;
+            _speed = speed;
+        }
+
+        private void Update()
+        {
+            Vector3 p = transform.localPosition;
+            p.y -= _speed * Time.deltaTime;
+            if (p.y < _bottom) p.y = _top;
+            transform.localPosition = p;
         }
     }
 

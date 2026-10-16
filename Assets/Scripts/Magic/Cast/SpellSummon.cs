@@ -332,7 +332,7 @@ public class SpellSummon : MonoBehaviour
     /// <summary>Builds the construct's body: the totem (base disc + tapered pillar + pulsing head
     /// crystal + orbiting shards), or the familiar's ring when the summon is caster-anchored (1l6p: a
     /// vertical ring of launch orbs, not the old ground circle).
-    /// <para><b>1lv1 adds an authored third body.</b> A summon whose look grants
+    /// <para><b>1l110 adds an authored third body.</b> A summon whose look grants
     /// <see cref="SummonBody.TeslaCoil"/> draws the stationary coil spire instead (Static Coil), so
     /// this one node owns all three shapes and the flag can only ever pick one — the drawn body and
     /// the flag cannot half-enable. Every other summon still resolves to <see cref="SummonBody.Default"/>

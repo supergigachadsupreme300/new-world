@@ -117,6 +117,15 @@ public class SpellBeam : MonoBehaviour
     private BoltStrip _boltStrip;
     private float _boltJitterTimer;
 
+    // 1l111: the Lightning CONE's drawn body — a fan of bolt strips — and the root that carries it.
+    // `_body` stays null in this mode on purpose: PulseVisual's `_body` branch aims with
+    // FromToRotation(up, Direction), which picks an arbitrary roll per world direction and so cannot
+    // hold a FLAT horizontal fan. The fan is therefore one rigid root, aimed in world space with
+    // LookRotation (local +Z on the beam axis, local +X the fan's width) — the same frame the strips
+    // were laid out in. Both are null for every non-Lightning beam and every non-Lightning cone.
+    private Transform _coneRoot;
+    private SpellBeamModelBuilder.BoltCone _coneStrips;
+
     /// <summary>1ie/1ih: the beam's resolved look, cached at Initialize.</summary>
     private SpellLook _look;
 
@@ -321,6 +330,25 @@ public class SpellBeam : MonoBehaviour
                 _boltStrip.Rebuild(new Vector3(0f, -half, 0f), new Vector3(0f, half, 0f));
             }
         }
+        else if (_coneStrips.Strips != null)
+        {
+            // 1l111: the Lightning cone's strips re-shuffle on the SAME timer, each along its OWN ray
+            // — the axes the builder laid them out on (rule 8: one spelling of the fan), so the jag
+            // cannot leave the damaging fan. Same in-place Rebuild as the straight bolt, so the strip
+            // stays a buffer rather than a stale cache and no piece is ever created or destroyed.
+            _boltJitterTimer -= Time.deltaTime;
+            if (_boltJitterTimer <= 0f)
+            {
+                _boltJitterTimer = BoltJitterInterval;
+                float half = Length * 0.5f;
+                for (int i = 0; i < _coneStrips.Strips.Length; i++)
+                {
+                    Vector3 axis = _coneStrips.Axes[i];
+                    if (_coneStrips.Strips[i] == null) continue;
+                    _coneStrips.Strips[i].Rebuild(axis * -half, axis * half);
+                }
+            }
+        }
 
         _tick -= Time.deltaTime;
         if (_tick <= 0f)
@@ -520,6 +548,18 @@ public class SpellBeam : MonoBehaviour
             SpellBeamModelBuilder.FlowFunnelVisual(_funnelChunks, Length, _mouthRadius, Width,
                 _baseColor, _funnelHot, cycles, _puffAxisLocal);
         }
+        else if (_coneRoot != null)
+        {
+            // 1l111: the Lightning cone's fan is FLAT and spreads HORIZONTALLY, which is exactly what
+            // the damage fan does (TickCone rotates each ray about world up) — so the drawn fan sits
+            // inside the fan that damages rather than merely near it. World-space position/rotation,
+            // the same two writes the `_body` branch above makes: LookRotation puts local +Z on the
+            // beam axis with local +Y up, so the strips' own local rays (built about that +Y) fan out
+            // flat. The strips themselves are never written here — one root aims one rigid body, so
+            // the fan cannot be torn apart by a second per-piece write (rule 17).
+            _coneRoot.position = transform.position + Direction * (Length * 0.5f);
+            _coneRoot.rotation = Quaternion.LookRotation(Direction);
+        }
 
         _endOrb.position = EndPoint();
         _endOrb.localScale = _orbBaseScale * (1f + 0.25f * Mathf.Sin(Time.time * 9f));
@@ -563,29 +603,51 @@ public class SpellBeam : MonoBehaviour
         if (shader == null) return;
 
         // 1ir: cone and line are two builders, one shared tip orb.
+        // 1l111: the cone is drawn per SCHOOL, not per spell — the same move the LINE branch below
+        // makes and for the same reason: keying on the damage type means a future lightning cone gets
+        // the lightning body for free, while a per-spell flag would need re-adding every time and
+        // would let the school's identity drift. Lightning gets a flat fan of bolt strips (the same
+        // BoltStrip the straight Lightning beam wears); every other school keeps Fire's funnel, which
+        // is the only other cone in the game (Flamethrower alone).
         if (_coneHalfRad > 0f)
         {
-            // 1is: the funnel's hot end is SpellLook.HotCore, not Edge â€” Edge desaturates Fire's
-            // orange toward peach, so it can never supply the yellow this reads as.
-            Color hot = SpellLook.HotCore(color);
-            _funnelChunks = SpellBeamModelBuilder.BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
-            _funnelHot = hot;
-            _baseColor = color;
-
-            // 1l99: one launch axis per piece, all seeded to the cast direction; the pass is unset so
-            // the first PulseVisual captures each piece at its own phase-wrap. Boards sized to the
-            // built piece count (discs + debris; the 1l103 removal of the leading ring left this array
-            // exactly matching what FlowFunnelVisual places) so the indexed writes in PulseVisual are
-            // in range whatever the constant totals are.
-            int pieces = _funnelChunks != null ? _funnelChunks.Length : 0;
-            _puffAxis = new Vector3[pieces];
-            _puffPass = new int[pieces];
-            _puffAxisLocal = new Vector3[pieces];
-            for (int i = 0; i < pieces; i++)
+            if (_spell != null && _spell.Type == DamageType.Lightning)
             {
-                _puffAxis[i] = Direction;
-                _puffAxisLocal[i] = Vector3.forward;
-                _puffPass[i] = int.MinValue;
+                // The fan's root is a plain child transform; BuildBoltCone lays the strips out in its
+                // local frame (+Z forward, fan along +X) and hands back the strips WITH their axes so
+                // the re-jitter block can walk both in one indexed pass.
+                var boltCone = new GameObject("BoltCone").transform;
+                boltCone.SetParent(transform, false);
+                _coneRoot = boltCone;
+                _coneStrips = SpellBeamModelBuilder.BuildBoltCone(boltCone, Length, _coneHalfRad,
+                    Width, _mouthRadius, color);
+                _boltJitterTimer = 0f;
+                _baseColor = color;
+            }
+            else
+            {
+                // 1is: the funnel's hot end is SpellLook.HotCore, not Edge â€” Edge desaturates Fire's
+                // orange toward peach, so it can never supply the yellow this reads as.
+                Color hot = SpellLook.HotCore(color);
+                _funnelChunks = SpellBeamModelBuilder.BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
+                _funnelHot = hot;
+                _baseColor = color;
+
+                // 1l99: one launch axis per piece, all seeded to the cast direction; the pass is unset so
+                // the first PulseVisual captures each piece at its own phase-wrap. Boards sized to the
+                // built piece count (discs + debris; the 1l103 removal of the leading ring left this array
+                // exactly matching what FlowFunnelVisual places) so the indexed writes in PulseVisual are
+                // in range whatever the constant totals are.
+                int pieces = _funnelChunks != null ? _funnelChunks.Length : 0;
+                _puffAxis = new Vector3[pieces];
+                _puffPass = new int[pieces];
+                _puffAxisLocal = new Vector3[pieces];
+                for (int i = 0; i < pieces; i++)
+                {
+                    _puffAxis[i] = Direction;
+                    _puffAxisLocal[i] = Vector3.forward;
+                    _puffPass[i] = int.MinValue;
+                }
             }
         }
         else

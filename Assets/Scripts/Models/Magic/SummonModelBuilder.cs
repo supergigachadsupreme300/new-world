@@ -155,7 +155,7 @@ public static class SummonModelBuilder
         return new Body { CoreBaseScale = head.localScale, Cores = new[] { head } };
     }
 
-    /// <summary>1lv1: Static Coil's body — a stationary spire. A base disc under a central rod
+    /// <summary>1l110: Static Coil's body — a stationary spire. A base disc under a central rod
     /// ringed by a tapering stack of coil turns, capped by one bright emitter orb from which the
     /// turret's bolts leave. Unlike <see cref="BuildTotem"/> it has no orbiting shards (nothing here
     /// moves) and unlike <see cref="BuildFamiliarCircle"/> it does not follow — it is bolted to the

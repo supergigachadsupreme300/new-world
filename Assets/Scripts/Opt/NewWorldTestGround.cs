@@ -1738,7 +1738,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         // spell until a profile grants Funnel, which exactly one does (Firestorm). Reported for the
         // same reason as byZone: it is packed into LookKey below.
         var byStorm = new Dictionary<StormBody, int>();
-        // 1lv1: the summon-body axis, the same contract again — Default for every summon until a
+        // 1l110: the summon-body axis, the same contract again — Default for every summon until a
         // profile grants TeslaCoil, which exactly one does (Static Coil). Reported for the same reason
         // as byZone: it is packed into LookKey below.
         var bySummon = new Dictionary<SummonBody, int>();
@@ -1821,9 +1821,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append('\n').Append("  zone bodies:    ").Append(CountLine(byZone))
           .Append("   (1kc: Funnel for every non-authored zone; VortexCircle = Conflagration's own body)");
         sb.Append('\n').Append("  storm bodies:   ").Append(CountLine(byStorm))
-          .Append("   (1kf: None for every spell but Firestorm and Blizzard; Funnel = Firestorm's pre-1kc conflagration tornado; 1l100 VortexCircle = Blizzard's conflagration body)");
+          .Append("   (1kf: None for every spell but Firestorm and Blizzard; Funnel = Firestorm's pre-1kc conflagration tornado; 1l100 VortexCircle = Blizzard's conflagration body; 1l111 Rain = Downpour's rain shelf, Thunderhead = Thunderhead's cumulonimbus)");
         sb.Append('\n').Append("  summon bodies:  ").Append(CountLine(bySummon))
-          .Append("   (1lv1: Default for every summon; TeslaCoil = Static Coil's stationary spire)");
+          .Append("   (1l110: Default for every summon; TeslaCoil = Static Coil's stationary spire)");
         foreach (var kv in groups)
         {
             if (kv.Value.Count < 2) continue;
@@ -2111,6 +2111,33 @@ private static string Describe(in SpellLook look)
                 SpellZoneModelBuilder.BuildConflagration(modelRoot.transform, spell.Radius,
                     sl.Core, sl.Edge);
             }
+            // 1l111: Downpour's rain shelf and Thunderhead's cumulonimbus — the SAME builders
+            // SpellStorm runs, for the same rule-13 reason as every branch above. Both mount LOW on
+            // the pedestal rather than at their live altitude, because the live heights
+            // (SpellStorm.RainCloudHeight / ThunderheadHeight) place a world-anchored cloud, and the
+            // pedestal has no ground under it to measure that from — the SHAPE is what this bench can
+            // show. RainFall is a self-updating component, so the falling curtain still animates here;
+            // only the sky-bolt strike origin (which reads SpellStorm's _cloudY) is a live-cast property.
+            else if (SpellLook.Resolve(spell).StormBodyModel == StormBody.Rain)
+            {
+                var rl = SpellLook.Resolve(spell);
+                SpellZoneModelBuilder.BuildRainCloud(modelRoot.transform, spell.Radius, 1.4f,
+                    SpellStorm.StormCloudTint, rl.Core);
+            }
+            else if (SpellLook.Resolve(spell).StormBodyModel == StormBody.Thunderhead)
+            {
+                var tl = SpellLook.Resolve(spell);
+                const float benchCloudY = 1.8f;
+                SpellZoneModelBuilder.BuildThunderhead(modelRoot.transform,
+                    Mathf.Max(spell.Radius * 0.85f, 2.5f), benchCloudY, SpellStorm.StormCloudTint, tl.Core);
+                // It still carries the sky-bolt behaviour (Thunderhead passes stormCloud: true), so
+                // show the cloud-to-ground profile too — the same BuildBolt the live burst draws, from
+                // under the voxel cloud down to the pedestal top (the SpellCloud branch below is what
+                // this REPLACES for this body, cloud and bolt together).
+                SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
+                    new Vector3(0f, benchCloudY - 0.7f, 0f), new Vector3(0f, 0.05f, 0f),
+                    SkillFx.SharedSpriteMaterial(tl.Core), 1000f, segments: 8, jitterAmplitude: 0.7f);
+            }
             // 1ir: the two deliveries that have NO projectile body at all. Without these two branches
             // a Beam and a Summon both fall through to CreateProjectileDisplay, which draws the generic
             // orb — so the bench would report "unchanged" for Flamethrower and Continuous Fireball
@@ -2119,12 +2146,15 @@ private static string Describe(in SpellLook look)
             // these mount the SAME builders the runtime uses rather than a proxy that could drift:
             // SpellBeamModelBuilder.BuildFunnelVisual for the swept wedge's funnel body (1is), and
             // SummonModelBuilder.BuildFamiliarCircle for the familiar ring (1l6p).
-            // 1l75: a Lightning beam's body is the live SpellBeam's jagged re-jittering bolt (testing.md
-            // #6). The two remaining lightning beams are LINE beams, so the cone branch below never
-            // claims them — without this branch they fall to the generic orb, a visual with no
-            // acceptance readout (rule 13). Static strip, same width/jitter ladders as the live beam
-            // via SpellBeam.BoltWidthFor/BoltJitterFor, laid along local Z so it reads as a beam.
-            else if (spell.Type == DamageType.Lightning && spell.Delivery == SpellDelivery.Beam)
+            // 1l75: a Lightning beam that is NOT a cone draws the live SpellBeam's jagged strip
+            // (testing.md #6). The cone branch below claims a Lightning CONE (1l111's Storm Fan), so
+            // this branch is now gated to the line beams (Arc Storm and the pre-1l111 Storm Pulse) —
+            // otherwise it would draw a single strip where the live beam draws a bolt fan. Without
+            // either branch a beam falls to the generic orb, a visual with no acceptance readout
+            // (rule 13). Static strip, same width/jitter ladders as the live beam via
+            // SpellBeam.BoltWidthFor/BoltJitterFor, laid along local Z so it reads as a beam.
+            else if (spell.Type == DamageType.Lightning && spell.Delivery == SpellDelivery.Beam
+                     && SpellBeam.ConeFullAngleDegrees(spell) <= 0f)
             {
                 var bl = SpellLook.Resolve(spell);
                 var strip = SpellBoltModelBuilder.CreateStrip(modelRoot.transform, SpellBeam.BoltSegments,
@@ -2144,14 +2174,32 @@ private static string Describe(in SpellLook look)
                 // one still FRAME of the spray — the shape and the two-tone taper read here; the motion
                 // itself is a live-cast-only property, like the beam's per-frame re-aim and tip-orb throb.
                 var funnelLook = SpellLook.Resolve(spell);
-                SpellBeamModelBuilder.BuildFunnelVisual(modelRoot.transform,
-                    spell.Range,                                  // deliveryRange = beam length
-                    spell.Radius * SpellBeam.ConeMouthFraction,  // mouth = a fraction of the tip
-                    spell.Radius,                                 // tip = deliveryRadius
-                    funnelLook.Core,                              // orange body
-                    SpellLook.HotCore(funnelLook.Core));           // yellow where the fire is born
+                // 1l111: a LIGHTNING cone (Storm Fan) draws a flat fan of jagged bolt strips instead of
+                // Fire's tapered funnel — the same branch the live SpellBeam.BuildVisual takes, so the
+                // pedestal mounts the real builder rather than a proxy (rule 13). Half-angle is the
+                // spell's own BeamHalfAngle in radians, the same conversion SpellBeam.Initialize makes;
+                // the fan is shifted forward by half its length so it reads from the pedestal like the
+                // funnel does (the live beam centres it on the muzzle instead).
+                if (spell.Type == DamageType.Lightning)
+                {
+                    var coneRoot = new GameObject("BoltCone").transform;
+                    coneRoot.SetParent(modelRoot.transform, false);
+                    coneRoot.localPosition = new Vector3(0f, 0.35f, spell.Range * 0.5f);
+                    SpellBeamModelBuilder.BuildBoltCone(coneRoot, spell.Range,
+                        spell.BeamHalfAngle * Mathf.Deg2Rad, spell.Radius,
+                        spell.Radius * SpellBeam.ConeMouthFraction, funnelLook.Core);
+                }
+                else
+                {
+                    SpellBeamModelBuilder.BuildFunnelVisual(modelRoot.transform,
+                        spell.Range,                                  // deliveryRange = beam length
+                        spell.Radius * SpellBeam.ConeMouthFraction,  // mouth = a fraction of the tip
+                        spell.Radius,                                 // tip = deliveryRadius
+                        funnelLook.Core,                              // orange body
+                        SpellLook.HotCore(funnelLook.Core));           // yellow where the fire is born
+                }
             }
-            // 1lv1: Static Coil's stationary coil spire — mounted via the SAME builder SpellSummon
+            // 1l110: Static Coil's stationary coil spire — mounted via the SAME builder SpellSummon
             // runs, for the same rule-13 reason as every branch above: a summon body that exists only
             // inside a live cast has no acceptance readout. A Summon with no caster-anchor would
             // otherwise fall through to the generic orb, so this branch is what lets the new coil be

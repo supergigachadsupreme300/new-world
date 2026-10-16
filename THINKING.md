@@ -1,3 +1,90 @@
+## 1l111. Lightning tree rework Phase 2 (Storm bank) — reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l110`, so `1l111` (enumerate first — rule 8).
+Phase 2 of the 13-skill Lightning rework: the `magic_lightning_storm` bank (Stormcall / Storm Rain /
+Storm Pulse / Stormwrack). Same fixed decisions as Phase 1 (Stagger stays; ids are save keys; new models
+are procedural C# bodies; one commit per bank). Hypotheses below are about **how** to grant each new
+mechanic/body, not whether to build it.
+
+**H1 — "the four Storm skills are lame for the same reason Phase 1's were: same delivery, different
+numbers." CONFIRMED.** Reading the committed rows (`git show HEAD:…SkillCatalog.Magic.cs`, 80/171/173/174)
+showed Stormcall and Storm Rain were both `SpellDelivery.Storm` with only radius/power differing, Stormwrack
+a small ground `Zone` blob, Storm Pulse a `Beam` with no cone. So the rework is again a **delivery / body**
+change per skill: Stormwrack `Zone`→`Wave` (the Phase-1 Static Coil `Zone`→`Summon` pattern), Storm Pulse
+gains a cone, and the two storms gain authored sky bodies.
+
+**H2 — "the two new persistent storm bodies go in `SpellStormModelBuilder`" (its name!). REJECTED.**
+`SpellStormModelBuilder` is tiny — it draws only the per-strike crossed bolt (`BuildLightningBolt`), not a
+persistent body. The persistent-area bodies (`BuildFunnel`, `BuildFrozenField`, `BuildConflagration`) all
+live in `SpellZoneModelBuilder`, reached by both `SpellZone` and `SpellStorm`. A folder/class name
+describes where a class was *written*, not who depends on it (rule 7's "not used" caveat). So the rain shelf
+and cumulonimbus joined `SpellZoneModelBuilder`, and the storm mount reuses them exactly as it already
+reuses `BuildFrozenField`. [rejected]
+
+**H3 — "Thunderhead should drop `stormCloud` and just be a body" (mirroring Downpour). REJECTED.** The
+storm-cloud behaviour (long cloud-to-ground bolts instead of crossed bars) *is* the spell's identity and
+Phase 1/1l77 shipped it; killing it to avoid a second cloud would delete the spell's signature strike. The
+body and the behaviour are separate axes: keep `stormCloud: true` and mount the voxel cloud **instead of**
+the generic puff, by gating the `_stormCloud` mount `… && _look.StormBodyModel != StormBody.Thunderhead`.
+One behaviour, two clouds — the branch is the fallback, not the definition. [rejected]
+
+**H4 — "the cloud altitude can be a per-call literal (16 m here, 45 m there)." REJECTED (rule 8).** The
+storm already had two consumers of the altitude — the cloud mount and `SpawnStrikeFx`'s bolt origin — and
+Phase 2 adds a *third* number to that contract (the Thunderhead body's own altitude). Two spellings of
+"where the cloud is" is exactly the copy that rots. Fixed by computing `SpellStorm._cloudY` **once** in
+`Initialize` from the resolved body and reading it in both the mount and the strike, so the cloud the
+player sees is always the cloud the bolts leave (the corner-copy invariant). [rejected]
+
+**H5 — "Storm Pulse's fan is aimed with a local-space axis like the damage fan." REJECTED.** `TickCone`'s
+7-ray damage fan uses `Quaternion.AngleAxis(a, up) * Direction` in the cone root's frame; the drawn fan
+could mirror that. But the beam's own `_body` branch already aims the drawn geometry in **world space**
+(`Quaternion.LookRotation(Direction)`), and `BoltStrip.Rebuild` wants the strip's world endpoints. So
+`BuildBoltCone` emits a local-frame ray per strip and `PulseVisual` re-aims via the world-space
+`LookRotation(Direction)` — the `_body` branch's own pattern, not a re-derivation of the (different-count)
+damage fan. The builder's `Axes` doc was corrected to claim only the same ±halfRad span, not "the same ray
+directions" (drawn 5 vs damage 7). [rejected]
+
+**H6 — "a Lightning cone is safe to gate on `DamageType == Lightning`." CONFIRMED.** Only Flamethrower sets
+`beamHalfAngle` (`SkillCatalog.Magic.cs:292`, Fire); the two existing Lightning beams (Arc Storm, Storm
+Pulse) were not cones. So `Lightning && BeamHalfAngle > 0` selects exactly Storm Fan, and a non-Lightning
+cone (Flamethrower) still draws Fire's funnel — already documented as the one pre-existing user of the cone
+axis. [confirmed]
+
+**H7 — "Storm Lash can reuse `spell.Shape = ProjectileShape.Wave` (the body) and a `Zone` delivery."
+REJECTED.** `ProjectileShape.Wave` is display-only since 1l87; the ground-glued sweep is the separate
+`SpellDelivery.Wave`, and Fire Wave/Frozen Touch already pair the two. Reusing the fire floor's *colour*
+would leak Fire into a Lightning spell (rule 13's identity leak), so Storm Lash needs its own
+`ProjectileShape.StormWave` (=19) body — the same lattice re-tinted to the spell — plus the `Wave`
+delivery. Mirrors Fire Wave's row exactly. [rejected]
+
+**H8 — "a `StormWave` body needs its own ripple component." REJECTED.** `WaveRipple` already exists and
+`SpellWave` already drives the `GetComponentInChildren<WaveRipple>()` it finds. The builder only has to
+register the floor cells into a `WaveRipple.Configure(...)`; the per-frame motion stays in the moving
+component, never the factory (rule 19 — the same builder feeds motionless QA pedestals). [rejected]
+
+**H9 — "the two new authored profiles move the F4 `authored` count by an amount I should verify, not
+guess." CONFIRMED as a prediction to check.** `SpellLook.Authored` is `p != null`, so a new profile flips
+the count even when it changes no pixel (the 1jt phenomenon). Phase 2 adds a `Look(...)` to Stormcall
+(Thunderhead) and Storm Rain (Downpour), which had **none** (`git show HEAD` confirmed), so `authored` is
+predicted **+2 → 31**; Storm Fan (axis = `spell.BeamHalfAngle`) and Storm Lash (axis = `spell.Shape`) carry
+no profile, so they add nothing. Because `StormBody` already packed 3 bits at `<<40`, the two new values
+need **no** `LookKey` change — the bit range is untouched. Stated in the handoff; the lane confirms, the
+readout is never "fixed" to match the guess. [confirmed → measured by lane]
+
+**H10 — "an Edit's `oldString` being the first line of an XML doc block is harmless." REJECTED (a real
+bug I introduced, second occurrence).** Editing `SpellBeamModelBuilder.cs` deleted `AxisFor`'s
+`/// 1l99: the launch axis…` line, leaving the method's summary without its lead. `StaticChecks.ps1`'s
+brace/paren balance stayed green (the method is still well-formed), so the instrument cannot see a dropped
+doc line — rule 3's "review is not compilation" for comments too. Restored by hand; the whole diff was
+re-read at the end. Same class as Phase 1's dropped `Lance` signature. [rejected — bug fixed]
+
+**Open / to confirm in the play-test:** the F4 `authored` count is *predicted* +2 → 31; `storm bodies:`
+gains `Rain = 1` / `Thunderhead = 1`. Whether a 16 m cumulonimbus reads as *the* Thunderhead (vs a generic
+cloud), whether the 26-streak curtain looks like a downpour rather than sparse rain, and whether the
+Storm Lash crest reads as ground-running lightning rather than a recoloured Fire Wave, are play-test
+judgements. The bench mounts the bodies low (1.4 m / 1.8 m) because the pedestal has no ground, so the
+live 5 m / 16 m altitudes are only seen in play.
+
 ## 1l110. Lightning tree rework Phase 1 (Volt bank) — reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l109`, so `1l110` (enumerate first — rule 8).

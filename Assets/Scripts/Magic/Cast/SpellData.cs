@@ -139,7 +139,7 @@ public enum ProjectileShape
     /// <see cref="Ball"/> so the fireball reads as a ball.</summary>
     Shard = 15,
 
-    /// <summary>1lv1: a compact, fast, high-contrast lightning streak — a short jagged bolt whose core
+    /// <summary>1l110: a compact, fast, high-contrast lightning streak — a short jagged bolt whose core
     /// is white-hot and whose segments are chunky, so a rapid-fire zap reads as a spark rather than a
     /// long forked bolt. A plain display body with NO behaviour (not homing), granted by an authored
     /// <c>spell.Shape</c> (Volt) rather than a <c>Look</c> profile. Deliberately NOT added to
@@ -147,18 +147,27 @@ public enum ProjectileShape
     /// deterministic body, which is a change nobody asked for.</summary>
     VoltBolt = 16,
 
-    /// <summary>1lv1: a scattered swarm of tiny bright spark motes flying forward — Volt Spark's drawn
+    /// <summary>1l110: a scattered swarm of tiny bright spark motes flying forward — Volt Spark's drawn
     /// body. A display-only shape with NO behaviour: the homing that makes Volt Spark seek is carried
     /// by <see cref="Missile"/> on <c>spell.Shape</c>, and this value overrides only the drawn body via
     /// an authored <c>Look.DisplayShape</c>. Authored-only, never in a <c>Shape_*</c> family (same
     /// contract as <see cref="Soul"/> / <see cref="Hand"/>).</summary>
     SparkSwarm = 17,
 
-    /// <summary>1lv1: a heavy great-bolt — a thick, long jagged streak wrapped around a white-hot core,
-    /// the body Volt Bolt wears (Fury Bolt joins it in 1lv3). A plain display body with NO behaviour,
+    /// <summary>1l110: a heavy great-bolt — a thick, long jagged streak wrapped around a white-hot core,
+    /// the body Volt Bolt wears (Fury Bolt joins it in a later Lightning phase). A plain display body with NO behaviour,
     /// granted by an authored <c>spell.Shape</c>. Not in <c>Shape_Lightning</c> for the same reason as
     /// <see cref="VoltBolt"/>.</summary>
-    GreatBolt = 18
+    GreatBolt = 18,
+
+    /// <summary>1l111: a ground-hugging arc-wall of jagged lightning — a bowed floor whose crest carries
+    /// a row of bolt spikes, so a <c>SpellDelivery.Wave</c> sweep reads as a lashing arc rather than
+    /// Fire Wave's smooth sheet. Display-only: the sweep, the band width and the per-foe "once" set are
+    /// all <see cref="SpellWave"/>'s, driven by the delivery and <c>spell.Radius</c> — never by this
+    /// value. Granted through an authored <c>spell.Shape</c> (the <see cref="Wave"/> precedent) and
+    /// deliberately not a member of <c>Shape_Lightning</c>, so no un-authored Lightning spell's
+    /// deterministic <c>Auto</c> body moves.</summary>
+    StormWave = 19
 }
 
 /// <summary>

@@ -120,8 +120,9 @@ internal static class MagicProjectileModelBuilder
     /// uses it any more — the meteor-line slot is now Flamethrower, a Beam with no projectile body at
     /// all — but the parameter stays, because it is a property of the <see cref="Comet"/> shape rather
     /// than of any one spell, and removing it would mean deleting the boulder body a future sky-rock
-    /// projectile may want. <paramref name="waveExtent"/> is forwarded to <see cref="Wave"/> only
-    /// (1l88: charge grows the wave's block count); every other branch ignores it.</summary>
+    /// projectile may want. <paramref name="waveExtent"/> is forwarded to <see cref="Wave"/> (and,
+    /// 1l111, <see cref="StormWave"/> — both ground-hugging wave floors) only; every other branch
+    /// ignores it.</summary>
     private static Transform BuildProjectileBody(ProjectileShape shape, Shader shader, Color color, bool rockBody = false,
         float waveExtent = 1f)
     {
@@ -144,6 +145,7 @@ internal static class MagicProjectileModelBuilder
             case ProjectileShape.VoltBolt: return VoltBolt("VoltBolt", shader, color);
             case ProjectileShape.SparkSwarm: return SparkSwarm("VoltSpark", shader, color);
             case ProjectileShape.GreatBolt: return GreatBolt("GreatBolt", shader, color);
+            case ProjectileShape.StormWave: return StormWave("StormWave", shader, color, waveExtent);
             default: return Cluster("Orb", shader, color, 0.24f, 5, 0.10f, 0.03f); // fireball + generic orbs
         }
     }
@@ -312,7 +314,7 @@ internal static class MagicProjectileModelBuilder
         return root;
     }
 
-    /// <summary>1lv1: a compact, fast, high-contrast zap — a SHORT chunky jagged streak whose body
+    /// <summary>1l110: a compact, fast, high-contrast zap — a SHORT chunky jagged streak whose body
     /// brightens toward the leading edge so the tip reads white-hot. Built like <see cref="Bolt"/> but
     /// shorter (0.9 vs 1.25), fewer/thicker segments, and a colour ramp toward
     /// <c>Color.Lerp(color, white, ...)</c> on the front half, so a rapid-fire Volt reads differently
@@ -349,7 +351,7 @@ internal static class MagicProjectileModelBuilder
         return root;
     }
 
-    /// <summary>1lv1: a scattered swarm of tiny bright spark motes flying forward — Volt Spark's body.
+    /// <summary>1l110: a scattered swarm of tiny bright spark motes flying forward — Volt Spark's body.
     /// Unlike the ordered <see cref="Missile"/> volley (three aligned mini-stacks), this is a loose
     /// cloud of small cubes jittered around the travel axis (+Z) and brightened toward white, so a
     /// seeking spark reads as a crackle of static rather than a darts volley. Display-only: the homing
@@ -376,8 +378,8 @@ internal static class MagicProjectileModelBuilder
         return root;
     }
 
-    /// <summary>1lv1: a heavy great-bolt — a long, thick jagged streak around a white-hot core, the
-    /// body Volt Bolt and Fury Bolt wear. Built like <see cref="Bolt"/> but longer (1.7 vs 1.25),
+    /// <summary>1l110: a heavy great-bolt — a long, thick jagged streak around a white-hot core, the
+    /// body Volt Bolt wears (Fury Bolt joins it in a later Lightning phase). Built like <see cref="Bolt"/> but longer (1.7 vs 1.25),
     /// thicker, with a thin bright core rod magnetised down the middle of the jitter and trailing
     /// flecks, so a charged heavy bolt reads as more mass than a plain zap. Display-only: no
     /// behaviour rides on the shape.</summary>
@@ -773,6 +775,116 @@ internal static class MagicProjectileModelBuilder
 
         root.gameObject.AddComponent<WaveRipple>().Configure(
             cells, restY, mats, trough, color, amplitude, speed, wavelength * extent);
+        return root;
+    }
+
+    /// <summary>1l111: the Storm Lash body (<see cref="ProjectileShape.StormWave"/>) — a ground-hugging
+    /// floor lattice carrying a jagged crest of lightning spikes across its width, so the sweep reads as
+    /// a lashing arc rather than <see cref="Wave"/>'s water-like sheet. Same contract as
+    /// <see cref="Wave"/>: authored footprint × charge <paramref name="extent"/>, thin cubes, every
+    /// collider destroyed, and a <see cref="WaveRipple"/> owns the per-cell shimmer — which
+    /// <c>SpellWave</c>'s own Update drives on the live sweep and never on a QA pedestal (rule 19).
+    ///
+    /// <para><b>Colours are the spell's</b> (rule 13): the floor is the school colour darkened by the
+    /// same 0.55 lerp <see cref="Wave"/> uses (a darkening, not a hue rotation, so it survives every
+    /// school), and the crest is the school colour itself. Nothing here invents a palette.</para>
+    ///
+    /// <para>The floor's silhouette — centre lifted by <c>crestLift</c>, side columns pulled back by
+    /// <c>frontBow</c> — is the same two-term cross-section Wave's floor uses, so both waves read as
+    /// one family and a future tweak to the shape has one obvious sibling to keep in step.</para></summary>
+    private static Transform StormWave(string name, Shader shader, Color color, float extent = 1f)
+    {
+        var root = new GameObject(name).transform;
+
+        const int baseCols = 12;
+        const int baseRows = 18;
+        const int spikeSteps = 3;
+        const float baseWidth = 5.2f;
+        const float baseDepth = 6f;
+        const float thickness = 0.14f;
+        const float crestLift = 0.30f;
+        const float frontBow = 1.1f;
+        const float spikePitch = 0.28f;
+        const int cellCap = 1400;
+
+        extent = Mathf.Clamp(extent, 0.05f, 64f);
+        int cols = Mathf.Max(1, Mathf.RoundToInt(baseCols * extent));
+        int rows = Mathf.Max(1, Mathf.RoundToInt(baseRows * extent));
+
+        // Safety valve, the same shape Wave uses: above the cap the grid thins and the cubes grow, so a
+        // pathological charge cannot overflow the cell arithmetic below.
+        int total = cols * rows + cols * spikeSteps;
+        if (total > cellCap)
+        {
+            float shrink = Mathf.Sqrt((float)cellCap / total);
+            cols = Mathf.Max(1, Mathf.RoundToInt(cols * shrink));
+            rows = Mathf.Max(1, Mathf.RoundToInt(rows * shrink));
+        }
+
+        float width = baseWidth * extent;
+        float depth = baseDepth * extent;
+        float sx = width / cols;
+        float sz = depth / rows;
+        float halfW = width * 0.5f;
+        Color trough = Color.Lerp(color, Color.black, 0.55f);
+
+        int floorCells = cols * rows;
+        int spikeCells = cols * spikeSteps;
+        var cells = new Transform[floorCells + spikeCells];
+        var restY = new float[floorCells + spikeCells];
+        var mats = new Material[floorCells + spikeCells];
+        int n = 0;
+
+        for (int ix = 0; ix < cols; ix++)
+        {
+            float x = (ix + 0.5f) * sx - halfW;
+            float xf = halfW > 0.0001f ? x / halfW : 0f;
+            float rest = crestLift * (1f - xf * xf);
+            float zBow = -frontBow * xf * xf;
+            for (int iz = 0; iz < rows; iz++)
+            {
+                float z = (iz + 0.5f) * sz - depth * 0.5f + zBow;
+                var cube = Primitive(PrimitiveType.Cube, "StormWaveCell_" + n, root);
+                cube.localPosition = new Vector3(x, rest, z);
+                cube.localScale = new Vector3(sx * 1.01f, thickness, sz * 1.01f);
+                Materialize(cube, shader, trough);
+                mats[n] = cube.GetComponent<MeshRenderer>().material;
+                cells[n] = cube;
+                restY[n] = rest;
+                n++;
+            }
+        }
+
+        // The crest: a short zigzag column per floor column, tallest over the centre and tapering to
+        // nothing at the side edges, jittered so the leading line reads as a lashing bolt instead of a
+        // smooth lip. The spikes join the SAME ripple arrays, so the crest shimmers with the floor
+        // rather than standing frozen above it.
+        for (int ix = 0; ix < cols; ix++)
+        {
+            float x = (ix + 0.5f) * sx - halfW;
+            float xf = halfW > 0.0001f ? x / halfW : 0f;
+            float centre = Mathf.Max(0f, 1f - xf * xf);
+            float spike = Mathf.Max(0.22f, centre);
+            float baseY = crestLift * centre;
+            for (int s = 0; s < spikeSteps; s++)
+            {
+                float y = baseY + (s + 0.5f) * spikePitch * spike;
+                var cube = Primitive(PrimitiveType.Cube, "StormWaveSpike_" + n, root);
+                cube.localPosition = new Vector3(x + Random.Range(-0.09f, 0.09f), y,
+                    Random.Range(-0.10f, 0.10f));
+                cube.localScale = new Vector3(sx * 0.34f, spikePitch * 1.15f, sz * 0.34f);
+                Materialize(cube, shader, color);
+                mats[n] = cube.GetComponent<MeshRenderer>().material;
+                cells[n] = cube;
+                restY[n] = y;
+                n++;
+            }
+        }
+
+        // The ripple's wavelength is a fraction of the footprint, exactly as Wave's is, so a charged
+        // (longer) wave still carries one crest line rather than several.
+        root.gameObject.AddComponent<WaveRipple>().Configure(
+            cells, restY, mats, trough, color, 0.14f, 8f, Mathf.Max(1.2f, depth * 0.42f));
         return root;
     }
 }

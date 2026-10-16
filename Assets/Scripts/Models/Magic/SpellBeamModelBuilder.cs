@@ -264,6 +264,67 @@ public static class SpellBeamModelBuilder
         }
     }
 
+    /// <summary>1l111: a Lightning cone's drawn body — its bolt strips and the per-strip axis, returned
+    /// as ONE record because the beam's re-jitter loop has to walk both in lockstep and rule 17's
+    /// parallel-list shape is exactly the alignment a loop in another class can silently break.</summary>
+    public struct BoltCone
+    {
+        /// <summary>One jagged strip per fan ray, in build order (= axis order).</summary>
+        public BoltStrip[] Strips;
+        /// <summary>One unit launch direction per strip, in the PARENT's local frame — spread across
+        /// the SAME half-angle <see cref="SpellBeam.TickCone"/>'s fan uses (about the same local
+        /// up), so the drawn jag cannot leave the damaging fan. The drawn count is
+        /// <see cref="BoltConeRays"/>, which need not equal the damage fan's ray count: what matters
+        /// is that both fans span ±halfRad, which they do.</summary>
+        public Vector3[] Axes;
+    }
+
+    /// <summary>1l111: how many bolt strips a Lightning cone draws. Odd on purpose: the centre ray is
+    /// the beam's own axis, so the fan reads as one bolt that splits, not as a gap with two edges.</summary>
+    public const int BoltConeRays = 5;
+
+    /// <summary>1l111: the Lightning cone's drawn body — a flat fan of jagged bolt strips, one per
+    /// ray, spread across the analytic cone's own horizontal fan (the same half-angle and the same
+    /// "spread about world up" rule <c>SpellBeam.TickCone</c> uses, so the drawn fan sits inside the
+    /// fan that damages). Placed in the parent's LOCAL frame (+Z forward, fan along +X): the live beam
+    /// re-aims that root every frame and the QA bench mounts this on a pedestal under the one
+    /// convention the funnel already uses (rule 8: one spelling).
+    ///
+    /// <para><b>Deliberately not <see cref="BuildFunnelVisual"/>.</b> That body is Fire's funnel — the
+    /// cone Flamethrower wears — and its puffs and hot-to-cool flow read as flame; mounting it on a
+    /// Lightning spell would be an identity leak (rule 13). Lightning keeps the bolt strips it already
+    /// wears straight, so the school's one bolt look survives the change of shape. The caller owns the
+    /// strips' re-jitter (same timer as the straight bolt) — the builder is a placement function and
+    /// mounts nothing per-frame (rule 19).</para>
+    ///
+    /// <para>Each strip is uniform along its own length, so it takes the average of the two analytic
+    /// radii (mouth = narrow end, tip = wide end); a taper is what the funnel is for.</para></summary>
+    public static BoltCone BuildBoltCone(Transform parent, float length, float halfRad,
+        float tipWidth, float mouthRadius, Color core)
+    {
+        var result = default(BoltCone);
+        result.Strips = new BoltStrip[BoltConeRays];
+        result.Axes = new Vector3[BoltConeRays];
+        if (BoltConeRays <= 0) return result;
+
+        Material mat = SkillFx.SharedSpriteMaterial(core);
+        float w = Mathf.Max(0.1f, Mathf.Lerp(mouthRadius, tipWidth, 0.5f));
+        for (int i = 0; i < BoltConeRays; i++)
+        {
+            float t = BoltConeRays > 1 ? i / (float)(BoltConeRays - 1) : 0.5f;
+            float a = Mathf.Lerp(-halfRad, halfRad, t);
+            // The fan is flat and spreads horizontally, matching TickCone's world-up rotation: local
+            // +X is the fan's width, local +Z its forward.
+            var axis = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
+            result.Axes[i] = axis;
+            var strip = SpellBoltModelBuilder.CreateStrip(parent, SpellBeam.BoltSegments, mat,
+                w, SpellBeam.BoltJitterFor(w));
+            strip.Rebuild(axis * (-length * 0.5f), axis * (length * 0.5f));
+            result.Strips[i] = strip;
+        }
+        return result;
+    }
+
     /// <summary>1l99: the launch axis for piece <paramref name="i"/> — the caller's per-piece direction
     /// when it supplied one, else the parent's +Z (the bench still's frame). A zero vector would make
     /// <c>Quaternion.LookRotation</c> log and fall back, so it is guarded here rather than at every

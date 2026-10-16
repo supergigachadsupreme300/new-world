@@ -1,3 +1,95 @@
+## 1l111. Lightning tree rework, Phase 2 of 4 — the `magic_lightning_storm` bank (Thunderhead / Downpour / Storm Fan / Storm Lash)
+
+Phase 2 of the 13-skill Lightning rework (Phase 1 = 1l110). Same fixed decisions: keep the school's
+`Stagger`, renames + delivery reclassifications allowed, **skill ids unchanged** (save keys), new
+procedural voxel bodies in C#, one commit per L2 bank.
+
+**The four skills (`SkillCatalog.Magic.cs`).**
+- **Stormcall → Thunderhead** (`magic_lightning_storm`) — a bigger sky-storm: power 46 / FP 32 / cd 11 s /
+  range 10 / radius 3.6 / dur 5 s, still `stormCloud: true`, plus `Look(stormBody: StormBody.Thunderhead)`.
+- **Storm Rain → Downpour** (`magic_lightning_storm_rain`) — the long drench: power 42 / FP 30 / cd 14 s /
+  range 10 / radius 4.4 / dur 9 s, `Look(stormBody: StormBody.Rain)`; **no** `stormCloud` flag, so its
+  strikes are the ordinary in-radius bolts and the body's own `RainFall` carries the curtain.
+- **Storm Pulse → Storm Fan** (`magic_lightning_storm_pulse`) — the Beam bank's cone: `beamHalfAngle: 26°`,
+  power 34 / FP 24 / cd 8 s / range 13 / radius 1.8 / drain 11. No profile — its axis is
+  `spell.BeamHalfAngle` read straight off the spell.
+- **Stormwrack → Storm Lash** (`magic_lightning_storm_wrack`) — **delivery reclassified `Zone` → `Wave`**:
+  power 40 / FP 28 / cd 8 s / deliveryRange 11 / projectileSpeed 13 / deliveryRadius 2.6 (band half-width),
+  `projectileShape: ProjectileShape.StormWave`. Mirrors Fire Wave exactly. No profile.
+
+**New drawn-only storm bodies (`StormBody.Rain` = 5, `StormBody.Thunderhead` = 6).** The two persistent
+storm skins join the authored-only `StormBody` axis (same contract as `FrozenField`/`VortexCircle`) and are
+built in `SpellZoneModelBuilder` (where the other persistent bodies live), mounted by
+`SpellStorm.Initialize` from `_look.StormBodyModel`. `BuildRainCloud` is a low shelf of three lobed tiers
+hung with 26 area-biased `RainStreak_i` cubes whose `RainFall` component scrolls each from top to bottom and
+wraps; `BuildThunderhead` is three stacked bands with five underlit `ThunderheadGlow_i` cubes and a seat
+marker. **Thunderhead keeps `stormCloud: true`**, so its strikes stay long cloud-to-ground bolts — but its
+`_stormCloud` mount is gated `… && _look.StormBodyModel != StormBody.Thunderhead`, so it draws its own voxel
+cumulonimbus instead of the legacy `MapBuilder.BuildCloud` puff (Devastation, unchanged, still gets the puff).
+
+**The `_cloudY` seam (rule 8).** `SpellStorm.Initialize` computes `_cloudY` **once** from the resolved body
+(`Thunderhead` → `ThunderheadHeight` 16 m, else `StormCloudHeight` 45 m) and both the body mount and
+`SpawnStrikeFx`'s bolt origin read that field, so the cloud the player sees is always the cloud the bolts
+leave. `RainCloudHeight = 5f`.
+
+**New cone body (`SpellBeamModelBuilder.BuildBoltCone`).** `SpellBeam` gained a `_coneRoot`/`_coneStrips`
+path: a Lightning cone (Flamethrower is Fire, so `DamageType == Lightning` + `BeamHalfAngle > 0` gating is
+safe) draws a flat fan of 5 jagged `BoltStrip`s (`BoltConeRays = 5`) instead of Fire's opaque funnel, each
+re-jittered/strip `Rebuild`ed along its own world-space `AxisFor(i)` ray; the fan is aimed with
+`Quaternion.LookRotation(Direction)` like the funnel. Non-Lightning cones still draw the funnel.
+
+**New wave body (`ProjectileShape.StormWave` = 19).** `MagicProjectileModelBuilder.StormWave` re-uses the
+`Wave` lattice (12 × 18 crest, jagged spike column per floor column) re-tinted to the spell and wired to a
+`WaveRipple` — so the ground-running crest shimmers as `SpellWave` sweeps it (rule 19: the ripple lives in
+the moving component, not the builder). Display-only, granted through `spell.Shape`.
+
+**Phase-2 cleanups (rule 8 a comment naming an identifier rots):** the `GreatBolt` doc that claimed "the
+body Volt Bolt **and** Fury Bolt wear" was false until Phase 3 — corrected to "Volt Bolt wears (Fury Bolt
+joins it in a later Lightning phase)"; `SpellBeamModelBuilder.BoltCone.Axes`' doc claim that its rays are
+"the same ray directions TickCone's fan uses" was inaccurate (drawn count 5 vs damage fan 7) — corrected to
+claim only the same ±halfRad span; and every remaining `1lv1`/`1lv3` placeholder from Phase 1 was swept to
+`1l110` / reworded.
+
+### 1l111-status
+- Files: `Assets/Scripts/Magic/Cast/SpellData.cs` (`ProjectileShape.StormWave = 19`),
+  `Assets/Scripts/Magic/Look/SpellLook.cs` (`StormBody.Rain = 5`, `StormBody.Thunderhead = 6`),
+  `Assets/Scripts/Models/Magic/SpellZoneModelBuilder.cs` (`BuildRainCloud`, `BuildThunderhead`, `Cube`,
+  `RainFall`), `Assets/Scripts/Magic/Cast/SpellStorm.cs` (`_cloudY`, `RainCloudHeight`, `ThunderheadHeight`,
+  the three new gates, gated `MapBuilder.BuildCloud` mount, `_cloudY` strike origin),
+  `Assets/Scripts/Models/Magic/SpellBeamModelBuilder.cs` (`BoltCone` struct, `BoltConeRays`, `BuildBoltCone`),
+  `Assets/Scripts/Magic/Cast/SpellBeam.cs` (`_coneRoot`/`_coneStrips`, jitter re-`Rebuild`, `PulseVisual`
+  world-space aim, `BuildVisual` cone split), `Assets/Scripts/Models/Magic/MagicProjectileModelBuilder.cs`
+  (`StormWave` dispatch + builder), `Assets/Scripts/Combat/Skills/SkillCatalog.Magic.cs` (the 4 rows),
+  `Assets/Scripts/Opt/NewWorldTestGround.cs` (Rain + Thunderhead bench branches, Lightning+Beam line branch
+  gated `&& ConeFullAngleDegrees <= 0`, cone split with a Lightning `BoltCone` sub-branch), `game-design.md`
+  (§3.8.5 Rain/Thunderhead bodies, storm-cloud delivery bullet `_cloudY`/Thunderhead, shape row),
+  `magic-skills.md` (4 rows + Wave delivery row + Storm delivery row + StormWave shape row), `PROGRESS.md`,
+  `THINKING.md`.
+- Verified by grep + reread (rule 3, **no build**): `StormBody` already packed 3 bits at `<<40`, so the two
+  new values need **no** `LookKey` change; `WaveRipple.Configure` signature matches the `StormWave` call;
+  `SpellBeam.ConeFullAngleDegrees` gates the Lightning cone before the line branch; `BuildRainCloud`/
+  `BuildThunderhead` are the only builders of those bodies and the bench mounts the same ones;
+  `SpawnStrikeFx` reads `_cloudY`. `tools\StaticChecks.ps1` → **0 candidates** (braces/parens balanced:
+  `NewWorldTestGround.cs` 231/231, `MagicProjectileModelBuilder.cs` 51/51, `SpellZoneModelBuilder.cs`
+  39/39).
+- **Landmine (second occurrence):** an Edit whose `oldString` was the first line of an XML doc block
+  deleted that line (`AxisFor`'s "1l99: the launch axis for piece i…" doc in
+  `SpellBeamModelBuilder.cs`); restored by hand. StaticChecks' brace-balance does **not** catch this — the
+  whole diff was re-read at the end (recorded in THINKING).
+- Not a compile: behaviour is verified by reread; the Unity play-test is the compiler.
+- skills: `scenario-unity-vfx` loaded (Phase 1, still in scope) — **informative only**; it targets a live
+  Unity editor over MCP, which rule 3 forbids, so it was informative, not authoritative (rule 15). No skill
+  matched the Phase-2 artifact (a C# edit reviewed by a human) better.
+- Predicted F4 deltas (state them; do not "fix" the readout): `authored` **+2 → 31** (Downpour and
+  Thunderhead each gained a profile; Storm Fan and Storm Lash stayed unauthored — their axes ride on
+  `spell.BeamHalfAngle` and `spell.Shape`), and `storm bodies:` gains `Rain = 1`, `Thunderhead = 1`. The
+  1jt ratchet holds by construction (authored-only axis → can only split a group).
+- Play-test: cast each of the four — Thunderhead a big underlit storm raining sky-bolts from its own
+  cumulonimbus, Downpour a long low rain shelf whose curtain falls, Storm Fan a wide flat fan of jagged
+  bolts that sweeps with the aim, Storm Lash a ground-running crest of lightning that lurches forward and
+  staggers every foe it rolls over. Then F4 (`MagicTestMatrix`) to confirm `authored = 31` and
+  `storm bodies:` = Rain 1 / Thunderhead 1.
+
 ## 1l110. Lightning tree rework, Phase 1 of 4 — the `magic_lightning_volt` bank (Volt / Volt Spark / Volt Bolt / Static Coil)
 
 The user: the 13 Lightning skills are **"way too lame and basic"** and want a full rework — new
