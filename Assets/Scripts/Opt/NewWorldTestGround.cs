@@ -2110,6 +2110,10 @@ private static string Describe(in SpellLook look)
                 // real builder rather than a proxy: 1ij's lesson is that a visual living only inside
                 // a live cast has no acceptance readout, and a proxy cone here would have gone on
                 // reporting the OLD ray fan as correct forever after the funnel replaced it.
+                // 1l98: the live beam now FLOWS the funnel (puffs born at the muzzle, growing outward,
+                // fading at the tip) via the same builder called at flow phase 0, so this pedestal is
+                // one still FRAME of the spray — the shape and the two-tone taper read here; the motion
+                // itself is a live-cast-only property, like the beam's per-frame re-aim and tip-orb throb.
                 var funnelLook = SpellLook.Resolve(spell);
                 SpellBeamModelBuilder.BuildFunnelVisual(modelRoot.transform,
                     spell.Range,                                  // deliveryRange = beam length

@@ -82,27 +82,30 @@ public static class SpellBeamModelBuilder
     }
 
     /// <summary>1is: build the cone's drawn body as the Great Tornado's silhouette lying along the beam
-    /// axis: <see cref="SpellBeam.FunnelChunks"/> chunky discs stacked muzzle-to-tip, each randomly
-    /// yawed so the stack reads as a twisting funnel, opening from <paramref name="mouthRadius"/> at the
+    /// axis: <see cref="SpellBeam.FunnelChunks"/> chunky discs stacked muzzle-to-tip, each yawed so the
+    /// stack reads as a twisting funnel, opening from <paramref name="mouthRadius"/> at the
     /// muzzle to <paramref name="tipRadius"/> at the far end, plus
-    /// <see cref="SpellBeam.FunnelDebris"/> orbiting chunks and a leading ring. Returns the chunk
-    /// transforms in build order because <see cref="SpellBeam.PulseVisual"/> addresses them by hard
-    /// index (the first <see cref="SpellBeam.FunnelDebris"/> entries are the orbiting debris), so the
-    /// taper is only ever re-derived here at build time — the live side neither scales them (1kb: the
-    /// body HOLDS) nor re-derives their radii.
+    /// <see cref="SpellBeam.FunnelDebris"/> orbiting chunks and a leading ring. Returns the pieces in
+    /// build order because <see cref="SpellBeam.PulseVisual"/> addresses them by hard index (indexes
+    /// <c>0 .. FunnelChunks-1</c> are the discs; <c>FunnelChunks .. FunnelChunks + FunnelDebris - 1</c>
+    /// are the debris), so the two sides must agree — a builder that reordered its own output would
+    /// move one set of pieces and orbit the other.
     ///
-    /// <para><b>Return-order contract.</b> Indexes <c>0 .. FunnelChunks-1</c> are the stacked discs;
-    /// <c>FunnelChunks .. FunnelChunks + FunnelDebris - 1</c> are the debris. <c>SpellBeam.PulseVisual</c>
-    /// reads that layout with hard index arithmetic, so the two sides must agree — stated here because a
-    /// builder that reorders its own output would fade one set of pieces and orbit the other.</para>
+    /// <para><b>1l98: the stack is no longer static.</b> The pieces are positioned by
+    /// <see cref="FlowFunnelVisual"/> at phase 0 here and re-positioned every frame on the live beam,
+    /// so the model is a moving outward spray — puffs born at the muzzle, growing as they travel, then
+    /// fading at the tip — instead of a fixed taper that only changed scale in place. The layout is ONE
+    /// function, so the still this builder hands the bench and the live cast cannot drift (rule 8); the
+    /// per-frame call lives on the beam, not here (rule 19). Before 1l98 the live side neither scaled
+    /// nor re-derived the pieces (1kb/1l85: the body HELD its build scale).</para>
     ///
     /// <para><b>Deliberately NOT <c>MapBuilder.BuildTornado</c>.</b> That model adds
     /// <c>TornadoBehavior</c>, which applies real physics pull to rigidbodies (props, livestock — and
     /// the caster). A channeled beam you hold for its whole Focus cost would drag the player around with
-    /// it. This reproduces the SILHOUETTE — stacked, yawed, widening — and nothing else.</para>
+    /// it. This reproduces the SILHOUETTE — a stack of widening, yawed pieces — and nothing else.</para>
     ///
     /// <para><b>Two-tone, and the colours are the spell's.</b> <paramref name="core"/> is the body and
-    /// <paramref name="hot"/> the leading/muzzle end, so a flame is born hot and cools as it travels.
+    /// <paramref name="hot"/> the muzzle end, so a flame is born hot and cools as it travels.
     /// Both are passed in by the caller from SpellLook; nothing here invents a colour, per rule 13.</para>
     ///
     /// <para>Placed in the parent's LOCAL frame (+Z forward), which is what lets the QA bench mount
@@ -111,56 +114,32 @@ public static class SpellBeamModelBuilder
     /// what ships (the 1f7 <c>BuildRockBody</c> / 1ij acceptance-readout precedent). Moved here from
     /// the beam component in 1jd — the bench call site moved with it, so the one spelling of the
     /// funnel is this file's, not a private copy the bench could drift from.</para></summary>
-    public static Transform[] BuildFunnelVisual(Transform parent, float length, float mouthRadius,
+    public static FunnelChunk[] BuildFunnelVisual(Transform parent, float length, float mouthRadius,
         float tipRadius, Color core, Color hot)
     {
         Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        if (shader == null) return new Transform[0];
+        if (shader == null) return new FunnelChunk[0];
 
         int total = SpellBeam.FunnelChunks + SpellBeam.FunnelDebris;
-        var chunks = new Transform[total];
-        float chunkLen = length / SpellBeam.FunnelChunks;
-        // Deterministic yaw from the index, NOT Random: the funnel must rebuild identically on the
-        // live beam and on the bench, or the QA readout would be a picture of a different spell.
+        var chunks = new FunnelChunk[total];
         for (int i = 0; i < SpellBeam.FunnelChunks; i++)
         {
-            float t = (i + 1) / (float)SpellBeam.FunnelChunks;
-            float rad = Mathf.Lerp(mouthRadius, tipRadius, t);
-            float mid = (i + 0.5f) * chunkLen;
-
+            // A cylinder's axis is +Y; the funnel's axis is +Z. FlowFunnelVisual lays each disc over
+            // and yaws it, so the shape is spelled once (rule 8) for the live beam and the bench.
             Transform seg = GameObject.CreatePrimitive(PrimitiveType.Cylinder).transform;
             seg.name = "FunnelChunk_" + i;
             seg.SetParent(parent, false);
-            seg.localPosition = new Vector3(0f, 0f, mid);
-            // A cylinder's axis is +Y; the funnel's axis is +Z. Lay it over first, then yaw about the
-            // beam axis so the disc spins in its own plane without tilting off the beam line.
-            seg.localRotation = Quaternion.Euler(0f, YawFor(i), 90f);
-            // 0.55 keeps the discs overlapping into one continuous funnel rather than reading as a
-            // row of separate plates; without it the gaps are visible at the mouth.
-            seg.localScale = new Vector3(rad * 2f, chunkLen * 0.55f, rad * 2f);
             DestroyCollider(seg);
-            // Hot at the muzzle, cooling downstream: t=0 is yellow, t=1 is the spell's own colour.
-            SetMaterial(seg, shader, Color.Lerp(hot, core, Mathf.Clamp01(t * 0.85f)));
-            chunks[i] = seg;
+            chunks[i] = new FunnelChunk { Tr = seg, Mat = SetMaterial(seg, shader, core) };
         }
 
         for (int d = 0; d < SpellBeam.FunnelDebris; d++)
         {
-            float t = (d + 1) / (float)(SpellBeam.FunnelDebris + 1);
-            float rad = Mathf.Lerp(mouthRadius, tipRadius, t) * 1.25f;
-            float ang = YawFor(100 + d) + d * 120f;
-            float s = Mathf.Max(rad * 0.34f, 0.08f);
-
             Transform chunk = GameObject.CreatePrimitive(PrimitiveType.Cube).transform;
             chunk.name = "FunnelDebris_" + d;
             chunk.SetParent(parent, false);
-            chunk.localPosition = new Vector3(
-                Mathf.Cos(ang * Mathf.Deg2Rad) * rad, Mathf.Sin(ang * Mathf.Deg2Rad) * rad, t * length);
-            chunk.localRotation = Quaternion.Euler(ang * 0.7f, ang, ang * 0.4f);
-            chunk.localScale = new Vector3(s, s, s);
             DestroyCollider(chunk);
-            SetMaterial(chunk, shader, core);
-            chunks[SpellBeam.FunnelChunks + d] = chunk;
+            chunks[SpellBeam.FunnelChunks + d] = new FunnelChunk { Tr = chunk, Mat = SetMaterial(chunk, shader, core) };
         }
 
         // Leading ring so the far end reads as an opening rather than a flat cut.
@@ -173,6 +152,11 @@ public static class SpellBeamModelBuilder
         DestroyCollider(ring);
         SetMaterial(ring, shader, core);
 
+        // 1l98: lay the stack out at flow phase 0, so what the builder hands back (and what the QA
+        // bench mounts) is one readable still of the spray. The live beam advances THIS layout each
+        // frame through the same function, so the still and the cast cannot drift (rule 8).
+        FlowFunnelVisual(chunks, length, mouthRadius, tipRadius, core, hot, 0f);
+
         return chunks;
     }
 
@@ -180,6 +164,99 @@ public static class SpellBeamModelBuilder
     /// (live beam and bench alike). A <c>Random</c> draw here would make the QA model a picture of a
     /// slightly different spell than the one that ships.</summary>
     public static float YawFor(int seed) => Mathf.Repeat(seed * 137.508f, 360f);
+
+    /// <summary>1l98: one drawn funnel piece — its transform and its own material TOGETHER, so the
+    /// beam's flow loop repositions and re-tints in one indexed walk instead of two parallel arrays a
+    /// caller in another class must keep in lockstep (rule 17). The material is written per frame (its
+    /// colour follows the piece's travel), so it must travel with the piece, not sit in a side list.</summary>
+    public struct FunnelChunk
+    {
+        public Transform Tr;
+        public Material Mat;
+    }
+
+    /// <summary>1l98: place the funnel's pieces for a given flow position — PURE geometry, it creates
+    /// and destroys nothing. <paramref name="cycles"/> is the spray's flow position (whole = full
+    /// muzzle-to-tip passes); each piece gets a staggered phase, so the stack tiles the whole run at
+    /// every instant and reads as ONE continuous outward spray:
+    /// <list type="bullet">
+    /// <item>a puff is BORN at the muzzle (<c>p=0</c>: small, moving outward),</item>
+    /// <item>GROWS as it travels (radius lerps mouth&#8594;tip with <c>p</c> — the same ladder the
+    /// analytic hit cone in <see cref="SpellBeam.TickCone"/> walks, so the drawn flame stays inside
+    /// the cone that actually damages),</item>
+    /// <item>cools from <paramref name="hot"/> toward <paramref name="core"/> with its own age,</item>
+    /// <item>then FADES OUT at the tip and re-emerges at the root (see <see cref="FadeAlpha"/>).</item>
+    /// </list>
+    /// <para><b>Called from two places and they are the same shape.</b> <see cref="BuildFunnelVisual"/>
+    /// calls it ONCE at phase 0 to lay out the still the QA bench mounts; <see cref="SpellBeam.PulseVisual"/>
+    /// calls it PER FRAME while the beam is alive. One function, one spelling, so the pedestal still and
+    /// the live cast cannot drift (rule 8). The per-frame call lives in the beam's loop — the only
+    /// caller that MOVES — not in a builder (rule 19): this is a placement function, not an emitter, it
+    /// holds no state and mounts nothing.</para></summary>
+    public static void FlowFunnelVisual(FunnelChunk[] chunks, float length, float mouthRadius,
+        float tipRadius, Color core, Color hot, float cycles)
+    {
+        if (chunks == null) return;
+        float chunkLen = length / SpellBeam.FunnelChunks;
+
+        for (int i = 0; i < SpellBeam.FunnelChunks; i++)
+        {
+            if (i >= chunks.Length) break;
+            Transform seg = chunks[i].Tr;
+            if (seg == null) continue;
+
+            float p = Mathf.Repeat(cycles + i / (float)SpellBeam.FunnelChunks, 1f);
+            float rad = Mathf.Lerp(mouthRadius, tipRadius, p);
+            seg.localPosition = new Vector3(0f, 0f, p * length);
+            // A cylinder's axis is +Y; lay it over (90 about Z) then yaw it about the beam axis, and
+            // keep spinning it as it travels so the stream reads as a twisting flame.
+            seg.localRotation = Quaternion.Euler(0f, YawFor(i) + p * 220f, 90f);
+            // 0.55 keeps the discs overlapping (a cylinder primitive is 2 tall, so the overlap is
+            // 1.1 * chunkLen against a chunkLen spacing) into one continuous funnel, not a row of plates.
+            seg.localScale = new Vector3(rad * 2f, chunkLen * 0.55f, rad * 2f);
+            // Hot at birth, cooling downstream by the puff's own age: p=0 is yellow, p=1 is the spell's
+            // own colour. The colour is the spell's (rule 13) — nothing here invents one.
+            SetFade(chunks[i].Mat, Color.Lerp(hot, core, Mathf.Clamp01(p * 0.85f)), FadeAlpha(p));
+        }
+
+        for (int d = 0; d < SpellBeam.FunnelDebris; d++)
+        {
+            int idx = SpellBeam.FunnelChunks + d;
+            if (idx >= chunks.Length) break;
+            Transform chunk = chunks[idx].Tr;
+            if (chunk == null) continue;
+
+            float p = Mathf.Repeat(cycles + (d + 1) / (float)(SpellBeam.FunnelDebris + 1), 1f);
+            float rad = Mathf.Lerp(mouthRadius, tipRadius, p) * 1.25f;
+            // Absolute orbit angle from the flow position (never a per-frame accumulation), so the
+            // swirl cannot drift the way a read-live-and-multiply integrator would (rule 16's class);
+            // wrapped to 360 so a long channel does not feed Quaternion.Euler ever-larger degrees.
+            float ang = Mathf.Repeat(cycles * 540f + d * 120f, 360f);
+            float s = Mathf.Max(rad * 0.34f, 0.08f);
+            chunk.localPosition = new Vector3(
+                Mathf.Cos(ang * Mathf.Deg2Rad) * rad, Mathf.Sin(ang * Mathf.Deg2Rad) * rad, p * length);
+            chunk.localRotation = Quaternion.Euler(ang * 0.7f, ang, ang * 0.4f);
+            chunk.localScale = new Vector3(s, s, s);
+            SetFade(chunks[idx].Mat, core, FadeAlpha(p));
+        }
+    }
+
+    /// <summary>1l98: a flame piece's opacity over its muzzle-to-tip travel — it fades IN as it is born
+    /// at the root and OUT as it dies at the tip, so "spawn at root" and "disappear" are the two ends of
+    /// one curve. The bands are narrow (0.12 / 0.18 of the pass) so most of the stream stays solid.</summary>
+    public static float FadeAlpha(float p)
+    {
+        float born = p / 0.12f;
+        float dies = (1f - p) / 0.18f;
+        return Mathf.Clamp01(Mathf.Min(born, dies));
+    }
+
+    private static void SetFade(Material m, Color color, float alpha)
+    {
+        if (m == null) return;
+        color.a = alpha;
+        m.color = color;
+    }
 
     private static void DestroyCollider(Transform t)
     {

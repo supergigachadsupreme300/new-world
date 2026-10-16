@@ -2052,20 +2052,24 @@ a school read distinctly instead of feeling like copies:
   and the line body already did. Before this, a swept cone kept its spawn-time rotation while the tick
   and the tip orb swung with the player, so Flamethrower's funnel froze at the cast aim but its
   bright tip orb chased the mouse.
-  **1kb: the drawn BODY holds its size** (testing.md task 5). Both the line cylinder and the cone's
-  funnel discs stop breathing — the old `PulseVisual` scaled the body by `1 + 12% @ 23 Hz + 6% @ 41 Hz`
-  (and compounded the discs' thickness, a slow random-walk the freeze also ends), which read as a
-  constant shrink-and-enlarge. The body now keeps the scale the builder wrote for the whole channel, so
-  a held beam stays steady; the debris still orbits (1is swirl) and the tip orb keeps its soft glow
-  throb — only the body's scale is frozen.
-  **1l85 finished that freeze for the cone.** The cone's disc loop still read each disc's LIVE scale
-  back and multiplied a breathe factor into it (`ls.x * ds`), so a held flamethrower compounded the
-  factor every frame into unbounded growth ("the flamethrower are enlarging too big") — the very
-  random-walk 1kb set out to end, left live in the branch 1kb's comment claimed it had fixed. The
-  scale write is gone; the discs hold the per-order size the builder gave them — smallest at the mouth
-  (i=0), widest at the tip — which is the "max size corresponds to chunk order, closest smallest" the
-  report asked for, now with nothing left to grow. The axial bob and the debris orbit are unchanged
-  (they move position, not scale).
+  **1kb/1l85: the drawn line body holds its size** (testing.md task 5). The line cylinder stops
+  breathing — the old `PulseVisual` scaled it by `1 + 12% @ 23 Hz + 6% @ 41 Hz`, which read as a
+  constant shrink-and-enlarge — and keeps the scale the builder wrote for the whole channel. 1l85
+  finished the same freeze for the cone's discs, which had still read each disc's LIVE scale back and
+  multiplied a breathe factor into it (`ls.x * ds`), compounding a held flamethrower into unbounded
+  growth ("the flamethrower are enlarging too big"); nothing writes scale from the previous frame's any
+  more. The debris still orbits (1is swirl) and the tip orb keeps its soft glow throb.
+  **1l98: the cone's funnel now FLOWS outward.** Each of the `FunnelChunks` discs (and the orbiting
+  debris) is born at the muzzle, flies outward, grows from the mouth radius to the tip radius within
+  the analytic hit cone, cools from the spell's hot end (`SpellLook.HotCore`) toward its own core
+  colour, then fades out at the far end and re-emerges at the root — one continuous spray rather than a
+  fixed taper. `PulseVisual` advances the whole layout every alive frame through
+  `SpellBeamModelBuilder.FlowFunnelVisual`, the SAME function the builder calls once at phase 0 to lay
+  out the still the QA bench mounts, so the pedestal and the live cast cannot drift (rule 8); the
+  per-frame call sits on the beam — the only caller that MOVES — not in the builder (rule 19). A puff's
+  radius is a pure function of its phase (`FunnelFlowSpeed` passes/second × the look's tempo), never of
+  the previous frame, so the compounding growth 1l85 fixed cannot return. The axial bob is gone with the
+  flow; the debris still orbits and the tip orb keeps its glow throb.
   **1l83: the beam root sits at the projectile muzzle, NOT the caster's feet.** `ResolveBeam` roots the
   beam at `origin + cast-forward * SpellCaster.CastMuzzleOffset` (0.5 m, no vertical lift) and hands the
   cast origin to `SpellBeam`, whose per-frame follow is now `anchor.position + anchor.forward * offset`

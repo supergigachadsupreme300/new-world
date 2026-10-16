@@ -99,7 +99,11 @@ $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            'Assets\Scripts\Models\Magic\MagicProjectileModelBuilder.cs',
            'Assets\Scripts\Models\Magic\MagicImpactModelBuilder.cs',
            'Assets\Scripts\Models\Magic\SummonModelBuilder.cs',
-           'Assets\Scripts\Models\Magic\SpellBeamModelBuilder.cs',
+            'Assets\Scripts\Models\Magic\SpellBeamModelBuilder.cs',
+            # 1l98: SpellBeam.cs is the beam body's live side - the funnel flow call and the removed
+            # nested loop live here, so check 1 (balance) must cover the file the shape function is
+            # invoked from, not only the builder it lives in.
+            'Assets\Scripts\Magic\Cast\SpellBeam.cs',
            'Assets\Scripts\Models\Magic\SpellZoneModelBuilder.cs',
            'Assets\Scripts\Models\Magic\SpellStormModelBuilder.cs',
            'Assets\Scripts\Models\Magic\SkillFxModelBuilder.cs',

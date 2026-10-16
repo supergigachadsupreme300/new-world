@@ -1,3 +1,40 @@
+## 1l98. Flamethrower funnel flows: puffs born at the muzzle, travelling outward, cooling and fading
+
+The swept **Flamethrower** cone (`SpellBeam` + `SpellBeamModelBuilder`) drew a FIXED taper: nine discs
+sized once at build (smallest at the mouth, widest at the tip), plus an axial bob and orbiting debris.
+The user asked for a moving "spray" read, so the drawn body is now a **flow**. Each of the
+`FunnelChunks` discs (and each orbiting debris chunk) is positioned every frame by one pure shape
+function, `SpellBeamModelBuilder.FlowFunnelVisual`, at a staggered phase: born at the muzzle, growing
+from the mouth radius to the tip radius (the same ladder `SpellBeam.TickCone`'s analytic capsules walk,
+so the drawn flame stays inside the cone that damages), cooling from `SpellLook.HotCore` toward the
+spell's own colour, then fading out at the tip and re-emerging at the root. `FunnelFlowSpeed` (0.9
+muzzle-to-tip passes/second, × the look's tempo) is the pace — a knob deliberately separate from
+`FunnelChunks` (the stream's density).
+
+**One function, two callers.** `BuildFunnelVisual` calls `FlowFunnelVisual` at phase 0 to lay out the
+still the `EnableMagicModels` bench mounts; `SpellBeam.PulseVisual` calls it per frame while the beam is
+alive. The pedestal still and the live cast cannot drift (rule 8), and the per-frame call lives in the
+loop that runs while the beam MOVES, not in the builder whose other caller is static (rule 19).
+
+**No compounding growth returns.** A puff's radius is a pure function of its phase, never of the
+previous frame's scale, so the `ls.x * ds` random-walk 1l85 fixed cannot come back. The per-disc
+`FunnelChunk` record now pairs the transform with its own material so the flow walk repositions and
+re-tints in one indexed pass (rule 17) instead of parallel arrays. `Magic/Cast/SpellBeam.cs` joins
+`StaticChecks.ps1`'s `$files`, because the shape function's caller is where the removed nested loop
+lived.
+
+**Files (7):** `Magic/Cast/SpellBeam.cs`, `Models/Magic/SpellBeamModelBuilder.cs`,
+`Opt/NewWorldTestGround.cs`, `tools/StaticChecks.ps1`, `game-design.md`, `PROGRESS.md`, `THINKING.md`.
+
+### 1l98-status
+- Verification: grep + reread + `tools\StaticChecks.ps1` -> **0 candidates** (all 8 checks green; the new
+  file is in `$files`). **No build run** (rule 3) — Unity is the compiler.
+- skills: none applied — the artifact is a C# edit to an existing procedure-built FX, and the installed
+  Unity skills drive a running editor over MCP / batchmode, which rule 3 forbids here. No DCC artifact.
+- Pending play-test: hold Flamethrower — the cone sprays outward (puffs born small at the muzzle, wide
+  and fading at the tip) and reads as one stream, not a static stack; the `EnableMagicModels` pedestal
+  still shows the same two-tone taper as one still frame.
+
 ## 1l97. Player ragdoll: jointed knockdown/death state, enemy melee wired to it, death cutscene disconnected
 
 The player model is a PROCEDURAL transform hierarchy (PlayerModelBuilder - no skinned mesh, no bones, no
@@ -5557,7 +5594,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-15 (1l96). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l98). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

@@ -1,3 +1,36 @@
+## 1l98. Flamethrower funnel flow - reasoning trail (SHIPPED; play-test pending)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l97`, so this counts up to `1l98` (enumerate
+first - rule 8). The code shipped in the working tree before this entry was written; this records the
+design it settled on.
+
+**H1 - "the report wants a flare, keep the stack and change its scale per frame". REJECTED.** A stack
+that only re-sizes in place is still a static silhouette; the report asked for an outward SPRAY. The
+flow is therefore a per-frame PHASE ADVANCE: each piece's distance-from-muzzle, radius and colour come
+from a scalar phase `p` in `[0,1)`, staggered per piece so the stack tiles the whole run at every
+instant. That is a shape change, not a scale factor.
+
+**H2 - "put the per-frame emission in the builder beside the shape". REJECTED (rule 19).** The builder
+has two callers: the live beam and the `EnableMagicModels` bench, and the bench's pieces never move - a
+per-frame write there would leave a row of puffs hanging on a motionless pedestal. The shape function
+`FlowFunnelVisual` stays pure geometry (it creates and destroys nothing, holds no state); the per-frame
+call lives in `SpellBeam.PulseVisual`, the loop that runs while the beam is alive.
+
+**H3 - "the still the bench mounts and the live cast can each spell the layout". REJECTED (rule 8).**
+Two spellings of "where a puff sits at phase p" is exactly the class that drifts. `BuildFunnelVisual`
+calls `FlowFunnelVisual` once at phase 0; the beam calls the SAME function per frame. One spelling.
+
+**H4 - "read each puff's live scale and grow it". REJECTED (1l85's shipped bug).** A radius read back
+from the previous frame and multiplied is an accumulator: 1l85 fixed exactly that (`ls.x * ds`) for the
+held cone. A puff's radius is now a pure function of its phase, so the compounding growth cannot return.
+
+**H5 - the per-piece record must carry transform AND material together. CONFIRMED (rule 17).** The
+flow walk repositions and re-tints each piece; parallel arrays a caller in another class must index in
+lockstep are the alignment a move can violate. `SpellBeamModelBuilder.FunnelChunk` pairs them.
+
+**Open:** the drawn flow is a live-cast-only property; the bench still is one phase-0 frame, stated at
+the bench call site. Whether the visual read matches the report's intent is a play-test item.
+
 ## 1l97. Player ragdoll: jointed knockdown/death state - reasoning trail (SHIPPED)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l96`, so this is `1l97` (enumerate first - rule 8).

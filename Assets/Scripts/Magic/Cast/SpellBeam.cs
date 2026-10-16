@@ -38,6 +38,11 @@ public class SpellBeam : MonoBehaviour
     /// as SpellTornado gets from TornadoBehavior.AddDebrisBlock).</summary>
     public const int FunnelDebris = 3;
 
+    /// <summary>1l98: how many full muzzle-to-tip passes a flame puff makes per second (scaled by the
+    /// look's tempo). The spray's PACE, deliberately a knob separate from <see cref="FunnelChunks"/>
+    /// (the stream's density), so speed and density are tuned apart rather than by re-cutting the stack.</summary>
+    public const float FunnelFlowSpeed = 0.9f;
+
     // 1l75: a Lightning beam's drawn body is a jagged BoltStrip (testing.md #6) — the school
     // identity, not a per-spell override (see the BuildVisual branch). Public derivations so the QA
     // bench mirrors the SAME width/jitter ladders: a re-stated number would be a second spelling of
@@ -82,6 +87,10 @@ public class SpellBeam : MonoBehaviour
     private Transform _body;
     private Transform _endOrb;
     private Color _baseColor;
+    /// <summary>1l98: the funnel's hot-end colour (SpellLook.HotCore), cached at build so the per-frame
+    /// flow can re-tint each puff from hot (born) to <see cref="_baseColor"/> (downstream) without
+    /// re-resolving the look every frame.</summary>
+    private Color _funnelHot;
     private Vector3 _bodyBaseScale;
     private Vector3 _orbBaseScale;
     private readonly Collider[] _tickBuffer = new Collider[64];
@@ -103,20 +112,20 @@ public class SpellBeam : MonoBehaviour
     private float _coneHalfRad;
     private float _mouthRadius;
 
-    /// <summary>1is: the drawn funnel's chunk transforms, in build order (FunnelChunks discs then
-    /// FunnelDebris orbiting chunks).
+    /// <summary>1l98: the drawn funnel's pieces, in build order (FunnelChunks discs then FunnelDebris
+    /// orbiting chunks), each carrying its own material. <see cref="SpellBeamModelBuilder.FunnelChunk"/>
+    /// pairs the transform with the material so the flow walk repositions and re-tints in one indexed
+    /// pass instead of two parallel arrays (rule 17).
     /// <para>1is replaced 1ir's <c>_coneVisuals</c>/<c>_coneBaseScale</c> ray-fan pair, which the
     /// funnel body made dead: the tick still walks ConeRays/ConeSegments analytically and the drawn
     /// body no longer sits on those rays.</para>
-    /// <para>1kb: the chunks hold the scale the builder wrote — the per-frame base-radius readout
-    /// <c>_funnelBaseRadius</c> existed only for the body breath and is deleted with it.</para>
-    /// <para>1l85: the chunks also hold that scale for the whole channel. The old disc loop read each
-    /// disc's LIVE scale back and multiplied it by a breathe factor (<c>ls.x * ds</c>), so a held
-    /// flamethrower compounded that factor every frame into unbounded growth ("the flamethrower are
-    /// enlarging too big") — the random-walk 1kb set out to end, left live in the cone branch. The discs
-    /// now keep the per-order size the builder wrote: smallest at the mouth (i=0), widest at the tip,
-    /// which is the "max size corresponds to chunk order, closest smallest" the report asked for.</para></summary>
-    private Transform[] _funnelChunks;
+    /// <para>1kb/1l85 held the pieces' scale for the whole channel (the breathing, and the cone's
+    /// compounding <c>ls.x * ds</c> growth, are gone). 1l98 replaces "hold the build scale" with the
+    /// flare the report actually asked for: pieces are now BORN at the muzzle and travel outward,
+    /// growing to the tip radius — see <see cref="SpellBeamModelBuilder.FlowFunnelVisual"/>. The size is
+    /// still bounded (a puff's radius is a function of its position, never of the previous frame's
+    /// scale), so the compounding bug 1l85 fixed cannot return.</para></summary>
+    private SpellBeamModelBuilder.FunnelChunk[] _funnelChunks;
 
     /// <summary>1ir: every material that must fade out together (2 for a line, 1 + rays*segs + ring
     /// for a cone). Replaces the old single _mat/_orbMat pair so one fade path serves both modes
@@ -444,16 +453,14 @@ public class SpellBeam : MonoBehaviour
     {
         if (_endOrb == null) return;
 
-        // 1kb (testing.md task 5): the BODY HOLDS its authored size — the shrink-and-enlarge
+        // 1kb (testing.md task 5): the line BODY holds its authored size — the shrink-and-enlarge
         // breathing is gone. The line's pulse previously scaled `_bodyBaseScale * pulse` every frame
-        // (12% + 6% oscillation at 23/41 Hz); a cone flared every disc's radius by `pulse` and
-        // compounded it through `ls.x * ds` (a slow random-walk upward).
-        // 1l85: the cone's compounding write was in fact still live here until now, so the freeze had
-        // only landed for the line body — the cone branch below finally removes the scale write too, and
-        // both bodies keep the scale the builder wrote. Only position/rotation still re-derive per frame,
-        // because the beam must track the caster and sweep with the aim. "Holding" is the steady extended
-        // beam — the debris keeps orbiting and the tip orb keeps its soft glow throb below, so the beam
-        // is held, not frozen in place.
+        // (12% + 6% oscillation at 23/41 Hz).
+        // 1l85: removed the cone's compounding scale write (`ls.x * ds`, a slow random-walk that only
+        // grew a held flamethrower); 1l98 then replaced "hold the build scale" with a real FLOW — the
+        // cone's puffs are positioned, grown and tinted every frame by FlowFunnelVisual below, and the
+        // line body still holds. Both keep the beam re-aiming (position/rotation) that tracks the caster
+        // and sweeps with the aim, and the tip orb keeps its soft glow throb below.
         float tempo = _look.Tempo;
 
         if (_body != null)
@@ -465,35 +472,14 @@ public class SpellBeam : MonoBehaviour
         }
         else if (_funnelChunks != null)
         {
-            // Gentle axial bob for the cone funnel (Flamethrower). The discs keep the scale the builder
-            // wrote (1l85): their per-order taper — smallest at the mouth (i=0), widest at the tip — IS
-            // the cap, and nothing writes scale here any more, so a held cone cannot grow. Debris orbits
-            // below.
-            float axialPhase = Time.time * 2.2f * tempo;
-            float axial = Mathf.Sin(axialPhase) * 0.05f;
-            for (int i = 0; i < FunnelChunks; i++)
-            {
-                int idx = i;
-                if (idx >= _funnelChunks.Length) break;
-                Transform t = _funnelChunks[idx];
-                if (t == null) continue;
-                float lenT = i / (float)Mathf.Max(1, FunnelChunks);
-                Vector3 lpDisc = t.localPosition;
-                t.localPosition = new Vector3(lpDisc.x, lpDisc.y, lpDisc.z + axial * lenT);
-            }
-            for (int d = 0; d < FunnelDebris; d++)
-            {
-                int idx = FunnelChunks + d;
-                Transform chunk = _funnelChunks[idx];
-                if (chunk == null) continue;
-                float ang = (70f + d * 55f) * Time.deltaTime * tempo * Mathf.Deg2Rad;
-                float cos = Mathf.Cos(ang), sin = Mathf.Sin(ang);
-                Vector3 lp = chunk.localPosition;
-                chunk.localPosition = new Vector3(
-                    lp.x * cos - lp.y * sin,
-                    lp.x * sin + lp.y * cos,
-                    lp.z);
-            }
+            // 1l98: the funnel is a FLOWING spray, not a stack that changes scale in place. Each puff is
+            // born at the muzzle, flies outward, grows to the tip radius and fades at the far end, then
+            // re-emerges at the root — a per-frame phase advance through ONE shape function
+            // (SpellBeamModelBuilder.FlowFunnelVisual), so the still the builder lays out for the bench
+            // and this live cast cannot drift (rule 8). The call is HERE, in the alive-loop that runs
+            // while the beam MOVES, not in the builder whose other caller (the bench) is static (rule 19).
+            SpellBeamModelBuilder.FlowFunnelVisual(_funnelChunks, Length, _mouthRadius, Width,
+                _baseColor, _funnelHot, Time.time * FunnelFlowSpeed * tempo);
         }
 
         _endOrb.position = EndPoint();
@@ -502,8 +488,8 @@ public class SpellBeam : MonoBehaviour
 
     /// <summary>1jd: the drawn body moved to <see cref="SpellBeamModelBuilder"/> (under
     /// <c>Models/Magic/</c>); this method still decides WHICH body, and still owns everything the
-    /// beam does with it afterwards (since 1kb: holding its scale, the fade, and the debris orbit +
-    /// tip-orb glow in <see cref="PulseVisual"/>). Nothing about the shape changed — the builder
+    /// beam does with it afterwards (the line body's held scale, the cone's per-frame flow, the fade,
+    /// and the tip-orb glow in <see cref="PulseVisual"/>). Nothing about the shape changed — the builder
     /// hands back the same pieces under the same names.</summary>
     private void BuildVisual(Color color)
     {
@@ -517,6 +503,7 @@ public class SpellBeam : MonoBehaviour
             // orange toward peach, so it can never supply the yellow this reads as.
             Color hot = SpellLook.HotCore(color);
             _funnelChunks = SpellBeamModelBuilder.BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
+            _funnelHot = hot;
             _baseColor = color;
         }
         else
