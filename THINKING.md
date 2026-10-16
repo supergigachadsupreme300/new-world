@@ -1,3 +1,72 @@
+## 1l109. Charged projectiles: crash dent + contact hitbox grow with charge — reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l108`, so `1l109` (enumerate first — rule 8).
+Source: the user's **"no matter how much a projectile is casted the crash size would pretty much the
+same, and the hitbox does not increase as much either, i saw enemy slip right through the charged
+projectile."** Two symptoms on one path, so the trail separates them. No rule-7 measurement lane was
+added: the report is about *scale* (a number the code derives), not a geometry/popping artifact you
+cannot see from source — the charge ladder is arithmetic-visible, so a lane would measure what grep
+already shows. User scope set via a direct question: fix **both** hitbox and dent.
+
+**H1 — "charge never reaches the projectile cast at all". REJECTED.** `MagicWheelUI.ReleaseArmedCast`
+(`:163`) passes `charge` to `SkillProfile.ExecuteCharged`, which builds a `SpellContext` with
+`ChargeLevel = charge`; `SpellCastEffect.Execute` (`IEffect.cs:142`) reads `ctx.ChargeLevel` and passes
+it into `BeginCast(..., charge, ...)`. Only `MagicWeaponBehavior.BeginAttack` (`:52`) drops charge, and
+that is the fallback path the auto-arm intercepts (`PlayerController.Interactions.cs:385`). So charge
+*does* arrive. [rejected]
+
+**H2 — "the size ladder is broken (`ChargeSizeBonus == 0`)". REJECTED.** `SpellCaster.SizeScale(charge)
+= 1f + charge * ChargeSizeBonus`, `ChargeSizeBonus = 1.2f` → 2.2× at charge 1.0 (`SpellCaster.cs:26`).
+`FireProjectile` multiplies the drawn body by it (`SpellCaster.Projectiles.cs:53`), and `SplashRadius`,
+the impact flash (1l6n) and damage already ride it. The magnitude path is intact. [rejected]
+
+**H3 — "the enemy slip-through is a physics-collider problem, not the detector". REJECTED.** The
+contact detector was a full-step `Physics.Raycast` — a **zero-width centerline**. A 2.2× body visually
+engulfs a foe while a 0.2 m-off-centre enemy is never touched: the collision is exactly as thin as the
+old ray, so "grown body, fixed hitbox" is the cause, not the enemy collider. [rejected]
+
+**H4 — "the bolt tunnels across the frame step". REJECTED (for on-axis).** `step = Speed * dt` is the
+per-frame travel and the old ray covered it end-to-end, so a target on the centerline could not be
+skipped between frames. The misses are **off-axis** — a widened body the centerline does not cover —
+which is H3's mechanism, not tunneling. [rejected]
+
+**H5 — "the dent not scaling is a bug". CONFIRMED as the *design*, now reversed by request.** The dent
+was deliberately authored-sized: `dentRadius = 1.4f` (or `Max(1.2f, spell.Radius)` for a Crater), and
+§3.8's 1cv/1cw rule explicitly said charge "never" reaches the ground edit. The user reclassified it as
+a bug ("crash size... pretty much the same"), so the dent now scales — but only in **width**
+(`Mathf.Min(dentRadius * _radiusMult, MaxDentRadius)`), because... [confirmed → changed]
+
+**H6 — "a wider dent will also dig deeper". REJECTED.** Depth is capped inside the crater profile:
+`WorldStreamer.Deform.cs` uses `capDepth = Mathf.Min(CraterStep, reach)` and carves
+`sqrt(capR² − d²) − (capR − capDepth)`, so `CraterStep` (~1.1 m) bounds the per-cast depth regardless
+of radius. A larger radius widens the bowl at the same depth — no depth term needed. [rejected]
+
+**H7 — "use an `OverlapSphere` at the frame-end position". REJECTED in favour of a swept capsule.** A
+sphere sampled only at `stepEnd` can still miss a thin target the bolt passes through mid-frame (the
+same class of gap the ray avoided). `OverlapCapsuleNonAlloc(start, end, radius, …)` covers the whole
+frame's travel at the grown width, so it *generalises* the old ray rather than trading a line for a
+dot. [rejected]
+
+**H8 — "scale `GroundProbeRadius` too, for consistency". REJECTED.** Ground contact is a small constant
+center probe on purpose (its tooltip says so): a giant charged body must be able to graze the ground
+without detonating, and scaling it would self-trigger a 2.2× bolt on the terrain at spawn. Only the
+*contact* probe (enemies/walls/props) grows. [rejected]
+
+**H9 — "`Physics.OverlapCapsuleNonAlloc(Vector3, Vector3, float, Collider[], int)` is a valid
+overload". CONFIRMED against in-tree precedent (rule 3: a first-use API is an unverified assumption
+until the codebase shows it).** `SpellBeam.cs` uses the 4-arg form (`:341`) and a 6-arg form with
+`QueryTriggerInteraction` (`:419`); `SpellEffect.cs` already passes a `LayerMask` as the 5th arg to
+`OverlapSphereNonAlloc`. Same family, same arg order. [confirmed]
+
+**H10 — "the removed `out RaycastHit hit` local is read elsewhere in `Update`". REJECTED.** Grepped
+`SpellEffect.cs` for `\bhit\b`: the only other `hit` is a distinct local inside `SurfaceHeightBelow`
+(`out RaycastHit hit` at its own `Physics.Raycast`), no shared scope. The unassigned-local /
+cross-case checks in `StaticChecks.ps1` also came back clean. [rejected]
+
+**H11 — "`SpellEffect.cs` need not join `StaticChecks.ps1`'s `$files`". REJECTED.** Rule 3: a file you
+edit that a check can cover should be covered — `SpellBeam.cs` was added for 1l98 for exactly this
+reason. It is the projectile flight body, so check 1 (balance) belongs on it. Added. [rejected]
+
 ## 1l108. Crater dents the ground under a raised wall — reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l107`, so `1l108` (enumerate first — rule 8).

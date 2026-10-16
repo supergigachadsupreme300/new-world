@@ -1,3 +1,59 @@
+## 1l109. Charged projectiles: the crash dent and the contact hitbox now grow with charge
+
+The user: **"no matter how much a projectile is casted the crash size would pretty much the same,
+and the hitbox does not increase as much either, i saw enemy slip right through the charged
+projectile."** Two separate misses on the same charge path: the *visual* crash (terrain dent) never
+grew, and the *collision* detector was a zero-width ray that a grown body visually engulfed but did
+not physically cover. User scope (via question): fix **both** the contact hitbox and the terrain dent.
+
+**What already scaled (traced, not assumed).** Charge reaches the wheel/armed cast —
+`MagicWheelUI.ReleaseArmedCast(charge, prepaidFocus)` → `SkillProfile.ExecuteCharged` →
+`SpellCastEffect.Execute` passes `ctx.ChargeLevel` into `BeginCast` (the weapon `BeginAttack` fallback
+drops it, but auto-armed wheel spells intercept first). `SpellCaster.Execute` computes
+`SizeScale(charge) * mods.RadiusMult` and threads it as `sizeScale` to `FireProjectile`, which grew
+the drawn body (`localScale *= sizeScale`), the `SplashRadius` damage walk, the impact flash (1l6n),
+and the damage. So the *magnitude* ladder was fine; only the two halves below were not on it.
+
+**The two fixes (`Assets/Scripts/Magic/Cast/SpellEffect.cs`).**
+- **Contact hitbox.** Hitbox 1 was a full-step `Physics.Raycast` (`out RaycastHit hit`) — a
+  zero-width centerline. Replaced with a **swept capsule** along this frame's travel:
+  `Physics.OverlapCapsuleNonAlloc(transform.position, stepEnd, ContactRadius, _contactHits, HitLayers)`
+  (`stepEnd = transform.position + _dir * step`). New `ContactRadiusBase` (0.3 m) and
+  `ContactRadius => ContactRadiusBase * Mathf.Max(1f, _radiusMult)`, so at 2.2× charge the contact
+  width is 0.66 m. The loop skips null / the caster's own root / `IsGroundCollider`, then calls the
+  same `ResolveProjectileImpact(col.gameObject)` the ray called. Hitbox 2 (a constant
+  `GroundProbeRadius = 0.2f` center overlap) is unchanged — ground stays a fixed, unscaled probe so a
+  giant charged body still does not self-trigger on the ground at spawn.
+- **Terrain dent.** `dentRadius` was a constant (1.4 m, or `Mathf.Max(1.2f, spell.Radius)` for a
+  Crater). Now `dentRadius = Mathf.Min(dentRadius * _radiusMult, MaxDentRadius)` — 1.4 m → ~3.1 m at
+  full charge, clamped at 5 m. **Width only:** the carve depth is still capped by `CraterStep` inside
+  `WorldStreamer.DeformAt`'s crater profile (`capDepth = min(CraterStep, reach)`), so a charged bolt
+  carves a wider bowl, never a deeper dig — this supersedes the old 1cv/1cw "the dent never scales"
+  rule in width, and only for the projectile path (zone/storm/summon `TerrainShape` casts keep the 1cw
+  dish cap untouched).
+
+### 1l109-status
+- Files: `Assets/Scripts/Magic/Cast/SpellEffect.cs` (`ContactRadiusBase`/tooltip; `_contactHits`
+  buffer; `ContactRadius` property; `MaxDentRadius` const; swept-capsule Hitbox 1 in `Update`; dent
+  `Mathf.Min(...)` + rewritten comment), `tools/StaticChecks.ps1` (added `SpellEffect.cs` to `$files`
+  so check 1 covers the flight body), `game-design.md` (§3.7 impact/dent paragraph + §3.8
+  charge-cap note), `magic-skills.md` (Projectile delivery row), `PROGRESS.md`, `THINKING.md`.
+- Verified by grep + reread (rule 3, **no build**): `Physics.OverlapCapsuleNonAlloc(Vector3, Vector3,
+  float, Collider[], int)` is the shape already proven in `SpellBeam.cs` (4-arg `:341`, 6-arg `:419`)
+  and `SpellEffect.cs` already passes a `LayerMask` 5th arg to `OverlapSphereNonAlloc`; the removed
+  `out RaycastHit hit` local had no other reader in `Update` (the only other `hit` is a distinct local
+  in `SurfaceHeightBelow`); `_caster.transform.root` exclusion preserves the old no-self-detonation
+  behaviour. `StaticChecks.ps1` → **0 candidates** (with `SpellEffect.cs` now in `$files`, braces
+  33/33 parens 130/130).
+- Not a compile: behaviour is verified by reread; Unity play-test is the compiler.
+- skills: none applied — a Unity C# collision/deform fix, not a DCC artifact and not an editor-driving
+  task (rule 15); rule 3 bars the Scenario Unity skills' MCP/CLI path anyway.
+- Play-test: charge a projectile to full and fire at a foe — the bolt should now hit an off-centre
+  enemy (no slip-through) and leave a visibly **wider** dent/flash than an uncharged shot; confirm an
+  uncharged bolt's 0.3 m contact radius does not detonate on the ground/self at spawn; F13
+  (`CraterAuditKey`, needs `EnableCraterAudit` + `EnableFpsStats`) to confirm the wider bowl is wider
+  but not deeper.
+
 ## 1l108. Crater dents the ground under a raised wall — the carve is now bounded by the surface it struck
 
 The user: **"when the magic projectile hit the earthwall on the high part the terrain below also got

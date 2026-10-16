@@ -124,7 +124,12 @@ $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
             'Assets\Scripts\Player\PlayerController.Animation.cs',
             'Assets\Scripts\Enemies\_Shared\EnemyController.cs',
             'Assets\Scripts\Enemies\Boss\BossController.cs',
-            'Assets\Scripts\Core\GameManager.cs')
+            'Assets\Scripts\Core\GameManager.cs',
+            # 1l109: SpellEffect.cs owns the projectile flight body - the contact hitbox (now a
+            # charge-scaled swept capsule instead of a zero-width ray) and the charge-scaled terrain
+            # dent live here. It is the file a "charged projectile misses/hits wrong" report lands in,
+            # so check 1 (balance) covers it rather than shipping a collision change unchecked.
+            'Assets\Scripts\Magic\Cast\SpellEffect.cs')
 
 # Types a structure-part helper can be declared with, plus local declarations.
 $retAlt  = '(?:static\s+)?(?:GameObject|void|int|float|bool|string|Vector3|Color|Vector2|Quaternion|Transform)'

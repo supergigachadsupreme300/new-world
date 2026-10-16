@@ -20,6 +20,12 @@ public class SpellEffect : MonoBehaviour
         + "body clips the terrain at spawn.")]
     public float GroundProbeRadius = 0.2f;
 
+    [Tooltip("Base radius of the swept contact capsule that detonates on enemies/walls/props. It "
+        + "IS scaled by charge (1l109) so a grown projectile hits as wide as it looks — otherwise a "
+        + "2.2x charged body visibly engulfs a foe and the zero-width centerline flies through it. "
+        + "Ground is deliberately handled by the constant GroundProbeRadius probe instead.")]
+    public float ContactRadiusBase = 0.3f;
+
     private SpellData _spell;
     private float _power;
     private Vector3 _dir;
@@ -31,6 +37,18 @@ public class SpellEffect : MonoBehaviour
     private readonly Collider[] _groundHits = new Collider[8];
     private readonly Collider[] _splashBuffer = new Collider[128];
     private readonly Collider[] _homingBuffer = new Collider[32];
+    private readonly Collider[] _contactHits = new Collider[16];
+
+    /// <summary>1l109: the contact (enemy/wall/prop) hitbox radius, scaled by the same charge
+    /// ladder that grows the body and the splash. A charged bolt therefore collides as wide as it
+    /// renders, instead of the old zero-width centerline ray. Ground is excluded from this probe.</summary>
+    private float ContactRadius => ContactRadiusBase * Mathf.Max(1f, _radiusMult);
+
+    /// <summary>1l109: how wide a charge may grow a projectile's terrain dent. The dent now scales
+    /// with charge so the crash the player sees grows with the shot, but capped so an unbounded
+    /// overcharge cannot carve a whole chunk. The carve DEPTH is unaffected — it is CraterStep
+    /// (the crater profile's cap depth), so a wider dent is a wider bowl, never a deeper dig.</summary>
+    private const float MaxDentRadius = 5f;
 
     private const float MissileTurnRate = 240f;
     private bool _homing;
@@ -163,21 +181,25 @@ public class SpellEffect : MonoBehaviour
 
         float step = Speed * Time.deltaTime;
 
-        // Hitbox 1 — the "normal" probe: a full-step raycast that detonates on enemies, walls,
-        // and props (the caster's own body is excluded so a bolt spawned at the hand never
-        // detonates on the caster). Ground colliders are skipped here — terrain contact is judged
-        // only by the small center probe below, so a charged-up (giant) body no longer self-
-        // triggers on the ground at spawn.
-        if (Physics.Raycast(transform.position, _dir, out RaycastHit hit, step, HitLayers))
+        // Hitbox 1 — the "normal" contact probe: a SWEPT CAPSULE of the charge-scaled contact radius
+        // along this frame's travel, so a grown body detonates on anything within its width, not only
+        // what the zero-width centerline touches. It used to be a full-step RAYCAST, which is exactly
+        // why a charged-up (2.2x) bolt visibly engulfed a foe and still flew straight through it
+        // (1l109). The caster's own body is excluded so a bolt spawned at the hand never detonates on
+        // the caster. Ground colliders are skipped here — terrain contact is judged only by the small
+        // constant center probe below, so a charged-up (giant) body no longer self-triggers on the
+        // ground at spawn.
+        Vector3 stepEnd = transform.position + _dir * step;
+        int contactCount = Physics.OverlapCapsuleNonAlloc(transform.position, stepEnd, ContactRadius,
+            _contactHits, HitLayers);
+        for (int i = 0; i < contactCount; i++)
         {
-            if (_caster == null || hit.collider.transform.root != _caster.transform.root)
-            {
-                if (!IsGroundCollider(hit.collider))
-                {
-                    ResolveProjectileImpact(hit.collider.gameObject);
-                    return;
-                }
-            }
+            Collider col = _contactHits[i];
+            if (col == null) continue;
+            if (_caster != null && col.transform.root == _caster.transform.root) continue;
+            if (IsGroundCollider(col)) continue;
+            ResolveProjectileImpact(col.gameObject);
+            return;
         }
 
         // Hitbox 2 — the ground probe: a small, constant-size overlap AT the projectile center
@@ -381,17 +403,22 @@ public class SpellEffect : MonoBehaviour
         // (TerrainShape.Crater — the school signature) carve a full crater scaled to the
         // spell radius; every other projectile leaves a small uniform impact dent so any
         // bolt (fireball, frost, arcane, lightning, dark, wind, water…) visibly disturbs
-        // the terrain. The dent stays a LOCAL bowl — never the blast splash nor the
-        // (unbounded) hold-to-overcharge sizeScale, exactly like zone casts (1cv/1cw) — so a
-        // charged bolt still carves an authored-sized crater instead of a whole chunk. Both
-        // probe the ground beneath the impact (the pit is carved as a smooth shallow dish that
-        // always keeps a walkable floor — never a void) and never carve at the caster's own
-        // feet at cast time (FireProjectile only spawns the bolt; no launch-site pit).
+        // the terrain. Both probe the ground beneath the impact (the pit is carved as a smooth
+        // shallow dish that always keeps a walkable floor — never a void) and never carve at the
+        // caster's own feet at cast time (FireProjectile only spawns the bolt; no launch-site pit).
+        //   1l109: the dent now GROWS with charge (bounded by MaxDentRadius), so the crash the
+        //   player sees scales with the shot instead of reading the same size at every charge —
+        //   the user report "no matter how much a projectile is charged the crash size is the
+        //   same". This deliberately supersedes the old 1cv/1cw "the dent never scales" rule, but
+        //   only in WIDTH: the carve depth is still CraterStep (the crater profile caps capDepth at
+        //   CraterStep regardless of reach), so a charged bolt carves a WIDER bowl, never a deeper
+        //   one, and MaxDentRadius stops an unbounded overcharge from carving a whole chunk.
         if (_spell != null)
         {
             float dentRadius = 1.4f;
             if (_spell.TerrainShape == TerrainShape.Crater)
                 dentRadius = Mathf.Max(1.2f, _spell.Radius);
+            dentRadius = Mathf.Min(dentRadius * _radiusMult, MaxDentRadius);
             Vector3 probe = transform.position + Vector3.up * 0.1f;
             Vector3 impactGround = transform.position;
             if (Physics.Raycast(probe, Vector3.down, out RaycastHit groundHit, 30f))

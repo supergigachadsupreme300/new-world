@@ -1840,7 +1840,8 @@ Arcane→**no status** (pure force), Wind→Knockback, Holy→heals (§3.8), Ear
   burst radius (1l6n):** a projectile's impact flash is sized from the same `SplashRadius`
   (`radius * chargeSize`) the damage walk and the wave's end-burst use, so an overcharged bolt explodes
   as big as its grown body — before this it was the one chargeable thing on the spell that ignored
-  charge. (The terrain dent stays authored-sized on purpose — see the note below.) **The per-tick load is why it had to go:**
+  charge. (1l109: the **terrain dent now grows with charge too**, bounded by `MaxDentRadius` — see the
+  crater note below.) **The per-tick load is why it had to go:**
   the old path was reached only by Projectile spells, and it allocated a fresh primitive *and a fresh
   `Material`* per impact; 1ih adds on-hit flashes to Zone (77), Beam (11) and Vortex (8) spells that
   had none, so a single blizzard alone is ~2 flashes/s and a screen with several is where one
@@ -1925,7 +1926,12 @@ and **Crater** excavates a **terraced spherical cap** ringed by a raised, idempo
     raises the tip height (base 2.6 m) and the tip **density** (capped at 0.5 of corners, so overcharge
     never becomes a solid wall of stone).
   At charge 0 `shapeGrowth` is 1 and both shapes are byte-identical to their pre-change casts.
-  Crater / Ring / Pillar keep the 1cw dish cap above.
+  Crater / Ring / Pillar keep the 1cw dish cap above. **The projectile impact dent (1l109) is the one
+  other path where charge reaches a deform width:** `SpellEffect.ResolveProjectileImpact` now scales
+  its dent radius by the same `sizeScale` the body/flash use, clamped to `MaxDentRadius` (5 m) so an
+  overcharged bolt digs a **wider** bowl (1.4 m → ~3.1 m at full charge) but never a deeper one — depth
+  stays `CraterStep`. This is a projectile-only path (it never runs the zone `TerrainShape` routine),
+  so the 1cw dish cap for zone/storm/summon casts is untouched.
   Since **1l91** a raised **Wall**-shape cast (Earth Wall, Landslide) no longer pops to full height:
   the ridge **rears sequentially** — a build front sweeps along its length while the section ahead of
   it grows in a few quantised **height steps**, so the wall claws up out of the ground in order instead
