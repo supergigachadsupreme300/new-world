@@ -1,3 +1,32 @@
+## 1l104. Flamethrower funnel flow speed - reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l103`, so `1l104` (enumerate first - rule 8).
+Source: the user's request to "increase flamethrower funnelchunk shootout speed and generate speed".
+
+**H1 - "there are two knobs (travel speed and generation rate) - tune both". REJECTED as a description.**
+The funnel is a continuous phase flow: `cycles = Time.time * FunnelFlowSpeed * tempo`, and
+`FlowFunnelVisual` places piece `i` at `p = Repeat(cycles + stagger_i)` along the axis. A puff's axial
+travel speed is `d(p*Length)/dt = Length * passRate`, and the rate at which puffs are (re-)generated at
+the muzzle IS the pass rate. So for a fixed `Length` there is exactly ONE rate; travel and generation
+cannot be moved apart. Naming two knobs would be a second spelling of one number (rule 8).
+
+**H2 - "also raise `FunnelChunks` (density)". REJECTED - not what was asked.** Density is the code's own
+separate knob (the `FunnelFlowSpeed` doc says so). The user asked for SPEED, not a denser stack; adding
+chunks also changes the stack the still must match. Keep density.
+
+**H3 - "bump `FunnelFlowSpeed`". CHOSEN.** 0.9 -> 1.8 (a doubling; the user gave no number). Effective
+rate = 1.8 * tempo(0.8) = ~1.44 passes/s, a full muzzle-to-tip run in ~0.69 s vs ~1.39 s before. The
+flamethrower is the only cone spell (`beamHalfAngle > 0` on it alone), so the global constant has no
+other victim.
+
+**H4 - "use the look's `tempo` instead (per-spell knob)". REJECTED.** `Tempo` also drives
+`SpellImpactFx`'s tumble and `CastingCircle`'s pacing (grep), so raising it would speed the flamethrower's
+impact debris and casting ring too - a broader change than the funnel the user named.
+
+**H5 - "does this touch damage?". CHECKED - no.** `TickCone` walks the analytic cone from
+`Width`/`Length`/`ConeRays`; `FlowFunnelVisual` only moves/recolours the same 9 discs + 3 debris, so it is
+a drawn-only knob and the flame still sits inside the same hit cone.
+
 ## 1l103. Flamethrower funnel-end "block" removed - reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l102`, so `1l103` (enumerate first - rule 8).

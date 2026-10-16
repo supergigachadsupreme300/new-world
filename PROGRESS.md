@@ -1,3 +1,33 @@
+## 1l104. Flamethrower: the funnel spray flows faster (shootout + generation rate, 0.9 -> 1.8)
+
+The user: **"increase flamethrower funnelchunk shootout speed and generate speed."** Both are **one
+knob** in this design. `SpellBeam.PulseVisual` computes `cycles = Time.time * FunnelFlowSpeed * tempo`
+and the funnel's whole layout is a pure function of `cycles` (`FlowFunnelVisual`), so a puff's axial
+**travel** speed is `Length * passRate` and its **generation** rate at the muzzle IS the same pass rate —
+you cannot move one without the other at a fixed length. So the single change, `FunnelFlowSpeed`
+0.9 &#8594; 1.8, speeds both together.
+
+**What changed.** One constant (`SpellBeam.FunnelFlowSpeed`, 0.9f &#8594; 1.8f) — a doubling of the
+spray's pace. Neither the density (`FunnelChunks` = 9) nor the shape/length changes, so the drawn flame
+still sits inside the same analytic hit cone (`TickCone` is unaffected — this is a drawn-only knob). The
+flamethrower's own look `tempo` (0.8) still scales it, so its effective flow is ~1.44 passes/s (a full
+muzzle-to-tip run in ~0.69 s, versus ~1.39 s before).
+
+### 1l104-status
+- Files: `Assets/Scripts/Magic/Cast/SpellBeam.cs` (the one constant + its doc), `game-design.md`.
+- Verified by grep + reread (rule 3, no build): `grep FunnelFlowSpeed` finds the constant, the one
+  consumer (`PulseVisual`'s `cycles`) and two doc mentions — updated. Confirmed the knob is drawn-only
+  (the hit path `TickCone` never reads it) and that the flamethrower is the only cone spell
+  (`beamHalfAngle > 0` is set on Flamethrower alone), so the global constant is not a shared surprise.
+- `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1`: **0 candidates** (`SpellBeam.cs` is
+  in the script's `$files` list).
+- `skills: none applied` — one C# constant plus docs; not a DCC artifact and not an editor-driving task
+  (rule 15). Rule 3 bars the Unity skills' MCP/CLI path from verifying anything here.
+- Pending play-tests: (1) hold **Flamethrower** — the spray should shoot out and be re-generated about
+  twice as fast, reading as a livelier, faster jet; confirm it still fills the same cone and ends in the
+  same tip fade (1l103). (2) Confirm damage is unchanged (the hit cone is untouched). (3) If it now reads
+  too fast or too thin, `FunnelFlowSpeed` is the one line to retune — density is `FunnelChunks` instead.
+
 ## 1l103. Flamethrower: the funnel-end "block" (the `FunnelMouth` disc cap) is removed
 
 The user: **"the flamethrower still got a block at funnel end so fix it as well."** Since the report is a
@@ -5813,7 +5843,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l103). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l104). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

@@ -40,8 +40,14 @@ public class SpellBeam : MonoBehaviour
 
     /// <summary>1l98: how many full muzzle-to-tip passes a flame puff makes per second (scaled by the
     /// look's tempo). The spray's PACE, deliberately a knob separate from <see cref="FunnelChunks"/>
-    /// (the stream's density), so speed and density are tuned apart rather than by re-cutting the stack.</summary>
-    public const float FunnelFlowSpeed = 0.9f;
+    /// (the stream's density), so speed and density are tuned apart rather than by re-cutting the stack.
+    /// <para>1l104: raised 0.9 &#8594; 1.8 (user: "increase flamethrower funnelchunk shootout speed and
+    /// generate speed"). One knob drives BOTH a puff's axial travel speed AND how fast it is re-generated
+    /// at the muzzle: the pass rate IS the generation rate, and travel speed is <c>Length * passRate</c>,
+    /// so there is no way to speed one without the other at a fixed length. The strain is unchanged, only
+    /// quicker. The flamethrower's own look tempo (0.8) still scales this down, so the effective rate is
+    /// ~1.44 passes/s.</summary>
+    public const float FunnelFlowSpeed = 1.8f;
 
     // 1l75: a Lightning beam's drawn body is a jagged BoltStrip (testing.md #6) — the school
     // identity, not a per-spell override (see the BuildVisual branch). Public derivations so the QA

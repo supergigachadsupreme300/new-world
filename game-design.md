@@ -2070,7 +2070,10 @@ a school read distinctly instead of feeling like copies:
   per-frame call sits on the beam — the only caller that MOVES — not in the builder (rule 19). A puff's
   radius is a pure function of its phase (`FunnelFlowSpeed` passes/second × the look's tempo), never of
   the previous frame, so the compounding growth 1l85 fixed cannot return. The axial bob is gone with the
-  flow; the debris still orbits and the tip orb keeps its glow throb.
+  flow; the debris still orbits and the tip orb keeps its glow throb. **1l104 raised `FunnelFlowSpeed`
+  0.9 &#8594; 1.8** (the user's "increase shootout speed and generate speed"): the single pass rate drives
+  both a puff's axial travel speed and its muzzle re-generation rate (travel speed = `Length * passRate`),
+  so the whole spray is quicker without changing the stack's density or the cone's size.
   **1l99: an already-emitted puff keeps the direction it was launched at.** Turning while channeling no
   longer drags the whole spray round with the aim. Each funnel piece captures its launch direction the
   frame it is born at the muzzle (when its flow phase wraps into a new pass) and is placed along THAT
