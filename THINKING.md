@@ -1,3 +1,45 @@
+## 1l101. Chill Touch hand flip + no in-flight roll - reasoning trail (SHIPPED; play-test pending)
+
+New task id: top `^## 1..` was `1l100`, so `1l101` (enumerate first - rule 8). Source: the user's
+report "Chill Touch is palm shape projectile - flip it up 90 degree and dont rotate when fly".
+
+**Where the roll comes from - measured, not assumed.** Grepped `SpinRate`: only two consumers,
+`SpellEffect.cs` (`transform.Rotate(0,0,SpinRate*dt)` at the very top of `Update`, BEFORE the
+`if (!_launched)` guard) and `ChargedProjectilePreview.cs` (`_spinRate = SpellEffect.SpinRate`). So
+the roll is one constant read in two places - exactly the shape rule 13 warns about, and exactly why
+the gate must be ONE predicate read by both.
+
+**H1 - "give every projectile a per-shape SpinRate (0 for Hand)". REJECTED.** That is a data table
+keyed by shape spelling the same fact ('does this body roll') in a second place. A predicate
+(`RollsInFlight(displayShape)`) is total (rule 20's preference): every shape classifies with no
+unclassified case, and the hand is the named exception.
+
+**H2 - "reuse an existing flag like `look.DisplayShape == Hand` at both sites". REJECTED as a second
+spelling.** That is literally what the predicate wraps; inlining it twice invites the two sites to
+drift. `RollsInFlight` is the single name, and `Auto`/bolts return true so the fallback (an unresolved
+look) spins - the pre-1l101 behaviour.
+
+**H3 - "rotate the root instead of an inner node". REJECTED.** The root also carries
+`AddTrailingFlecks`, whose whole job is to trail along `-Z` (the travel axis). Rotating the root would
+swing the flecks out of the travel axis and lay them under/over the hand. An inner `HandGeometry`
+node flips only the hand geometry and leaves the flecks on the true -Z. (Root-of-the-body local
+rotation is also how the projectile's own `LookRotation` is applied, so touching it would fight the
+spawn aim.)
+
+**H4 - "+90 vs -90". CHOSE +90, flagged.** `Euler(90,0,0)` maps `+Y -> +Z` (palm normal to travel:
+palm faces the foe) and `+Z -> -Y` (fingers, which led forward, point down). `Euler(-90,0,0)` maps
+`+Y -> -Z` (palm faces AWAY) and `+Z -> +Y` (fingers up). The user said "palm shape … flip it up", so
+the palm should face the foe; +90 is that. It is a one-line knob and is named in the play-test item.
+
+**H5 - "does the held preview need its own flip?". CHECKED - no.** `ChargedProjectilePreview` calls
+the same `MagicProjectileModelBuilder.AttachDefaultProjectileVisual`, so the `HandGeometry` flip rides
+along; only the roll was separately computed, and that is now read through the shared predicate. Hold
+and flight agree by construction.
+
+**Scope check (rule 8/20).** `_look.DisplayShape` is the resolved display axis (`Auto` never resolves
+to `Hand`; `Hand` is authored-only), so no real delivery shape is affected - grep confirmed `Hand` is
+authored on Chill Touch alone, and the bench/turret/hold callers all go through the one builder.
+
 ## 1l100. Blizzard wears the conflagration model - reasoning trail (SHIPPED; play-test pending)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l99`, so this counts up to `1l100`

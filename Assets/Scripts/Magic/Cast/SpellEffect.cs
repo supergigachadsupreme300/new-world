@@ -114,10 +114,22 @@ public class SpellEffect : MonoBehaviour
     /// branch.</summary>
     public const float SpinRate = 600f;
 
+    /// <summary>1l101: whether a projectile of this DISPLAY shape rolls about its travel axis in
+    /// flight. The roll is an ordinary look for a bolt/orb/rock, but a <see cref="ProjectileShape.Hand"/>
+    /// is a directional reaching hand — the user ("dont rotate when fly") — so it holds its pose. The
+    /// one predicate both spinners read (rule 8): <see cref="Update"/> here and
+    /// <c>ChargedProjectilePreview</c>, so the held body cannot roll while the cast body holds still.
+    /// Authored display-only, so this reads the resolved <c>SpellLook.DisplayShape</c>, never
+    /// <c>SpellData.Shape</c> (the hand is never a real delivery shape).</summary>
+    public static bool RollsInFlight(ProjectileShape displayShape)
+        => displayShape != ProjectileShape.Hand;
+
     private void Update()
     {
-        // Spin around Z (travel) axis for a bolt.
-        transform.Rotate(0f, 0f, SpinRate * Time.deltaTime);
+        // Spin around Z (travel) axis for a bolt (1l101: unless the display shape holds its pose — a
+        // reaching hand, "dont rotate when fly").
+        if (RollsInFlight(_look.DisplayShape))
+            transform.Rotate(0f, 0f, SpinRate * Time.deltaTime);
         if (!_launched) return;
 
         // Keep the chunk we're flying over collider-enabled (1dq). Only track the single current

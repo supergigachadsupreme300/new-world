@@ -2209,9 +2209,11 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   `Range` is 20 m (was 12); Frozen Touch stays at 10. The shared floor is longer front-to-back (9 rows
   over 4.2 m, was 5 rows over 2 m) so the sweep reads as a broad rolling wall rather than a shallow lip,
   and its wavelength was stretched (2 m, was 1.6) so the longer floor still shows about two crests.
-  The wave does not spin (`SpellEffect.SpinRate` is a single 600°/s constant for bolts; a wave never
-  reaches `SpellEffect` at all since 1l87), so it is drawn flat on the ground instead of rolling about its
-  travel axis. Only the roll is gone; the wave is still re-aimed flat to face its travel.
+  The wave does not spin (`SpellEffect.SpinRate` is a single 600°/s constant for rolling bolts — and since
+  1l101 a `Hand` is excluded from that roll by `SpellEffect.RollsInFlight`, so it too never reaches this
+  component for the spin; a wave never reaches `SpellEffect` at all since 1l87), so it is drawn flat on the
+  ground instead of rolling about its travel axis. Only the roll is gone; the wave is still re-aimed flat
+  to face its travel.
   **1l88: the floor cubes are smaller, the wave is longer and slower, and each cast rides at a random
   height.** The floor's cubes are shrunk (fill 0.92 → 0.62, thickness 0.18 → 0.12 m) so it reads as a
   scatter of small cubes rather than a solid slab, and the run is stretched front-to-back again (14 rows
@@ -2280,7 +2282,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **Ember Streak** | 1f7, **removed in 1ir**: a stretched bright head (0.18×0.18×0.42) with a long tapering ember tail, read-only via `SpellLookProfile.DisplayShape`, never `spell.Shape`. It existed for exactly one spell — the meteor-line Comet — and that spell's slot is now Flamethrower, which is a swept Beam with no projectile body to shape. Flamethrower does **not** reuse the tail: it would have to survive in a delivery that draws nothing but a cone. |
 | **Missile** | Three 2-cube mini dart-stacks; **homing** — `SpellEffect.UpdateMissileTargeting` probes the **current trajectory** every frame and prioritizes the target on the flight path (the foe it is about to fly into), otherwise keeps chasing the locked target's last spot (or locks the nearest foe ahead if never locked), steering smoothly at 240°/s so the flight bends; no target = flies straight. Arcane Missiles. |
 | **Soul** | 1l6x: a drifting spectral wisp — a bright cold core leading (+Z) inside a soft translucent halo, with a long tapering frost tail and two stray motes behind — so a homing missile reads as a spirit that hunts. **Display-only:** `ProjectileShape.Soul` carries no behaviour (unlike `Missile` it has no homing of its own), and it is authored-only — never in a `Shape_*` family. Chill Soul wears it while keeping `Missile` as its gameplay shape. |
-| **Hand** | 1l6y: a spectral reaching hand — a flat translucent palm whose four fingers lead (+Z) into the foe, a thumb to one side, a bright cold core in the palm and two ghostly flecks trailing — so a numbing touch reads as a hand reaching out. **Display-only** and authored-only (never in a `Shape_*` family). Chill Touch. |
+| **Hand** | 1l6y: a spectral reaching hand — a flat translucent palm whose four fingers lead (+Z) into the foe, a thumb to one side, a bright cold core in the palm and two ghostly flecks trailing — so a numbing touch reads as a hand reaching out. **1l101** ("flip it up 90 degree and dont rotate when fly"): the geometry hangs under one `HandGeometry` node rotated `Euler(90, 0, 0)`, so the palm's normal points along the travel axis (faces INTO the foe) with the fingers pointing down; the trailing flecks stay on the un-rotated root so they still stream back along -Z. The hand also **holds its pose in flight** — `SpellEffect.RollsInFlight` excludes it from the 600°/s travel-axis roll, and `ChargedProjectilePreview` reads the same predicate, so the held hand and the launched hand both hold still. **Display-only** and authored-only (never in a `Shape_*` family). Chill Touch. |
 | **Dart** | Sleek thin bolt-line with a tip + small trailing fleck — physical shots (Archer Wind Shot, Taoist Talisman). |
 | **Wave** | 1l85: a **flat ground floor** of small voxel cubes spanning the band, whose crest is drawn by a traveling sine — a `WaveRipple` on the body offsets each cube up/down in order and brightens the crest, and `SpellWave` calls it every frame the wave MOVES (so only a moving wave ripples; the QA pedestal the same builder feeds stays flat). (1jy built this as a short diagonal ramp of five cubes — a wave *shape*, not a wave.) 1l86: the floor is longer front-to-back (9 rows over 4.2 m) and the body does not spin, so it reads as a flat rolling wall, not a tumbling block. 1l88: the cubes are smaller (fill 0.62, thickness 0.12) and the run longer again (14 rows over 7 m, wavelength 2.6 m). 1l89: the cubes are packed flush to their pitch (fill 1.01, no gaps) in a 12 × 24 lattice (~0.28 m cubes), and charge grows the block COUNT rather than the block size (a WaveCellCap of 1400 cells bounds it). 1l90: the floor is a crest — the centre columns rise (crestLift 0.35 m) and fall to zero at the side edges, and the side columns are drawn back (frontBow 1.2 m) so the front bows forward in the middle instead of standing as a flat wall. Fire Wave and Frozen Touch. **Display-only since 1l87:** the shape names the drawn floor and nothing else — the terrain-glued sweep is now `SpellDelivery.Wave` (§3.8.1 "Ground waves"), so a spell can wear this body only because it is authored. It is authored-only — never in a `Shape_*` family, because the deterministic pick would hand a spell the floor body without its asking. |
 
@@ -2472,7 +2474,9 @@ same Wisdom-derived spell power; only `IHealable` targets are ever healed — en
   `SpellEffect.SpinRate` (600 deg/s, or 150 for a ground wave; one shared source, rule 13), applied as a
   spin phase kept in `ChargedProjectilePreview.Update` and composed into the per-frame `LookRotation`, so
   "not launched" reads as the shot rather than a static prop. The phase resets on each hold so it starts
-  aligned to a fresh launch.
+  aligned to a fresh launch. **1l101: a shape that does not roll in flight does not roll in the hold
+  either** — the rate is read through `SpellEffect.RollsInFlight(look.DisplayShape)`, so the Chill Touch
+  hand holds its pose both held and fired (rule 8: one predicate, so hold and flight cannot drift).
   **1l92: the hold also gathers — motes stream inward while it charges.** A ring of twelve small cubes
   spirals from a rim (0.5 m at charge scale 1, scaled by the same charge ladder as the body) into the
   body's centre, so a charge reads as gathering energy rather than sitting inert. They take the spell's

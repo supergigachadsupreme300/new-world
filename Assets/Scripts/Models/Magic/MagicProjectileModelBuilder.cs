@@ -492,20 +492,35 @@ internal static class MagicProjectileModelBuilder
     /// two ghostly flecks trailing, so a numbing touch reads as a hand reaching out rather than a
     /// frost chip. <see cref="ProjectileShape.Hand"/> is display-only — no behaviour rides on it —
     /// and this body is reached only through an authored <c>SpellLookProfile.DisplayShape</c>.
+    /// <para><b>1l101 flips the hand up 90°.</b> The user ("palm-shape projectile … flip it up 90
+    /// degree") wants the flat palm facing the foe rather than lying flat: all the geometry now hangs
+    /// under one <c>HandGeometry</c> node rotated <c>Euler(90, 0, 0)</c>, which maps the palm's normal
+    /// (+Y) to the travel axis (+Z) so the palm faces INTO the foe (the fingers, which led +Z, end
+    /// pointing down — a natural reaching pose). The trailing flecks deliberately stay on the
+    /// UN-rotated <c>root</c> so they still stream back along the true travel axis (-Z) behind the
+    /// hand. This is a look-only change: <see cref="SpellEffect.RollsInFlight"/> stops the hand
+    /// rolling about its travel axis in flight, and <c>ChargedProjectilePreview</c> reads the same
+    /// predicate — so a held hand holds still and the pose the player sees is the pose that flies.</para>
     /// </summary>
     private static Transform Hand(string name, Shader shader, Color color)
     {
         var root = new GameObject(name).transform;
 
-        // Flat translucent palm.
-        var palm = Primitive(PrimitiveType.Cube, "Palm", root);
+        // 1l101: all hand geometry lives under this node so ONE rotation flips the whole hand; the
+        // palm's thin axis (Y) becomes the depth axis (Z), i.e. the palm faces forward along travel.
+        var geom = new GameObject("HandGeometry").transform;
+        geom.SetParent(root, false);
+        geom.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+        // Flat translucent palm (thin along the node's Y before the flip, i.e. now facing +Z).
+        var palm = Primitive(PrimitiveType.Cube, "Palm", geom);
         palm.localScale = new Vector3(0.30f, 0.07f, 0.22f);
         Materialize(palm, shader, new Color(color.r, color.g, color.b, 0.5f));
 
-        // Four fingers leading into the foe, splayed across the palm's front edge.
+        // Four fingers, splayed across the palm's front edge (leading +Z before the flip).
         for (int i = 0; i < 4; i++)
         {
-            var finger = Primitive(PrimitiveType.Cube, "Finger" + i, root);
+            var finger = Primitive(PrimitiveType.Cube, "Finger" + i, geom);
             finger.localPosition = new Vector3(-0.105f + i * 0.07f, 0f, 0.18f);
             finger.localScale = new Vector3(0.05f, 0.05f, 0.17f);
             finger.localRotation = Quaternion.Euler(0f, (i - 1.5f) * 6f, 0f);
@@ -513,17 +528,19 @@ internal static class MagicProjectileModelBuilder
         }
 
         // Thumb, jutted out to one side of the palm.
-        var thumb = Primitive(PrimitiveType.Cube, "Thumb", root);
+        var thumb = Primitive(PrimitiveType.Cube, "Thumb", geom);
         thumb.localPosition = new Vector3(0.17f, 0f, 0.02f);
         thumb.localScale = new Vector3(0.06f, 0.055f, 0.13f);
         thumb.localRotation = Quaternion.Euler(0f, -32f, 0f);
         Materialize(thumb, shader, new Color(color.r, color.g, color.b, 0.55f));
 
         // Bright cold core in the palm.
-        var core = Primitive(PrimitiveType.Cube, "Core", root);
+        var core = Primitive(PrimitiveType.Cube, "Core", geom);
         core.localScale = Vector3.one * 0.11f;
         Materialize(core, shader, Color.Lerp(color, Color.white, 0.45f));
 
+        // Flecks stay on the ROOT: they trail the hand along the travel axis, which the flip must not
+        // rotate into the palm plane.
         AddTrailingFlecks(root, shader, color, 0.18f);
 
         return root;

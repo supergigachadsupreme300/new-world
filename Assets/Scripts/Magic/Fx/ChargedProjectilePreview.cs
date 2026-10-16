@@ -57,8 +57,9 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
     private bool _active;
 
     // 1l6x: the held body spins about its travel axis exactly like the bolt it becomes. The rate is
-    // read from SpellEffect.SpinRate (rule 13 - one source), never re-spelled here; _spin is the
-    // accumulated angle (deg) applied by Show's rotation so the per-frame path stays a transform write.
+    // read from SpellEffect.SpinRate through SpellEffect.RollsInFlight (rule 13 - one source), never
+    // re-spelled here; _spin is the accumulated angle (deg) applied by Show's rotation so the per-frame
+    // path stays a transform write. 1l101: a shape that holds its pose in flight rolls 0 here too.
     private float _spinRate;
     private float _spin;
 
@@ -143,8 +144,10 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
             MagicProjectileModelBuilder.AttachDefaultProjectileVisual(_body, spellLook, spell.SummonFallingRock);
             _spell = spell;
             // Same rate the released bolt will spin at (rule 13), and start the hold aligned to a
-            // fresh launch (its bolt starts at phase 0).
-            _spinRate = SpellEffect.SpinRate;
+            // fresh launch (its bolt starts at phase 0). 1l101: read through the same predicate the
+            // bolt reads, so a shape that holds its pose in flight (the Chill Touch hand) also holds
+            // its pose in the hold — 0 leaves the spin a no-op at AngleAxis(0).
+            _spinRate = SpellEffect.RollsInFlight(spellLook.DisplayShape) ? SpellEffect.SpinRate : 0f;
             _spin = 0f;
             // 1l92: the charge motes take the spell's own colour (whitened so they read as sparks,
             // not as the body) - resolved once here, never re-resolved per frame (rule 13).
@@ -164,7 +167,8 @@ public sealed class ChargedProjectilePreview : MonoBehaviour
         // hold still overlaps, or the 1.0 cap to let extreme overcharges push further.
         float push = Mathf.Clamp(0.5f * (s - 1f), 0f, 1f);
         // LookRotation makes local +Z the travel axis; the trailing local-Z spin is exactly the
-        // launched bolt's `transform.Rotate(0, 0, rate*dt)`, so the hold and the flight agree.
+        // launched bolt's `transform.Rotate(0, 0, rate*dt)`, so the hold and the flight agree (1l101:
+        // both read SpellEffect.RollsInFlight, so a hand holds still in the hold as it does in flight).
         Quaternion look = Quaternion.LookRotation(d);
         _body.transform.SetPositionAndRotation(pos + d * push,
             look * Quaternion.AngleAxis(_spin, Vector3.forward));

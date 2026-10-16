@@ -1,3 +1,41 @@
+## 1l101. Chill Touch: the hand is flipped up 90° and no longer rolls in flight
+
+The user: **"Chill Touch is palm shape projectile — flip it up 90 degree and dont rotate when fly."**
+The `ProjectileShape.Hand` body (1l6y) is authored flat: the palm lies in the XZ plane (its thin axis
+is `Y`) and the fingers lead `+Z` into the foe. In flight, `SpellEffect.Update` rolls EVERY projectile
+about its travel axis (`transform.Rotate(0f, 0f, SpinRate * deltaTime)`, 600°/s), which on a hand reads
+as a spinning palm instead of a reaching touch.
+
+**No spin, by one shared predicate.** Added `public static bool SpellEffect.RollsInFlight(ProjectileShape
+displayShape) => displayShape != ProjectileShape.Hand;` — the single rule (rule 8) both spinners read.
+`SpellEffect.Update` now gates its roll on `RollsInFlight(_look.DisplayShape)`, and
+`ChargedProjectilePreview.Show` reads the same predicate (`_spinRate = RollsInFlight(...) ? SpinRate : 0`)
+so a held hand holds still and the pose the player sees is the pose that flies (rule 13's one source).
+`Auto`/every other shape still rolls, so nothing but the hand changed.
+
+**Flip, by one rotation node.** All hand geometry now hangs under a `HandGeometry` node rotated
+`Euler(90f, 0f, 0f)`: that maps the palm's normal (`+Y`) onto the travel axis (`+Z`), so the palm faces
+INTO the foe and the fingers (which led `+Z`) point down — a natural reaching pose. The trailing flecks
+deliberately stay on the **un-rotated** root, so they still stream back along the true travel axis (`-Z`)
+behind the hand. One node, one rotation, geometry unchanged — the same "author the whole assembly in one
+frame" idea as rule 9.
+
+**Files (5):** `Magic/Cast/SpellEffect.cs`, `Magic/Fx/ChargedProjectilePreview.cs`,
+`Models/Magic/MagicProjectileModelBuilder.cs`, `game-design.md`, plus `PROGRESS.md`, `THINKING.md`.
+
+### 1l101-status
+- Verification: grep + reread + `tools\StaticChecks.ps1` -> **0 candidates** (braces 39/39 in
+  `MagicProjectileModelBuilder.cs`, parens 293/293; no cross-case locals, no unassigned locals added).
+  **No build run** (rule 3) — Unity is the compiler.
+- skills: none applied — a C# edit to two existing components plus one builder; the installed Unity
+  skills drive a running editor over MCP/batchmode, which rule 3 forbids here, and no DCC artifact is
+  produced.
+- Pending play-test: cast **Chill Touch** and watch the bolt — the hand should fly **palm-forward**
+  (facing the foe, fingers down) and **not roll** the whole way; the trailing flecks still stream
+  behind it. Also hold a charge: the held body must match the fired pose (no roll). If the hand reads
+  upside-down or edge-on, the flip axis is the knob — `Euler(90,0,0)` puts the palm forward + fingers
+  down; `Euler(-90,0,0)` would put the palm back + fingers up.
+
 ## 1l100. Blizzard wears the conflagration's model (a fifth `StormBody` value, `VortexCircle`)
 
 The user: **"Blizzard use the same model as Conflagration."** Conflagration is the 1kc body — a flat
@@ -5680,7 +5718,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l100). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l101). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
