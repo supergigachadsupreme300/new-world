@@ -137,7 +137,28 @@ public enum ProjectileShape
     /// unlike Soul/Hand/Wave it MAY sit in the school <c>Shape_*</c> families —
     /// 1l71 swapped it into the seven families where the diamond used to sit; Fire keeps
     /// <see cref="Ball"/> so the fireball reads as a ball.</summary>
-    Shard = 15
+    Shard = 15,
+
+    /// <summary>1lv1: a compact, fast, high-contrast lightning streak — a short jagged bolt whose core
+    /// is white-hot and whose segments are chunky, so a rapid-fire zap reads as a spark rather than a
+    /// long forked bolt. A plain display body with NO behaviour (not homing), granted by an authored
+    /// <c>spell.Shape</c> (Volt) rather than a <c>Look</c> profile. Deliberately NOT added to
+    /// <c>Shape_Lightning</c>: moving the family would re-roll every un-authored Lightning spell's
+    /// deterministic body, which is a change nobody asked for.</summary>
+    VoltBolt = 16,
+
+    /// <summary>1lv1: a scattered swarm of tiny bright spark motes flying forward — Volt Spark's drawn
+    /// body. A display-only shape with NO behaviour: the homing that makes Volt Spark seek is carried
+    /// by <see cref="Missile"/> on <c>spell.Shape</c>, and this value overrides only the drawn body via
+    /// an authored <c>Look.DisplayShape</c>. Authored-only, never in a <c>Shape_*</c> family (same
+    /// contract as <see cref="Soul"/> / <see cref="Hand"/>).</summary>
+    SparkSwarm = 17,
+
+    /// <summary>1lv1: a heavy great-bolt — a thick, long jagged streak wrapped around a white-hot core,
+    /// the body Volt Bolt wears (Fury Bolt joins it in 1lv3). A plain display body with NO behaviour,
+    /// granted by an authored <c>spell.Shape</c>. Not in <c>Shape_Lightning</c> for the same reason as
+    /// <see cref="VoltBolt"/>.</summary>
+    GreatBolt = 18
 }
 
 /// <summary>

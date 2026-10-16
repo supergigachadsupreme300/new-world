@@ -141,6 +141,9 @@ internal static class MagicProjectileModelBuilder
             case ProjectileShape.Dart: return Dart("Dart", shader, color);
             case ProjectileShape.Debris: return Debris("RockDebris", shader);
             case ProjectileShape.Wave: return Wave("FireWave", shader, color, waveExtent);
+            case ProjectileShape.VoltBolt: return VoltBolt("VoltBolt", shader, color);
+            case ProjectileShape.SparkSwarm: return SparkSwarm("VoltSpark", shader, color);
+            case ProjectileShape.GreatBolt: return GreatBolt("GreatBolt", shader, color);
             default: return Cluster("Orb", shader, color, 0.24f, 5, 0.10f, 0.03f); // fireball + generic orbs
         }
     }
@@ -306,6 +309,110 @@ internal static class MagicProjectileModelBuilder
             Materialize(seg, shader, color);
             prev = next;
         }
+        return root;
+    }
+
+    /// <summary>1lv1: a compact, fast, high-contrast zap — a SHORT chunky jagged streak whose body
+    /// brightens toward the leading edge so the tip reads white-hot. Built like <see cref="Bolt"/> but
+    /// shorter (0.9 vs 1.25), fewer/thicker segments, and a colour ramp toward
+    /// <c>Color.Lerp(color, white, ...)</c> on the front half, so a rapid-fire Volt reads differently
+    /// from a long forked chain bolt. Display-only: no behaviour rides on the shape.</summary>
+    private static Transform VoltBolt(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        int segments = 6;
+        float length = 0.9f;
+        float jitter = 0.07f;
+        Vector3 prev = new Vector3(0f, 0f, -length * 0.5f);
+        for (int i = 0; i < segments; i++)
+        {
+            float t = i / (float)(segments - 1);
+            Vector3 next = i == segments - 1
+                ? new Vector3(0f, 0f, length * 0.5f)
+                : new Vector3(
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    Mathf.Lerp(-length * 0.5f, length * 0.5f, t));
+            var seg = Primitive(PrimitiveType.Cube, "Seg" + i, root);
+            seg.localPosition = (prev + next) * 0.5f;
+            Vector3 segDir = (next - prev).normalized;
+            seg.localScale = new Vector3(
+                Mathf.Lerp(0.20f, 0.09f, t),
+                Mathf.Lerp(0.20f, 0.09f, t),
+                Mathf.Max(0.1f, Vector3.Distance(prev, next)));
+            if (segDir.sqrMagnitude > 0.001f && Mathf.Abs(segDir.z) < 0.999f)
+                seg.rotation = Quaternion.LookRotation(segDir, Vector3.up);
+            // Front half ramps to white-hot: the leading cube is the brightest point of the zap.
+            Materialize(seg, shader, Color.Lerp(color, Color.white, t * t * 0.7f));
+            prev = next;
+        }
+        return root;
+    }
+
+    /// <summary>1lv1: a scattered swarm of tiny bright spark motes flying forward — Volt Spark's body.
+    /// Unlike the ordered <see cref="Missile"/> volley (three aligned mini-stacks), this is a loose
+    /// cloud of small cubes jittered around the travel axis (+Z) and brightened toward white, so a
+    /// seeking spark reads as a crackle of static rather than a darts volley. Display-only: the homing
+    /// that makes Volt Spark seek is <see cref="ProjectileShape.Missile"/> on <c>spell.Shape</c>, and
+    /// this body is granted only through an authored <c>Look.DisplayShape</c>.</summary>
+    private static Transform SparkSwarm(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        int count = 9;
+        for (int i = 0; i < count; i++)
+        {
+            var mote = Primitive(PrimitiveType.Cube, "Spark" + i, root);
+            mote.localPosition = new Vector3(
+                UnityEngine.Random.Range(-0.13f, 0.13f),
+                UnityEngine.Random.Range(-0.13f, 0.13f),
+                UnityEngine.Random.Range(-0.16f, 0.22f));
+            mote.localScale = Vector3.one * UnityEngine.Random.Range(0.045f, 0.09f);
+            mote.localRotation = UnityEngine.Random.rotation;
+            Color c = i % 3 == 0
+                ? Color.Lerp(color, Color.white, 0.6f)
+                : Color.Lerp(color, Color.white, UnityEngine.Random.Range(0.15f, 0.45f));
+            Materialize(mote, shader, c);
+        }
+        return root;
+    }
+
+    /// <summary>1lv1: a heavy great-bolt — a long, thick jagged streak around a white-hot core, the
+    /// body Volt Bolt and Fury Bolt wear. Built like <see cref="Bolt"/> but longer (1.7 vs 1.25),
+    /// thicker, with a thin bright core rod magnetised down the middle of the jitter and trailing
+    /// flecks, so a charged heavy bolt reads as more mass than a plain zap. Display-only: no
+    /// behaviour rides on the shape.</summary>
+    private static Transform GreatBolt(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        int segments = 10;
+        float length = 1.7f;
+        float jitter = 0.11f;
+        Vector3 prev = new Vector3(0f, 0f, -length * 0.5f);
+        for (int i = 0; i < segments; i++)
+        {
+            float t = i / (float)(segments - 1);
+            Vector3 next = i == segments - 1
+                ? new Vector3(0f, 0f, length * 0.5f)
+                : new Vector3(
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    Mathf.Lerp(-length * 0.5f, length * 0.5f, t));
+            var seg = Primitive(PrimitiveType.Cube, "Seg" + i, root);
+            seg.localPosition = (prev + next) * 0.5f;
+            Vector3 segDir = (next - prev).normalized;
+            float w = Mathf.Lerp(0.26f, 0.10f, t);
+            seg.localScale = new Vector3(w, w, Mathf.Max(0.1f, Vector3.Distance(prev, next)));
+            if (segDir.sqrMagnitude > 0.001f && Mathf.Abs(segDir.z) < 0.999f)
+                seg.rotation = Quaternion.LookRotation(segDir, Vector3.up);
+            Materialize(seg, shader, color);
+            prev = next;
+        }
+        // White-hot core: a thin bright rod down the flight axis, so the great bolt has a hot centre
+        // the plain Bolt lacks (legibility at the thick segment widths).
+        var core = Primitive(PrimitiveType.Cube, "Core", root);
+        core.localScale = new Vector3(0.07f, 0.07f, length);
+        Materialize(core, shader, Color.Lerp(color, Color.white, 0.75f));
+        AddTrailingFlecks(root, shader, color, length * 0.5f + 0.05f, 3);
         return root;
     }
 

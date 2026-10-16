@@ -1,3 +1,60 @@
+## 1l110. Lightning tree rework Phase 1 (Volt bank) — reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l109`, so `1l110` (enumerate first — rule 8).
+Source: the user's **"the lightning skills are way too lame and basic, rework them"** (13 skills, four L2
+banks). Fixed decisions taken up front and not re-litigated here: keep the school-wide `Stagger`; ids are
+save keys and must not change; new models are procedural C# bodies; ship one commit per bank. All
+hypotheses below are about **how** to grant each new body, not whether to build it.
+
+**H1 — "the skills are lame because they lack distinct *mechanics*." CONFIRMED.** Reading the 13 rows
+(`SkillCatalog.Magic.cs` 149-192) showed six of them were the same `Bolt` projectile with different
+numbers, plus interchangeable `Zone` blobs. So the rework is a **delivery** change per skill first
+(Static Coil `Zone`→`Summon` is the Phase-1 instance), and the new body follows from the delivery.
+
+**H2 — "add `VoltBolt`/`SparkSwarm`/`GreatBolt` to the `Shape_Lightning` family so Lightning spells pick
+them." REJECTED.** Family membership feeds the deterministic `Auto` pick, so adding members *moves every
+other Lightning spell's* drawn body — the 1jt ratchet is about keys, but the same instinct (an axis can
+only split) forbids silently re-drawing spells nobody asked to change. The sanctioned route already in
+the codebase is an **authored-only** shape: `ProjectileShape.Wave` (SpellData.cs:119) is display-only and
+granted through the spell's own `projectileShape:`, which Fire Wave does. So Volt/Volt Bolt use
+`spell.Shape`. [rejected]
+
+**H3 — "grant all three through `spell.Shape` (uniform)." REJECTED for Volt Spark.** Volt Spark must be
+**homing**, and the only homing field is `spell.Shape == Missile` (`SpellEffect`). One value cannot be
+both the behaviour and the drawn body (rule 13: a gameplay field and a drawn field must not be merged),
+so Volt Spark keeps `spell.Shape = Missile` and grants `SparkSwarm` through `Look.DisplayShape` — the
+authored-only display route `Soul`/`Hand` already use. Both routes are legitimate; which one a spell uses
+is decided by whether the shape also *means* something to gameplay. [rejected for Spark; confirmed for Volt]
+
+**H4 — "Static Coil's turret can be a branch inside `SpellSummon.BuildVisual` keyed on spell id."
+REJECTED.** `BuildVisual` chooses familiar-ring vs totem from `_follow` alone; an id check there is a
+second spelling of the look, the failure mode rule 13 exists to stop (and this codebase has shipped two
+drifting palettes already). Precedent in the same file family is `ZoneBody`/`StormBody` — a drawn-only
+authored axis resolved by `SpellLook.Resolve`. So the new axis is `SummonBody { Inherit, Default,
+TeslaCoil }`, `Inherit` → `Default` (the component's existing choice), authored-only grant of
+`TeslaCoil`. [rejected]
+
+**H5 — "the `Lance` method survived my model-builder edit." REJECTED (a real bug I introduced).** The
+insertion of the three new builders landed *over* the `Lance` signature + doc comment, leaving an orphan
+`{` at class scope. Evidence: `StaticChecks.ps1` reported braces/parens **balanced** (the orphan `{` was
+matched by the method's own closing brace elsewhere), so the instrument cannot see it — rule 3's caveat
+that a green check is "not compiled" in action. Caught by rereading the diff, fixed by restoring the
+signature + comment. Dead end recorded so the next editor re-reads model-builder diffs by eye. [rejected
+— bug fixed]
+
+**H6 — "`magic-skills.md` is an authoritative inventory of the Lightning tree." REJECTED.** It is
+**stale on rows I did not touch**: line 250 documents `magic_lightning_fury_beam` as "Sky Beam ... Beam
+... channels 10 FP/s" while the code has it as display-name "Static Nova", `Zone` + `centerOnCaster`; and
+the passive rows contradict the code (`High Potential` doc "+3 Intelligence" vs
+`Perk(CooldownReductionPercent, 3f)`). Pre-existing drift, **out of scope** (rule 14 — don't chase
+orphans outside the task), except the four rows and two tables this task edits, which were brought in
+line. [rejected as authority]
+
+**Open / to confirm in the play-test:** the F4 `authored` count is *predicted* +2 → 29 (Volt Spark and
+Static Coil gained profiles; Volt/Volt Bolt did not) — measured only by the lane, never "fixed" to match
+a guess. Whether the coil turret's 6 s / 0.55 s cadence feels right, and whether `SparkSwarm`'s nine
+motes read as a crackle rather than a scatter, are play-test judgements.
+
 ## 1l109. Charged projectiles: crash dent + contact hitbox grow with charge — reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l108`, so `1l109` (enumerate first — rule 8).

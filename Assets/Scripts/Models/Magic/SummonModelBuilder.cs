@@ -155,6 +155,65 @@ public static class SummonModelBuilder
         return new Body { CoreBaseScale = head.localScale, Cores = new[] { head } };
     }
 
+    /// <summary>1lv1: Static Coil's body — a stationary spire. A base disc under a central rod
+    /// ringed by a tapering stack of coil turns, capped by one bright emitter orb from which the
+    /// turret's bolts leave. Unlike <see cref="BuildTotem"/> it has no orbiting shards (nothing here
+    /// moves) and unlike <see cref="BuildFamiliarCircle"/> it does not follow — it is bolted to the
+    /// ground, so the read is "a device you deploy" rather than "a spirit that walks with you".
+    /// <para>The emitter is the single pulsing core (the same <c>CoreBaseScale * pulse</c> contract
+    /// every summon body honours; see <see cref="Body"/>). Reached only through an authored
+    /// <c>SummonBody.TeslaCoil</c> (rule 13: one resolver, one drawn body).</para></summary>
+    public static Body BuildTeslaCoil(Transform parent, Color color)
+    {
+        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        if (shader == null) return default(Body);
+
+        var baseDisc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        baseDisc.name = "CoilBase";
+        DestroyCollider(baseDisc.transform);
+        baseDisc.transform.SetParent(parent, false);
+        baseDisc.transform.localPosition = new Vector3(0f, 0.06f, 0f);
+        baseDisc.transform.localScale = new Vector3(0.85f, 0.06f, 0.85f);
+        SetMaterial(baseDisc.transform, shader, color);
+
+        // Central rod the coil is wound around. Thin in XZ, tall in Y, so the rings read as turns
+        // around a core rather than as a solid stack.
+        var rod = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        rod.name = "CoilRod";
+        DestroyCollider(rod.transform);
+        rod.transform.SetParent(parent, false);
+        rod.transform.localPosition = new Vector3(0f, 0.85f, 0f);
+        rod.transform.localScale = new Vector3(0.14f, 0.85f, 0.14f);
+        SetMaterial(rod.transform, shader, new Color(color.r * 0.6f, color.g * 0.6f, color.b * 0.6f, color.a));
+
+        // Tapering coil turns: flat discs of decreasing radius climbing the rod, each a hair narrower
+        // than the last, so the silhouette narrows toward the emitter like a real coil winding.
+        const int turns = 4;
+        for (int i = 0; i < turns; i++)
+        {
+            float t = i / (float)(turns - 1);
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "CoilTurn" + i;
+            DestroyCollider(ring.transform);
+            ring.transform.SetParent(parent, false);
+            ring.transform.localPosition = new Vector3(0f, 0.35f + i * 0.28f, 0f);
+            float r = Mathf.Lerp(0.46f, 0.26f, t);
+            ring.transform.localScale = new Vector3(r, 0.05f, r);
+            SetMaterial(ring.transform, shader, color);
+        }
+
+        // Emitter: the bright cap and the pulsing core every summon body exposes.
+        Transform emitter = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
+        emitter.name = "CoilEmitter";
+        DestroyCollider(emitter);
+        emitter.SetParent(parent, false);
+        emitter.localPosition = new Vector3(0f, 1.55f, 0f);
+        emitter.localScale = Vector3.one * 0.4f;
+        SetMaterial(emitter, shader, Color.Lerp(color, Color.white, 0.4f));
+
+        return new Body { CoreBaseScale = emitter.localScale, Cores = new[] { emitter } };
+    }
+
     /// <summary>What <see cref="BuildAlly"/> hands back: every renderer it created, so the component
     /// can fade the whole body out and not just one limb. A single-renderer ally was fine while the
     /// body was one cube; six parts with one faded limb reads as a bug, so the handle is the whole set

@@ -332,6 +332,11 @@ public class SpellSummon : MonoBehaviour
     /// <summary>Builds the construct's body: the totem (base disc + tapered pillar + pulsing head
     /// crystal + orbiting shards), or the familiar's ring when the summon is caster-anchored (1l6p: a
     /// vertical ring of launch orbs, not the old ground circle).
+    /// <para><b>1lv1 adds an authored third body.</b> A summon whose look grants
+    /// <see cref="SummonBody.TeslaCoil"/> draws the stationary coil spire instead (Static Coil), so
+    /// this one node owns all three shapes and the flag can only ever pick one — the drawn body and
+    /// the flag cannot half-enable. Every other summon still resolves to <see cref="SummonBody.Default"/>
+    /// and takes the follow/totem branch unchanged.</para>
     /// <para>1jd: the geometry now lives in <see cref="SummonModelBuilder"/> (under
     /// <c>Models/Magic/</c>), so "summon model" is findable by name and by folder. The shapes, the
     /// names and the pulse are unchanged; the builder returns the pulsing orbs and the scale they
@@ -339,9 +344,11 @@ public class SpellSummon : MonoBehaviour
     /// the familiar fires each bolt from a random rim orb).</para></summary>
     private void BuildVisual()
     {
-        SummonModelBuilder.Body body = _follow
-            ? SummonModelBuilder.BuildFamiliarCircle(transform, _color)
-            : SummonModelBuilder.BuildTotem(transform, _color);
+        SummonModelBuilder.Body body = _look.SummonBodyModel == SummonBody.TeslaCoil
+            ? SummonModelBuilder.BuildTeslaCoil(transform, _color)
+            : _follow
+                ? SummonModelBuilder.BuildFamiliarCircle(transform, _color)
+                : SummonModelBuilder.BuildTotem(transform, _color);
         _cores = body.Cores;
         _coreBaseScale = body.CoreBaseScale;
     }

@@ -189,6 +189,36 @@ public enum StormBody
 }
 
 /// <summary>
+/// Drawn body family for a <c>SpellDelivery.Summon</c> spell (1lv1) — what a persistent construct
+/// looks like while it lives. <b>Authored-only, like <see cref="ZoneBody"/>/<see cref="StormBody"/>:</b>
+/// a summon body is a structural statement about what the construct IS (a walking totem, a familiar's
+/// ring, a stationary coil), not a jitter, so there is no school family and no deterministic
+/// <see cref="SpellLook.Pick"/>.
+/// <para><b>The default is NOT a single body, which is why <see cref="Default"/> exists.</b> Every
+/// other summon axis resolves to one concrete body; a summon's standard body is chosen by the
+/// component (a caster-anchored familiar draws the ring, everything else the totem — see
+/// <c>SpellSummon.BuildVisual</c>). <see cref="Inherit"/> therefore resolves to
+/// <see cref="Default"/> — "let the component decide", which for a non-caster-anchored summon means
+/// the totem — and only an authored profile may grant <see cref="TeslaCoil"/>.</para>
+/// <para><b>Read by <c>SpellSummon.BuildVisual</c> and by the QA magic-model bench, so the axis has
+/// an acceptance readout (rule 13).</b> Placement/reach/lifetime still come from the spell's own
+/// fields; this axis is drawn-only and never touches delivery.</para>
+/// </summary>
+public enum SummonBody
+{
+    /// <summary>No authored opinion — <see cref="Default"/> (the component's own body choice).</summary>
+    Inherit = 0,
+    /// <summary>The component's standard construct: the caster-anchored familiar's launch-orb ring
+    /// when the summon follows the caster, otherwise the base-and-pillar totem. Every summon resolves
+    /// here unless a profile grants <see cref="TeslaCoil"/>.</summary>
+    Default = 1,
+    /// <summary>1lv1 Static Coil's body: a stationary spire — a base disc under a tapering stack of
+    /// coil rings, capped by one bright emitter orb from which its bolts leave. No spin, no orbit; it
+    /// is bolted to the ground and reads as a turret rather than a walking summon.</summary>
+    TeslaCoil = 2
+}
+
+/// <summary>
 /// Hand-authored per-spell nudges on top of the deterministic look (1ib). Every field is a
 /// *multiplier or a sentinel*, never an absolute colour: a profile can shift a spell within its
 /// school's family but cannot repaint it out of it, which is what keeps a Fire spell reading as fire.
@@ -221,6 +251,8 @@ public sealed class SpellLookProfile
     public ZoneBody ZoneBody = ZoneBody.Inherit;
     [Tooltip("Persistent-storm body for a Storm spell (1kf). Inherit = none — spawn ring + strike flashes only.")]
     public StormBody StormBody = StormBody.Inherit;
+    [Tooltip("Drawn body for a Summon spell (1lv1). Inherit = the component's own choice (familiar ring when caster-anchored, else totem).")]
+    public SummonBody SummonBody = SummonBody.Inherit;
 }
 
 /// <summary>
@@ -312,13 +344,18 @@ public readonly struct SpellLook
     /// (<see cref="StormBody.None"/> for every spell but Firestorm and Blizzard) because there is no
     /// deterministic pick for this axis.</summary>
     public readonly StormBody StormBodyModel;
+    /// <summary>Drawn summon body (1lv1). Same write-only sentinel contract as
+    /// <see cref="ZoneModel"/>: a resolved look is always a real body
+    /// (<see cref="SummonBody.Default"/> for every non-authored summon) because there is no
+    /// deterministic pick for this axis.</summary>
+    public readonly SummonBody SummonBodyModel;
     /// <summary>True when an authored <see cref="SpellLookProfile"/> supplied at least one field.</summary>
     public readonly bool Authored;
 
     private SpellLook(Color core, Color edge, Color trail, float scale, float tempo,
         SpellImpactStyle impact, SpellCastStyle cast, ProjectileShape displayShape,
         SkyRockStyle skyRock, SpellCastAnchor castAnchor, ZoneBody zoneModel,
-        StormBody stormBodyModel, bool authored)
+        StormBody stormBodyModel, SummonBody summonBodyModel, bool authored)
     {
         Core = core;
         Edge = edge;
@@ -332,6 +369,7 @@ public readonly struct SpellLook
         CastAnchor = castAnchor;
         ZoneModel = zoneModel;
         StormBodyModel = stormBodyModel;
+        SummonBodyModel = summonBodyModel;
         Authored = authored;
     }
 
@@ -457,6 +495,11 @@ public readonly struct SpellLook
         // grant the pre-1kc conflagration funnel. See StormBody's remarks.
         StormBody stormBody = StormBody.None;
 
+        // 1lv1: the summon body follows the same authored-only pattern, but its default is the
+        // component's own choice (Default), not a single body — see SummonBody's remarks. Only an
+        // authored profile (Static Coil's) may grant TeslaCoil.
+        SummonBody summonBody = SummonBody.Default;
+
         // 1jt: the cast anchor is derived from DELIVERY, not picked. A Summon is cast on yourself
         // (something appears where you stand); everything else is cast at something in front of you.
         // The authored profile below is the only thing that may override it, which is how the two
@@ -484,13 +527,14 @@ public readonly struct SpellLook
             if (p.SkyRock != SkyRockStyle.Inherit) skyRock = p.SkyRock;
             if (p.ZoneBody != ZoneBody.Inherit) zoneModel = p.ZoneBody;
             if (p.StormBody != StormBody.Inherit) stormBody = p.StormBody;
+            if (p.SummonBody != SummonBody.Inherit) summonBody = p.SummonBody;
         }
 
         Color baseColor = SchoolColor(type);
         Color core = Tint(baseColor, hueShift, satScale, valueScale);
         Color edge = EdgeFor(core, rC);
         return new SpellLook(core, edge, TrailColor(type), Mathf.Clamp(scale, 0.55f, 1.7f), Mathf.Clamp(tempo, 0.6f, 1.6f),
-            impact, cast, display, skyRock, castAnchor, zoneModel, stormBody, authored);
+            impact, cast, display, skyRock, castAnchor, zoneModel, stormBody, summonBody, authored);
     }
 
     /// <summary>
@@ -509,7 +553,7 @@ public readonly struct SpellLook
         ProjectileShape display = shape != ProjectileShape.Auto ? shape : Pick(fam.Shapes, 0.5f);
         return new SpellLook(baseColor, EdgeFor(baseColor, 0.5f), TrailColor(type), 1f, 1f,
             fam.Impact[0], fam.Cast[0], display, SkyRockStyle.Boulder, SpellCastAnchor.Front, ZoneBody.Funnel,
-            StormBody.None, false);
+            StormBody.None, SummonBody.Default, false);
     }
 
     // (1ig: `Fingerprint` was deleted here. 1ib built it as the 1ic audit's measuring instrument

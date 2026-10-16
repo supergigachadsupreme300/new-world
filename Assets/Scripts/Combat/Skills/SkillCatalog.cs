@@ -154,7 +154,7 @@ public static partial class SkillCatalog
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
         ProjectileShape shape = ProjectileShape.Auto, SkyRockStyle skyrock = SkyRockStyle.Inherit,
         SpellCastAnchor castAnchor = SpellCastAnchor.Inherit, ZoneBody zoneBody = ZoneBody.Inherit,
-        StormBody stormBody = StormBody.Inherit)
+        StormBody stormBody = StormBody.Inherit, SummonBody summonBody = SummonBody.Inherit)
         => new SpellLookProfile
         {
             Impact = impact,
@@ -168,7 +168,8 @@ public static partial class SkillCatalog
             SkyRock = skyrock,
             CastAnchor = castAnchor,
             ZoneBody = zoneBody,
-            StormBody = stormBody
+            StormBody = stormBody,
+            SummonBody = summonBody
         };
 
     private static SpellCastEffect Spell(string spellId, string spellName, DamageType type,

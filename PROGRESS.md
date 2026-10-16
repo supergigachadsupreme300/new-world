@@ -1,3 +1,75 @@
+## 1l110. Lightning tree rework, Phase 1 of 4 — the `magic_lightning_volt` bank (Volt / Volt Spark / Volt Bolt / Static Coil)
+
+The user: the 13 Lightning skills are **"way too lame and basic"** and want a full rework — new
+mechanics, new procedural models, new names, rebudgeted power/FP/cooldown. Fixed decisions: keep
+Lightning's school-wide `Stagger`; delivery reclassifications and display-name renames are allowed but
+**skill ids must not change** (they are save/load keys — `SaveManager.learnedSkills` /
+`SkillProfile.LearnedSkillIds` / `RestoreState`); "new models" means new procedural voxel bodies in C#
+(the repo has 0 model files); the work ships **one commit per L2 tree bank**. This is Phase 1, the
+`magic_lightning_volt` bank; Phases 2-4 (storm / fury / chain) are pending.
+
+**The four skills (`SkillCatalog.Magic.cs`).**
+- **Volt** (`magic_lightning_volt`) — a cheap, rapid zap: power 16 / FP 8 / cd 1.6 s / range 11 /
+  speed 36, `projectileShape: ProjectileShape.VoltBolt`. Rebudgeted from a slow 26/16/4 s bolt.
+- **Volt Spark** (`magic_lightning_volt_spark`) — a homing spark swarm: power 22 / FP 13 / cd 3 s /
+  range 12, `projectileShape: Missile` (homing **needs** `Missile`) + `Look(shape: SparkSwarm)` for the
+  drawn crackle.
+- **Volt Bolt** (`magic_lightning_volt_bolt`) — the heavy hit: power 40 / FP 24 / cd 5 s / range 15 /
+  knockback 3.5 / speed 16, `projectileShape: GreatBolt`.
+- **Static Coil** (`magic_lightning_volt_charge`) — **delivery reclassified `Zone` → `Summon`**: a
+  stationary zapper turret (power 26 / FP 18 / cd 9 s / range 8 / radius 5.5 / 6 s / 0.55 s ticks /
+  splash 1.6) + `Look(summonBody: SummonBody.TeslaCoil)`.
+
+**Three new shapes, and why each is granted where it is.** `ProjectileShape.VoltBolt/SparkSwarm/GreatBolt`
+(16/17/18) plus builders in `MagicProjectileModelBuilder` (a short chunky jagged streak; a cloud of
+jittered motes; a heavy core-rodded bolt). **Volt and Volt Bolt grant their body through the spell's own
+`projectileShape` (`spell.Shape`)** — the same authored-only route `ProjectileShape.Wave` already uses —
+and are deliberately **not** added to `Shape_Lightning`, so no other Lightning spell's `Auto` pick moves.
+**Volt Spark grants its body through `Look.DisplayShape`** instead, because `spell.Shape` must stay
+`Missile` for the homing; `SparkSwarm` is authored-only, the `Soul`/`Hand` contract.
+
+**New drawn-only axis `SummonBody` (rule 13).** Static Coil's delivery change *is* the rework, but its
+*body* had nowhere to live: `SpellSummon.BuildVisual` picked familiar-ring-or-totem from `_follow`
+alone, so a new construct would need an id check inside the component (forbidden). `SummonBody` joins the
+look layer like `ZoneBody`/`StormBody`: `Inherit` → `Default` (the component's own choice), and only an
+authored profile grants `TeslaCoil`. `SummonModelBuilder.BuildTeslaCoil` draws a ground disc, four
+tapering coil turns and one emitter orb in the spell's `Core`. The QA bench mounts the same builder and
+gained a `summon bodies:` F4 row + the axis's 2 bits at 43.
+
+### 1l110-status
+- Files: `Assets/Scripts/Magic/Cast/SpellData.cs` (3 enum members + docs),
+  `Assets/Scripts/Magic/Look/SpellLook.cs` (`SummonBody` enum / profile field / struct field / ctor arg
+  + both resolvers + the two `new SpellLook(` sites), `Assets/Scripts/Combat/Skills/SkillCatalog.cs` and
+  `ClassSkillCatalog.cs` (both `Look()` overloads gained `summonBody`), `Assets/Scripts/Models/Magic/
+  MagicProjectileModelBuilder.cs` (3 dispatch cases + builders), `Assets/Scripts/Models/Magic/
+  SummonModelBuilder.cs` (`BuildTeslaCoil`), `Assets/Scripts/Magic/Cast/SpellSummon.cs` (`BuildVisual`
+  branch), `Assets/Scripts/Combat/Skills/SkillCatalog.Magic.cs` (the 4 rows),
+  `Assets/Scripts/Opt/NewWorldTestGround.cs` (TeslaCoil bench branch, `bySummon`, `summon bodies:`
+  count, `LookKey` bit 43, `Describe`, header text), `game-design.md` (new §3.8.6, 3 shape rows, Bolt
+  name list, magic-grid paragraph), `magic-skills.md`, `PROGRESS.md`, `THINKING.md`.
+- Verified by grep + reread (rule 3, **no build**): enum values VoltBolt=16 / SparkSwarm=17 /
+  GreatBolt=18; `BuildProjectileBody` is a switch **statement** with a `default:`; the two `new
+  SpellLook(` sites act as the ctor-arg compiler and both were updated; `spell.Shape` readers are only
+  `SpellEffect`'s `== Missile` homing and `SpellLook.Resolve`; `.Authored` is read only by the bench.
+  Static Coil mirrors the well-precedented non-caster-anchored Summon shape (Gust Totem: range 8 /
+  radius 5.5 / 6 s), so that placement path is exercised, not new. `tools\StaticChecks.ps1` →
+  **0 candidates** (braces/parens balanced).
+- **Landmine found and fixed mid-task:** a `MagicProjectileModelBuilder.cs` insertion deleted the
+  `Lance` method signature and its doc comment, leaving an orphan `{` at class scope — which
+  StaticChecks' brace-balance check does **not** catch. Restored (recorded in THINKING).
+- Not a compile: behaviour is verified by reread; the Unity play-test is the compiler.
+- skills: `scenario-unity-vfx` loaded — **informative only**. It matched the topic (procedural VFX
+  bodies) but not the artifact (a C# edit reviewed by a human), and it targets a live Unity editor over
+  MCP, which rule 3 forbids; its guidance was informative, not authoritative (rule 15).
+- Predicted F4 deltas (state them; do not "fix" the readout to match): `authored` **+2 → 29** (Volt
+  Spark and Static Coil gained profiles; Volt / Volt Bolt stayed unauthored, using `spell.Shape`), and a
+  new `summon bodies:` row (Default = every summon but Static Coil; TeslaCoil = 1). The 1jt ratchet
+  holds by construction.
+- Play-test: cast each of the four — Volt a fast cheap zap, Volt Spark should **seek** a foe with a
+  crackle of motes, Volt Bolt a heavy knockback bolt, and Static Coil should plant a **coil turret** that
+  zaps nearby foes for 6 s (not a ground burst). Then F4 (`MagicTestMatrix`) to confirm `authored = 29`
+  and `summon bodies:` = Default many / TeslaCoil 1.
+
 ## 1l109. Charged projectiles: the crash dent and the contact hitbox now grow with charge
 
 The user: **"no matter how much a projectile is casted the crash size would pretty much the same,

@@ -829,10 +829,12 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
   `summonFallingRock` spells show their real falling formation via `SkillFx.BuildRockBody` —
   Fire Asteroid's Swarm left with 1ir, so every one of them is now the boulder, drawn at a stated
   0.35× of the live blast radius so the 3 m grid stays legible — and zone/beam/storm/summon/instant
-  spells show their school-colored default icon). Since 1ir that last clause has three branches and
-  not one: a **cone beam** mounts the live `SpellBeam.BuildConeVisual` wedge, a **caster-anchored
+  spells show their school-colored default icon). Since 1ir that last clause has had **branches rather
+  than one**: a **cone beam** mounts the live `SpellBeam.BuildConeVisual` wedge, a **caster-anchored
   summon** mounts its familiar ring via the live `SummonModelBuilder.BuildFamiliarCircle` (1l6p; a
-  flat ground circle + core before that), and anything else shows the default icon — before 1ir both
+  flat ground circle + core before that), a **ground summon** whose look grants
+  `SummonBody.TeslaCoil` mounts the live `SummonModelBuilder.BuildTeslaCoil` spire (1l110), and
+  anything else shows the default icon — before 1ir both
   of the new spells fell through to `CreateProjectileDisplay`, which has no body for a Beam or a
   familiar, so the bench would have kept reporting the generic orb for exactly the two deliveries
   1ir changed) + a world-TMP label — pure visuals (no colliders/interaction) so each spell's magic model can be
@@ -2327,10 +2329,13 @@ built once and fully static (no sphere meshes remain on projectiles):
 
 | Shape | Rendered as |
 |---|---|
-| **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Volt, Fork/Leap/Arc/Volt Bolt, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. |
+| **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Fork/Leap/Arc, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. (1l110: Volt left it for `VoltBolt` and Volt Bolt for `GreatBolt`.) |
 | **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Frost Bite use the Comet shape instead.) |
 | **Ball** | 1l71: the round hot voxel orb — the shape that used to be called **Shard** and drawn as a diamond (the fireball look the user asked to become a ball) is renamed and rebuilt as the round cluster. It takes the diamond's slot in **Fire's** family only (`Sphere, Comet, Ball`), so a Fire Auto spell reads as a ball, never a chip. |
 | **Shard** | 1l71: a thin long flat triangle — a 5-cube sliver tapering to a point along the flight line, paper-thin edge-on. The diamond's old "frost & stone chips" identity, rebuilt flat; it now sits in the diamond's slot in the seven chip families (Ice, Lightning, Holy, Dark, Earth, Water, Arcane). |
+| **VoltBolt** | 1l110: a short, chunky jagged streak - 6 segments over 0.9 m tapering 0.20→0.09, with the front half ramping toward white-hot (`Color.Lerp(color, white, t*t*0.7f)`) so the leading cube reads as the zap's point. Volt. Display-only, granted through the spell's own `projectileShape` (`spell.Shape`, the route `Wave` already uses for an authored-only body); deliberately **not** added to `Shape_Lightning`, so no other Lightning spell's `Auto` pick moves. |
+| **SparkSwarm** | 1l110: nine tiny bright motes jittered in a loose cloud around the travel axis (±0.13 on X/Y, -0.16→0.22 on Z, sizes 0.045-0.09, a third of them lerped 0.6 toward white) - a crackle of static rather than a dart volley. **Display-only and authored-only** (same contract as **Soul**/**Hand**): the homing that makes Volt Spark seek rides on `Missile` in `spell.Shape`, and this body is granted through `Look.DisplayShape`. |
+| **GreatBolt** | 1l110: the heavy bolt - 10 segments over 1.7 m tapering 0.26→0.10 wrapped around a 0.07 white-hot core rod and shedding 3 trailing flecks, so a charged bolt reads as more mass than a plain zap. Volt Bolt. Display-only, granted through `spell.Shape` like **VoltBolt**, not in `Shape_Lightning`. |
 | **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the spell's own impact family from the pooled `SpellImpactFx` dispatcher (1id) rather than the *excavation* cube burst (that one is stratum-tinted dirt thrown upward — 1gb), and 1jh adds grey rock chips thrown forward from the hit point on top of it; the embedded model cubes only remain as the pickaxe/mining look (1de). |
 | **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
@@ -2866,6 +2871,33 @@ per-ring vertical span opened past 1 the stack read as separate plates with dayl
 firestorm skill models has gaps between cubes"). Each ring is now given a thickness that overlaps its
 neighbour, the same overlap the beam funnel uses at its mouth, so the tornado reads as one body. Drawn
 only: `Funnel` stays `Funnel` for every non-authored zone, so no F4 key moves and `authored` is unchanged.
+
+#### 3.8.6 Ground-Summon Bodies - `SummonBody` (1l110)
+
+**The Lightning rework's turret is a third drawn-only axis, same contract as `ZoneBody`/`StormBody`.**
+Phase 1 of the L2 Lightning rework turned Static Coil (`magic_lightning_volt_charge`) from a 2.2 m ground
+`Zone` into a stationary `SpellDelivery.Summon` "zapper" (range 8, radius 5.5, 6 s, 0.55 s ticks). That
+delivery change **is** the rework and it is legal, because `ResolveSummon` is the resolver the spell now
+wants — but the *body* the player sees is a separate decision. `SpellSummon.BuildVisual` chose the
+familiar ring or the totem from `_follow` alone, so a new construct had nowhere to live without a second
+id check inside the component, the exact move rule 13 forbids.
+
+**`SummonBody` has no school family and no deterministic pick:** `Inherit` always resolves to `Default`
+(the component's existing `_follow ? BuildFamiliarCircle : BuildTotem` choice), and only an authored
+profile may grant `TeslaCoil` (value 2). `SpellSummon.BuildVisual` reads the resolved
+`_look.SummonBodyModel`: TeslaCoil -> `SummonModelBuilder.BuildTeslaCoil` (a ground disc, four tapering
+coil turns and one emitter orb, all in the spell's `Core`), anything else -> the component's own choice.
+Static Coil's new profile carries only this axis (`Impact`/`Cast` left `Inherit`), so its deterministic
+Lightning look is unchanged bar the body. The **QA bench** mounts the same `BuildTeslaCoil` when
+`_look.SummonBodyModel == SummonBody.TeslaCoil`, so the coil is judged on a pedestal rather than as the
+default icon, and its F4 audit gained a `summon bodies:` row plus the axis's 2 bits at **43** (value 1 =
+Default, 2 = TeslaCoil — the first free bits above `StormBody` at 40-42).
+
+**F4 impact:** because the axis resolves to `Default` for every non-authored summon, every existing key
+is byte-identical; only Static Coil's key gains bits. This task also authored Volt Spark's shape-only
+profile (`Look(shape: SparkSwarm)`), so `authored` carries a **predicted** delta of +2 (27 -> 29) — the
+lane confirms it; the 1jt ratchet (an axis can only split a group, never merge one) holds by
+construction, not by a lane run. The skill id is unchanged, so the tree and every save key hold.
 
 #### Spell Sources
 

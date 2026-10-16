@@ -1738,6 +1738,10 @@ public sealed class NewWorldTestGround : MonoBehaviour
         // spell until a profile grants Funnel, which exactly one does (Firestorm). Reported for the
         // same reason as byZone: it is packed into LookKey below.
         var byStorm = new Dictionary<StormBody, int>();
+        // 1lv1: the summon-body axis, the same contract again — Default for every summon until a
+        // profile grants TeslaCoil, which exactly one does (Static Coil). Reported for the same reason
+        // as byZone: it is packed into LookKey below.
+        var bySummon = new Dictionary<SummonBody, int>();
         int total = 0;
         int authored = 0;
         var seen = new HashSet<string>();
@@ -1758,6 +1762,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
             Bump(byAnchor, look.CastAnchor);
             Bump(byZone, look.ZoneModel);
             Bump(byStorm, look.StormBodyModel);
+            Bump(bySummon, look.SummonBodyModel);
             ulong key = LookKey(look);
             if (!groups.TryGetValue(key, out var list))
             {
@@ -1801,7 +1806,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append("look audit: ").Append(total).Append(" spells, ").Append(groups.Count)
           .Append(" distinct identities, ").Append(colliding).Append(" colliding groups")
           .Append(" (worst ").Append(worstText).Append("), ").Append(authored)
-          .Append(" authored profiles. axes = impact+cast+shape+skyrock+anchor+zone+stormbody+coreRGB@8bit (scale/tempo excluded)");
+          .Append(" authored profiles. axes = impact+cast+shape+skyrock+anchor+zone+stormbody+summonbody+coreRGB@8bit (scale/tempo excluded)");
         _lookAuditText = sb.ToString();
         _lookAuditRun = true;
         Debug.Log("[NewWorldTestGround] " + _lookAuditText);
@@ -1817,6 +1822,8 @@ public sealed class NewWorldTestGround : MonoBehaviour
           .Append("   (1kc: Funnel for every non-authored zone; VortexCircle = Conflagration's own body)");
         sb.Append('\n').Append("  storm bodies:   ").Append(CountLine(byStorm))
           .Append("   (1kf: None for every spell but Firestorm and Blizzard; Funnel = Firestorm's pre-1kc conflagration tornado; 1l100 VortexCircle = Blizzard's conflagration body)");
+        sb.Append('\n').Append("  summon bodies:  ").Append(CountLine(bySummon))
+          .Append("   (1lv1: Default for every summon; TeslaCoil = Static Coil's stationary spire)");
         foreach (var kv in groups)
         {
             if (kv.Value.Count < 2) continue;
@@ -1882,6 +1889,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
                  | ((ulong)(uint)look.CastAnchor << 36)
                  | ((ulong)(uint)look.ZoneModel << 38)
                  | ((ulong)(uint)look.StormBodyModel << 40)
+                 | ((ulong)(uint)look.SummonBodyModel << 43)
                  | ((ulong)(uint)r << 16) | ((ulong)(uint)g << 8) | (ulong)(uint)b;
         }
 
@@ -1908,6 +1916,7 @@ private static string Describe(in SpellLook look)
     => "(" + look.Impact + "/" + look.Cast + "/" + look.DisplayShape + "/" + look.SkyRock + "/"
     + (look.CastAnchor == SpellCastAnchor.Feet ? "feet" : "front") + "/" + look.ZoneModel + "/"
     + look.StormBodyModel + "/"
+    + look.SummonBodyModel + "/"
     + look.Core.r.ToString("F2") + "," + look.Core.g.ToString("F2") + "," + look.Core.b.ToString("F2")
     + " trail " + look.Trail.r.ToString("F2") + "," + look.Trail.g.ToString("F2") + "," + look.Trail.b.ToString("F2")
     + (look.Authored ? " AUTHORED)" : ")");
@@ -2141,6 +2150,15 @@ private static string Describe(in SpellLook look)
                     spell.Radius,                                 // tip = deliveryRadius
                     funnelLook.Core,                              // orange body
                     SpellLook.HotCore(funnelLook.Core));           // yellow where the fire is born
+            }
+            // 1lv1: Static Coil's stationary coil spire — mounted via the SAME builder SpellSummon
+            // runs, for the same rule-13 reason as every branch above: a summon body that exists only
+            // inside a live cast has no acceptance readout. A Summon with no caster-anchor would
+            // otherwise fall through to the generic orb, so this branch is what lets the new coil be
+            // judged on the pedestal.
+            else if (SpellLook.Resolve(spell).SummonBodyModel == SummonBody.TeslaCoil)
+            {
+                SummonModelBuilder.BuildTeslaCoil(modelRoot.transform, SpellLook.Resolve(spell).Core);
             }
             else if (spell.CasterAnchored)
             {
