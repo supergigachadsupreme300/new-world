@@ -1816,7 +1816,7 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append('\n').Append("  zone bodies:    ").Append(CountLine(byZone))
           .Append("   (1kc: Funnel for every non-authored zone; VortexCircle = Conflagration's own body)");
         sb.Append('\n').Append("  storm bodies:   ").Append(CountLine(byStorm))
-          .Append("   (1kf: None for every spell but Firestorm; Funnel = the pre-1kc conflagration tornado)");
+          .Append("   (1kf: None for every spell but Firestorm and Blizzard; Funnel = Firestorm's pre-1kc conflagration tornado; 1l100 VortexCircle = Blizzard's conflagration body)");
         foreach (var kv in groups)
         {
             if (kv.Value.Count < 2) continue;
@@ -1838,6 +1838,16 @@ public sealed class NewWorldTestGround : MonoBehaviour
     /// `storm bodies:` reads `Funnel=1` with `None` taking the rest. Firestorm's key moving can only
     /// SPLIT it from a former group (the Funnel bits are unique to it), so `colliding` may drop by
     /// one and never rise - the same one-way ratchet 1f7 described.</para>
+    /// <para><b>1l100 gives StormBody a fifth value (Blizzard's <see cref="StormBody.VortexCircle"/>),
+    /// so its field now reaches bit 42.</b> The pack shift is still <c>&lt;&lt; 40</c>; a value of 4 is
+    /// <c>0b100</c> and sets bit 40+2. Bit 42 was the first unused bit above the axis block (the
+    /// highest set bit used to be 41, StormBody's own top bit), and no other axis reaches it, so the
+    /// spill is safe by construction - but it is a real widening, not a no-op: the field is now 3
+    /// bits (40..42) where the header said 2. Predicted deltas: Blizzard is already authored (1l100
+    /// only adds a field to an existing profile), so `authored` is UNCHANGED; the ONLY key that moves
+    /// is Blizzard's (its storm bits None→VortexCircle), and the `storm bodies:` line reads
+    /// `Funnel=1 None=<rest> VortexCircle=1`. As with 1kc, a key that moves can only SPLIT a group,
+    /// so `colliding`/`worst` may fall and can never rise.</para>
     /// <para><b>1kc adds ZoneBody's 2 bits at 38</b>, under the same contract as 1f7's: the axis is
     /// resolved to <see cref="ZoneBody.Funnel"/> for every non-authored spell, so no existing key
     /// moves and `M`/`colliding` are untouched — the ONLY key that changes is Conflagration's, which
@@ -2080,6 +2090,16 @@ private static string Describe(in SpellLook look)
             {
                 var sl = SpellLook.Resolve(spell);
                 SpellZoneModelBuilder.BuildFrozenField(modelRoot.transform, spell.Radius,
+                    sl.Core, sl.Edge);
+            }
+            // 1l100: Blizzard's conflagration body, mounted as a STORM axis — the SAME builder
+            // Conflagration's SpellZone runs (like the ZoneBody.VortexCircle branch above), so the
+            // rising-ring body reads on the pedestal without a live cast. The second colour is the
+            // spell's Edge, mirroring SpellStorm's ice choice (Conflagration passes HotCore).
+            else if (SpellLook.Resolve(spell).StormBodyModel == StormBody.VortexCircle)
+            {
+                var sl = SpellLook.Resolve(spell);
+                SpellZoneModelBuilder.BuildConflagration(modelRoot.transform, spell.Radius,
                     sl.Core, sl.Edge);
             }
             // 1ir: the two deliveries that have NO projectile body at all. Without these two branches

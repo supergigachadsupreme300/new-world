@@ -151,9 +151,10 @@ public enum ZoneBody
 /// Conflagration tornado on Firestorm WITHOUT moving it to <c>SpellDelivery.Vortex</c>, which would
 /// have changed resolution, added the pull and lost the per-strike flashes). <see cref="Inherit"/>
 /// resolves to <see cref="None"/> — storms draw only their spawn ring and per-strike flashes unless
-/// a profile says otherwise — and only an authored profile may grant <see cref="Funnel"/> or
-/// <see cref="FrozenField"/>; Firestorm authors <see cref="Funnel"/> (1kf), Deep Freeze authors
-/// <see cref="FrozenField"/> (1l70).
+/// a profile says otherwise — and only an authored profile may grant <see cref="Funnel"/>,
+/// <see cref="FrozenField"/> or <see cref="VortexCircle"/>; Firestorm authors <see cref="Funnel"/>
+/// (1kf), Deep Freeze authors <see cref="FrozenField"/> (1l70), Blizzard authors
+/// <see cref="VortexCircle"/> (1l100).
 /// <para><b>Read by <c>SpellStorm</c> (builds the body and spins its root the 240 deg/s the
 /// pre-1kc <c>SpellZone</c> pulled-vortex spin) and by the QA spell band's bench, so the axis has
 /// an acceptance readout.</b> Placement/sizing come from the storm's own charge-scaled Radius;
@@ -163,8 +164,9 @@ public enum StormBody
     /// <summary>No authored opinion — <see cref="None"/> (the storm draws no persistent body).</summary>
     Inherit = 0,
     /// <summary>No body: only the spawn ring and the per-strike flashes — every Storm spell
-    /// resolves here unless a profile grants <see cref="Funnel"/> or <see cref="FrozenField"/>
-    /// (other deliveries never read this axis; their own body axis is <see cref="ZoneBody"/>).</summary>
+    /// resolves here unless a profile grants <see cref="Funnel"/>, <see cref="FrozenField"/> or
+    /// <see cref="VortexCircle"/> (other deliveries never read this axis; their own body axis is
+    /// <see cref="ZoneBody"/>).</summary>
     None = 1,
     /// <summary>The generic whirling pull funnel: 7 spinning rings + 6 orbiting debris blocks
     /// (tornado/vortex) — the body Conflagration drew before 1kc, spinning with the storm root.
@@ -174,7 +176,16 @@ public enum StormBody
     /// disc ringed by a rosette of ice spikes, static under the storm's repeated freeze strikes.
     /// The same builder the zone variant used — one implementation, two delivery gates — and Deep
     /// Freeze is the only author (it left the Zone family in 1l70).</summary>
-    FrozenField = 3
+    FrozenField = 3,
+    /// <summary>The 1kc conflagration look (a flat ground circle with a rising, spinning curtain of
+    /// embers) mounted as a STORM body — <b>Blizzard's body</b> (1l100). The user asked for the
+    /// blizzard to wear the conflagration's model; reskinning a Storm in place is exactly the
+    /// rule-20 move (<c>StormBody.Funnel</c> did the same for Firestorm), where switching Blizzard to
+    /// <c>SpellDelivery.Vortex</c> would have changed its resolution and lost its per-strike chills.
+    /// One builder (<see cref="SpellZoneModelBuilder.BuildConflagration"/>), three gates: the
+    /// Conflagration Zone, this storm axis, and the QA bench. It does <b>not</b> spin its root — the
+    /// rising rings carry their own spin; only <see cref="Funnel"/> turns the storm root.</summary>
+    VortexCircle = 4
 }
 
 /// <summary>
@@ -298,7 +309,7 @@ public readonly struct SpellLook
     public readonly ZoneBody ZoneModel;
     /// <summary>Persistent-storm body (1kf). Same write-only sentinel contract as
     /// <see cref="ZoneModel"/>: a resolved look is always a real body
-    /// (<see cref="StormBody.None"/> for every spell but Firestorm) because there is no
+    /// (<see cref="StormBody.None"/> for every spell but Firestorm and Blizzard) because there is no
     /// deterministic pick for this axis.</summary>
     public readonly StormBody StormBodyModel;
     /// <summary>True when an authored <see cref="SpellLookProfile"/> supplied at least one field.</summary>

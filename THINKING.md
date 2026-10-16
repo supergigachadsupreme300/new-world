@@ -1,3 +1,43 @@
+## 1l100. Blizzard wears the conflagration model - reasoning trail (SHIPPED; play-test pending)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l99`, so this counts up to `1l100`
+(enumerate first - rule 8). Source: the user's request "Blizzard use the same model as Conflagration".
+
+**What "the conflagration model" IS.** `SpellZoneModelBuilder.BuildConflagration` - the 1kc ground
+disc + a `ConflagrationEmitter` streaming horizontal `RisingRing`s upward. It is reached only through
+`SpellZone.BuildVisual` when `ZoneModel == ZoneBody.VortexCircle`, i.e. through a `SpellDelivery.Zone`
+or `.Vortex`. Blizzard is a `.Storm`.
+
+**H1 - "change Blizzard to `SpellDelivery.Vortex` so it hits the existing branch". REJECTED (rule
+20).** Confirmed by reading `SpellStorm`/`SpellZone`: the storm path is what re-strikes and applies the
+per-tick Chill; moving delivery would delete that behaviour and add a pull. This is exactly the
+Conflagration/delivery mistake 1kf documented. A drawn-only axis is the fix, not a gameplay-field move.
+
+**H2 - "key the body on spell id inside SpellStorm". REJECTED (rule 13).** A second consumer-side id
+check is how the two drifting `DamageType` palettes shipped. The axis already exists as a concept
+(`StormBody`), so extend it.
+
+**H3 - "reuse `ZoneBody.VortexCircle` inside SpellStorm". REJECTED.** `StormBody` and `ZoneBody` are
+deliberately separate enums (`FrozenField` already has one value in each). Reading a *zone* enum from
+the storm path would be a cross-axis read no resolver promises; the value must live on `StormBody`.
+
+**H4 - "add `StormBody.VortexCircle`, build the same body". CONFIRMED.** Smallest change: one enum
+value (4, first free slot), one `if` in `SpellStorm.Initialize`, a caller-chosen second colour, a
+bench branch. `StormBody` is resolved generically in `SpellLook.Resolve` (`stormBody = p.StormBody`),
+so a new value propagates with no resolver edit.
+
+**H5 - "pass `HotCore(core)` like Conflagration does". REJECTED.** `SpellLook.HotCore` rotates the
+hue toward **yellow** (Fire's embers). On Ice that reads as fire on an ice storm. The builder's second
+colour is explicitly the *caller's* hot end, so Blizzard passes `_look.Edge` - still palette-derived
+(rule 13), still ice. The `BuildConflagration` doc was corrected to say the second colour is the
+caller's choice, with both callers named.
+
+**H6 - "this widens the F4 key; does anything collide?". CHECKED.** The storm axis occupied bits
+40-41; value 4 needs bit 42. Grepped the `LookKey` packing: 42 was the first free bit above the block
+(the `LookKey` doc's bit table ends at 41). Widened to 3 bits and recorded the predicted delta: only
+Blizzard's key moves (`None → VortexCircle`); `authored` unchanged (Blizzard already had a profile).
+`M == N` held before, so `C`/`worst` may only fall, never rise (the 1jt ratchet).
+
 ## 1l99. Flamethrower funnel: emitted puffs keep their launch direction - reasoning trail (SHIPPED; play-test pending)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l98`, so this counts up to `1l99` (enumerate

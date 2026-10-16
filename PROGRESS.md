@@ -1,3 +1,48 @@
+## 1l100. Blizzard wears the conflagration's model (a fifth `StormBody` value, `VortexCircle`)
+
+The user: **"Blizzard use the same model as Conflagration."** Conflagration is the 1kc body — a flat
+ground circle with a rising curtain of spinning ember rings (a `ConflagrationEmitter` streaming
+horizontal `RisingRing`s), drawn by `SpellZoneModelBuilder.BuildConflagration` and gated on
+`ZoneBody.VortexCircle`. Blizzard is a `SpellDelivery.Storm`, so it resolved `StormBody.None` (only a
+spawn ring and per-strike flashes).
+
+**The delivery stays put (rule 20).** The obvious move — switch Blizzard to `SpellDelivery.Vortex` so
+it hits the existing `ZoneBody.VortexCircle` branch — would change its resolution, add the pull and
+lose its per-strike Chills, which is exactly the mistake 1kf named when it reproduced the pre-1kc
+conflagration on Firestorm without moving it. So the body joins the **storm axis**: added
+`StormBody.VortexCircle = 4`, and `SpellStorm.Initialize` mounts the **same** builder —
+`SpellZoneModelBuilder.BuildConflagration(transform, Radius, _color, _look.Edge)`. One implementation,
+three gates (the Conflagration zone, this storm axis, the QA bench), the same shape `BuildFrozenField`
+already had. `SpellStorm.Update`'s root spin stays gated on `Funnel` only, so the conflagration disc
+does not turn (the rings carry their own spin).
+
+**Ice colour, not fire.** The second colour the builder takes is the caller's choice: Conflagration
+passes `SpellLook.HotCore(core)` (Fire's yellow embers), but `HotCore` rotates a hue **toward yellow**,
+so on Ice it would paint the rising rings fire-coloured. Blizzard passes `_look.Edge` instead (the
+spell's own core brightened/cooled) — still derived from the palette (rule 13), still reading as ice.
+
+Blizzard already had a profile (`Shards`/`HexRing`, scale 1.15, value 0.95), so adding `stormBody:`
+leaves it authored (count unchanged). The QA bench gained a `StormBody.VortexCircle` branch mounting the
+same builder, and `LookKey`'s doc now records that the storm field widened to 3 bits (reaching bit 42,
+the first free bit above the axis block — nothing else packs it).
+
+**Files (6):** `Magic/Look/SpellLook.cs`, `Magic/Cast/SpellStorm.cs`, `Models/Magic/SpellZoneModelBuilder.cs`,
+`Combat/Skills/SkillCatalog.cs`, `Opt/NewWorldTestGround.cs`, `game-design.md`, plus `PROGRESS.md`,
+`THINKING.md`.
+
+### 1l100-status
+- Verification: grep + reread + `tools\StaticChecks.ps1` -> **0 candidates** (braces 226/226 in
+  `NewWorldTestGround.cs`, 21/21 `SpellZoneModelBuilder.cs`, parens unchanged; no cross-case locals).
+  **No build run** (rule 3) — Unity is the compiler.
+- skills: none applied — a C# edit to an existing procedure-built FX plus a data-only catalog field; the
+  installed Unity skills drive a running editor over MCP/batchmode, which rule 3 forbids here, and no
+  DCC artifact is produced.
+- Pending play-test: cast **Blizzard** — it should draw the conflagration body (a ground circle with a
+  rising ring of embers/motes) in **ice** colours (pale rings, not yellow), still dealing its repeated
+  Chills. Re-press **F4**: expect `authored` unchanged, `storm bodies: Funnel=1 ... VortexCircle=1`, and
+  Blizzard's key moved (may drop `colliding` by one). The `EnableMagicModels` pedestal should show the
+  same body.
+
 ## 1l99. Flamethrower funnel: already-emitted puffs keep their launch direction when the player turns
 
 Follow-up to 1l98's flow. The user: the flamethrower reads well now, **but the chunks already emitted
@@ -5635,7 +5680,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l99). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l100). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

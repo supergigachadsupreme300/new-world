@@ -2622,7 +2622,10 @@ with `M == N` already, `M`/`C` hold by construction (see §3.8.5). 1l6z adds a s
 everyone else. **1l70 moves Deep Freeze from Zone to Storm delivery**, so its zone bits revert to
 `Funnel` and the field rides the storm axis instead (`StormBody.FrozenField`; see §3.8.5) — exactly
 this §3.8.3 family of resolved-axes is why a delivery move had to re-mount the body rather than
-strand it.
+strand it. **1l100 adds a fifth storm value** (`StormBody.VortexCircle`, Blizzard — the conflagration
+body mounted on a storm; see §3.8.5). It widens the storm field from 2 bits to 3 (reaching bit 42,
+the first free bit above the block), so Blizzard's key is the only one that moves and `authored` is
+unchanged.
 
 **Where the frame time goes (1ik):** a separate read-only lane on **F2** attributes the frame to CPU
 main thread, CPU render thread, or GPU, and prints the draw/batch/triangle counts and the render
@@ -2759,6 +2762,23 @@ kept its Pillar/Halo profile). The same data-driven pass also gave Frost Pierce 
 as the **Snow Drift**
 caster-anchored familiar, and Witching Chill a **Frost vortex** — see magic-skills.md; keys are
 unchanged, so the skill tree holds.
+
+**1l100 gives Blizzard the conflagration's model, through a fifth `StormBody` value.** The user asked
+for Blizzard to "use the same model as Conflagration" (the 1kc ground circle + rising ember rings).
+The obvious move — switch Blizzard to `SpellDelivery.Vortex` — is the rule-20 mistake the 1kf
+Conflagration note already names: it would change Blizzard's resolution and lose its per-strike
+Chills. So the body joins the **storm axis** as `StormBody.VortexCircle` (value 4), drawn by the
+**same** `SpellZoneModelBuilder.BuildConflagration` Conflagration's zone uses — one implementation,
+three gates (the Conflagration zone, this storm axis, the QA bench), exactly the shape
+`BuildFrozenField` already has. `SpellStorm.Initialize` mounts it and, like `FrozenField`, gives the
+root **no** spin (the rising rings carry their own spin; only `Funnel` turns the root). Blizzard's
+existing profile gained only `stormBody:`, so it stays authored (count unchanged). Colour: the disc
+takes the spell's Core, but the rising rings take `_look.Edge`, **not** `HotCore` — `HotCore` rotates
+a hue toward yellow, which is correct for Fire's embers and would paint an ice storm fire-coloured.
+F4 impact: Blizzard is the only key that moves (storm bits `None → VortexCircle`); `storm bodies:`
+reads `None` = every spell but Firestorm and Blizzard, `Funnel = 1`, `VortexCircle = 1`; `authored`
+stays **27**. The axis now reaches bit 42 (a 3-bit field where the header said 2), which was the
+first free bit above the block and collides with nothing.
 
 **1l85: the shared `Funnel` body's rings no longer show gaps.** `SpellZoneModelBuilder.BuildFunnel` — the
 tornado body Firestorm draws over its storm area (and any pulling zone draws over its radius) — is a

@@ -146,8 +146,9 @@ public static partial class SkillCatalog
     /// keeps the spell's look byte-for-byte unchanged except for the new body axis.</para>
     /// <para><b>1kf adds <paramref name="stormBody"/></b> — the persistent body a <c>Storm</c>
     /// mounts over its strike area. Same sentinel contract: <c>Inherit</c> means none (spawn ring +
-    /// per-strike flashes only), and only Firestorm uses this argument (the pre-1kc conflagration
-    /// funnel, reproduced without touching its delivery).</para>
+    /// per-strike flashes only). Firestorm passes <c>Funnel</c> (the pre-1kc conflagration funnel,
+    /// reproduced without touching its delivery); 1l100 adds Blizzard, which passes
+    /// <c>VortexCircle</c> (the current conflagration body, likewise reskinned in place).</para>
     /// </summary>
     private static SpellLookProfile Look(SpellImpactStyle impact, SpellCastStyle cast,
         float scale = 1f, float tempo = 1f, float hueShift = 0f, float value = 1f, float sat = 1f,
@@ -331,7 +332,11 @@ public static partial class SkillCatalog
         Add(list, "magic_blizzard", "Blizzard", SkillType.Magic, false, Focus(28f), true, DamageType.Ice,
             Spell("magic_blizzard_spell", "Blizzard", DamageType.Ice, 22f, 28f, SpellDelivery.Storm, 6f,
                 deliveryRange: 8f, deliveryRadius: 3.2f, duration: 2.5f, statusEffect: StatusEffectType.Chill,
-                look: Look(SpellImpactStyle.Shards, SpellCastStyle.HexRing, scale: 1.15f, value: 0.95f)),
+                // 1l100: the user asked Blizzard to "use the same model as Conflagration", so it
+                // authors VortexCircle — the conflagration body (ground circle + rising ember rings)
+                // mounted as a STORM body (rule 20: reskin in place rather than move the delivery).
+                look: Look(SpellImpactStyle.Shards, SpellCastStyle.HexRing, scale: 1.15f, value: 0.95f,
+                    stormBody: StormBody.VortexCircle)),
             P("magic_chain", "magic_frostbolt"), "A frozen storm that repeatedly chills all inside with light frost.");
 
         // Wind line (§3.7 Wind): Gust → Wind Blade → Gale Force → Tornado / Wind Walk. Tornado uses the

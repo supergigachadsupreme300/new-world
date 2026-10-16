@@ -6,9 +6,12 @@ using UnityEngine;
 /// nothing under <c>Models/</c> while the model shipped. Shapes, names, counts and the shared
 /// <see cref="SkillFx.SharedSpriteMaterial"/> all unchanged.
 /// <para><b>1kc adds <see cref="BuildConflagration"/></b> — the Firestorm/Conflagration look (ground
-///   circle + ember rings rising in a vortex), authored on Conflagration alone through
+///   circle + ember rings rising in a vortex), first authored on Conflagration through
 ///   <c>ZoneBody.VortexCircle</c> (1l6u: the rings are spawned continuously by
-///   <c>ConflagrationEmitter</c>).</para>
+///   <c>ConflagrationEmitter</c>). <b>1l100</b>: Blizzard wears the same body through the STORM axis
+///   (<c>StormBody.VortexCircle</c>, built by <c>SpellStorm</c>) — one builder, three gates (the
+///   Conflagration zone, the storm axis, the QA bench), the same one-implementation-many-gates shape
+///   <see cref="BuildFrozenField"/> has.</para>
 /// <para><b>1l6z adds <see cref="BuildFrozenField"/></b> — the Deep Freeze look (a frost disc ringed
 ///   by a rosette of ice spikes), first authored through <c>ZoneBody.FrozenField</c>. <b>1l70</b>:
 ///   Deep Freeze moved from Zone to Storm delivery, so today the field is mounted as a STORM body
@@ -150,10 +153,14 @@ public static class SpellZoneModelBuilder
     }
 
     /// <summary>The 1kc Conflagration body: a flat ground circle with a rising curtain of spinning
-    /// ember rings. Authored on Conflagration alone (<c>ZoneBody.VortexCircle</c>). (1kf: Firestorm
-    /// draws <see cref="BuildFunnel"/> instead.) Two colours, both through the colour-keyed shared
-    /// cache: the circle takes the spell's Core, the rising rings the hot end
-    /// (<see cref="SpellLook.HotCore"/>) — the same hot-end choice SpellBeam's funnel makes.
+    /// ember rings. Authored on Conflagration (<c>ZoneBody.VortexCircle</c>) and, since 1l100, on
+    /// Blizzard through the STORM axis (<c>StormBody.VortexCircle</c>). (1kf: Firestorm draws
+    /// <see cref="BuildFunnel"/> instead.) Two colours, both through the colour-keyed shared cache:
+    /// the circle takes the spell's Core, the rising rings a <paramref name="hot"/> the CALLER picks
+    /// from the spell's own palette — Conflagration passes <see cref="SpellLook.HotCore"/> (Fire's
+    /// yellow embers, the same hot-end choice SpellBeam's funnel makes), while Blizzard passes
+    /// <see cref="SpellLook.Edge"/> because HotCore rotates a hue toward yellow and would paint an ice
+    /// storm fire-coloured.
     /// <para><b>1l3</b> ("only create one ember ray on the circle edge, i want more"): the embers were
     /// dealt into parallel strands by a per-ember angular offset, so the rim carried several distinct
     /// tongues of flame instead of one shared helix.</para>

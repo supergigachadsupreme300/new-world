@@ -8,9 +8,10 @@ using UnityEngine;
 /// pipeline. Strikes land with a small random stagger so the storm reads as chaotic, not pinging.
 /// <para><b>1kf: a Storm may also mount a persistent body</b> — the resolved
 /// <see cref="SpellLook.StormBodyModel"/> gates it: only an authored profile grants
-/// <see cref="StormBody.Funnel"/> (Firestorm alone) or <see cref="StormBody.FrozenField"/>
-/// (1l70: Deep Freeze), and that funnel spins its root 240 deg/s,
-/// the same spin the pre-1kc conflagration's <c>SpellZone</c> ran while it pulled. The other 13
+/// <see cref="StormBody.Funnel"/> (Firestorm alone), <see cref="StormBody.FrozenField"/>
+/// (1l70: Deep Freeze) or <see cref="StormBody.VortexCircle"/> (1l100: Blizzard, wearing the
+/// conflagration's model), and that funnel spins its root 240 deg/s,
+/// the same spin the pre-1kc conflagration's <c>SpellZone</c> ran while it pulled. The other 12
 /// storms resolve <see cref="StormBody.None"/> and are byte-for-byte unchanged. Spin and build
 /// share ONE predicate — the body's presence — so they cannot drift apart.</para>
 /// </summary>
@@ -86,6 +87,20 @@ public class SpellStorm : MonoBehaviour
         if (_look.StormBodyModel == StormBody.FrozenField)
             SpellZoneModelBuilder.BuildFrozenField(transform, Radius, _color, _look.Edge);
 
+        // 1l100: Blizzard wears the conflagration's model (the user's "use the same model as
+        // Conflagration"), mounted here as a STORM body rather than by switching Blizzard to
+        // SpellDelivery.Vortex — rule 20: moving the delivery would have changed its resolution and
+        // lost its per-strike chills. The SAME builder Conflagration's SpellZone calls, so one
+        // implementation, three gates (Conflagration Zone, this axis, the QA bench).
+        //
+        // Colour: Conflagration passes SpellLook.HotCore (Fire's embers are yellow). That derivation
+        // rotates a hue TOWARD yellow, so on Ice it would paint the rising rings a fire-yellow — a
+        // second spelling of Fire on an ice storm. The disc still takes the spell's Core, but the
+        // rising rings take _look.Edge (the spell's own core brightened/cooled, see EdgeFor), which
+        // is the same palette-derived, non-drifting choice that keeps the body reading as ice.
+        if (_look.StormBodyModel == StormBody.VortexCircle)
+            SpellZoneModelBuilder.BuildConflagration(transform, Radius, _color, _look.Edge);
+
         // 1l77: a StormCloud storm (Devastation, testing.md #8) mounts a dark cloud high above the
         // area; every strike then falls as a long jagged bolt from that cloud down to the strike
         // point, so the spell reads as a sky-fury instead of ground pings. The cloud is parented to
@@ -111,10 +126,12 @@ public class SpellStorm : MonoBehaviour
             return;
         }
         _age += Time.deltaTime;
-        // 1kf: spin only while the funnel exists — the exact gate SpellZone.Update used
+        // 1kf: spin only while the FUNNEL exists — the exact gate SpellZone.Update used
         // (PullSpeed > 0, i.e. the pulling-vortex funnels), so the pre-1kc conflagration model
         // reproduces down to its 240 deg/s turn. Strikes are position-based, so a yaw of the root
         // moves nothing they read (transform.position is unchanged by a self-rotation).
+        // (1l100: Blizzard's VortexCircle body is deliberately NOT in this gate — its rising rings
+        // carry their own spin, and the conflagration disc must not turn under them.)
         if (_look.StormBodyModel == StormBody.Funnel)
             transform.Rotate(0f, 240f * Time.deltaTime, 0f, Space.Self);
 
