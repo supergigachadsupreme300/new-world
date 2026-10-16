@@ -130,9 +130,12 @@ public partial class WorldStreamer
         // Excavation step per Crater cast/swing (~1.1 m at full influence, feathered at the rim).
         // Unlike the raised shapes (which are IDEMPOTENT and capped), a crater ratchets the floor
         // DOWN by the step every cast: pits dig progressively deeper — through dirt, then stone —
-        // with no floor cap of their own. The only bound is WorldStreamer's ±MaxTerrainHeight
-        // sanity band (SanitizeHeight), which exists to protect the mesh/collider, not to limit
-        // how deep an excavator may go.
+        // with no floor cap of their own AT THE POINT BEING HIT (aim at the pit floor and every
+        // cast still sinks it a full step). 1l108 adds the one bound the old "no floor cap" claim
+        // was hiding: a corner that already sits more than one step BELOW the surface the crater
+        // struck is left alone — see `craterGradeY` and the excavation branch below. The only
+        // other bound is WorldStreamer's ±MaxTerrainHeight sanity band (SanitizeHeight), which
+        // exists to protect the mesh/collider, not to limit how deep an excavator may go.
         const float CraterStep = 1.1f;
 
         // 1f3: the crater profile is a SPHERICAL CAP, not a cone, and its carve is quantised into
@@ -209,6 +212,29 @@ public partial class WorldStreamer
         float craterCapR = (reach * reach + craterCapDepth * craterCapDepth) / (2f * craterCapDepth);
         float craterCapCentre = craterCapR - craterCapDepth;
         float craterTerrace = Mathf.Clamp(reach * CraterTerraceFraction, CraterTerraceMin, CraterTerraceMax);
+
+        // 1l108: the surface the crater STRIKES, and the deepest one cast can write. Play-testing
+        // found that a bolt into an Earth Wall's raised ridge also dented the ground at its base:
+        // the influence above is purely XZ-RADIAL, so a corner ~2.6 m BELOW the struck ridge was
+        // handed the same `s * CraterStep` depression as the ridge top itself. The excavation branch
+        // below therefore leaves alone any corner that already sits more than one full step below
+        // this struck surface, so the carve adapts to the surrounding land instead of subtracting a
+        // fixed step from whatever corner happens to be in range.
+        //   `craterGradeY` is the rendered surface at the impact XZ — a bilinear blend of the four
+        //   lattice corners (SurfaceHeightAt), NEVER `center.y`: the tool/spell test lanes call
+        //   Apply with y = 0, so the caller's y is an application point, not a height.
+        //   `craterFullStep` is the deepest this profile can write in one cast — the centre's
+        //   `CraterStep`, rounded to the SAME terrace ladder the signed offset uses (same
+        //   Mathf.Round), so it is neither short of the real dig (which would stall the ratchet at
+        //   the aim point) nor past it (which would let a dent slip under the guard).
+        // Non-crater shapes never read either value.
+        float craterGradeY = 0f;
+        float craterFullStep = 0f;
+        if (shape == TerrainShape.Crater)
+        {
+            craterGradeY = SurfaceHeightAt(center.x, center.z);
+            craterFullStep = Mathf.Round(CraterStep / craterTerrace) * craterTerrace;
+        }
 
         // New height for every world corner (integer x/z) inside the reach. Continuous values,
         // smoothstep-blended at the rim, so the deform reads as genuine terrain (not blocks).
@@ -374,7 +400,21 @@ public partial class WorldStreamer
                     }
                     else
                     {
-                        // Excavation: ratchet the current floor DOWN by |offset| (unchanged).
+                        // Excavation: ratchet the current floor DOWN by |offset| — except a corner
+                        // that already sits more than one full step below the surface the crater
+                        // STRUCK (1l108, `craterGradeY` / `craterFullStep` above). This is the bound
+                        // that stops a bolt into a raised ridge from also denting the ground at its
+                        // base: that ground is a full wall-height below the impact, so it is left
+                        // untouched while the ridge itself still carves.
+                        // The guard tests the PRE-dig `current`, not the target: the struck surface
+                        // is a bilinear sample while the write is per-corner, so a target-based guard
+                        // could fire on a fraction of a step of sampling error at full influence and
+                        // stall the ratchet at the aim point. It SKIPS only — it never writes a
+                        // clamped value — so the write set stays a strict subset of the old one and
+                        // no corner is pulled level with a neighbour (which would mint a new
+                        // IsFlatTile and with it a slab wall / load-time re-smooth).
+                        if (current < craterGradeY - craterFullStep)
+                            continue;
                         newHeights[EncodeCorner(cx, cz)] = current + offset;
                     }
                 }
@@ -865,6 +905,27 @@ public partial class WorldStreamer
         if (_loadedData.TryGetValue(owners[3], out ChunkData d3)) return d3.Heights[1];
         // Corner has no loaded owner tile — neutral base (only ever read by loaded tiles).
         return TerrainNoiseGenerator.GetHeight(Seed, cx + 0.5f, cz + 0.5f);
+    }
+
+    /// <summary>1l108: the rendered terrain surface height at a world position (x, z) — the bilinear
+    /// blend of the four 1 m lattice corners around it, i.e. the ground a crater strikes at that XZ.
+    /// Corners are read through <see cref="CurrentHeightOf"/>, the same source the deform writes, so
+    /// the sample and the edit share one ladder. Callers pass the impact XZ and never a
+    /// caller-supplied Y: the tool/spell test lanes call <c>DeformAt</c> with y = 0, so a center.Y
+    /// read would report grade as 0 on every test-platform cast.</summary>
+    private float SurfaceHeightAt(float wx, float wz)
+    {
+        int cx = Mathf.FloorToInt(wx);
+        int cz = Mathf.FloorToInt(wz);
+        float fx = wx - cx;
+        float fz = wz - cz;
+        float h00 = CurrentHeightOf(cx, cz);
+        float h10 = CurrentHeightOf(cx + 1, cz);
+        float h01 = CurrentHeightOf(cx, cz + 1);
+        float h11 = CurrentHeightOf(cx + 1, cz + 1);
+        float lowZ = h00 + (h10 - h00) * fx;
+        float highZ = h01 + (h11 - h01) * fx;
+        return lowZ + (highZ - lowZ) * fz;
     }
 
     /// <summary>

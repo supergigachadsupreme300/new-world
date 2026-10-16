@@ -29,8 +29,10 @@ heights and smoothstep-blended at the rim — never flat slabs. Raised caps are 
 Wall/Pillar) cap at (noise + lift) and are **idempotent**: a repeat cast at the same spot
 reproduces the exact same profile and never stacks higher (`1cm`). **Craters are the inverse
 (1cs):** each cast excavates one `CraterStep` (~1.1 m at full influence) below the current floor,
-so repeated craters dig progressively deeper — with no floor cap of their own, bounded only by the
-±200 m mesh-sanity band — exposing the terrain's **strata bands**: grass → dirt (~0.65–2.3 m down)
+so repeated craters dig progressively deeper — bounded only by 1l108's struck-surface floor (a
+corner already more than a full step below the surface the crater struck is left alone, so a bolt
+into a raised ridge does not dent the ground at its base) and by the ±200 m mesh-sanity band —
+exposing the terrain's **strata bands**: grass → dirt (~0.65–2.3 m down)
 → stone (≥ 2.7 m down), painted per-vertex as small-blend bands (§3.8; the shovel stops at stone,
 the pickaxe digs on). Flat tiles
 saved by older builds (legacy whole-metre slabs OR fractional carve plateaus) are re-smoothed

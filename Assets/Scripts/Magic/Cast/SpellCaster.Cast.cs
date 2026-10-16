@@ -700,8 +700,12 @@ public partial class SpellCaster
         // raised shapes (Ring/Spikes/Pillar — Tremor, Spire Field). Width is therefore capped to a
         // small local dish from the spell's own delivery Radius (spell.Radius, the `deliveryRadius:`
         // catalog arg); the Crater's per-cast DEPTH ratchet (current − s·CraterStep in
-        // WorldStreamer.DeformAt) stays deliberately UNBOUNDED — each cast digs a fresh CraterStep
-        // deeper with no floor, no cap, no limit. Player wants the game to have no limit.
+        // WorldStreamer.DeformAt) is deliberately deep — each cast digs a fresh CraterStep deeper
+        // with no floor of its own. 1l108 added the ONE bound that depth needs: a corner more than
+        // a full step BELOW the surface the crater struck is left alone, so a bolt into a raised
+        // wall's ridge carves the ridge without denting the ground at its base (the influence is
+        // XZ-radial, so without it the base took the same step as the crest). Aiming at the pit
+        // floor still ratchets normally — there the struck surface IS the floor.
         //
         // 1l93 EXCEPTION — the Wall shape (Earth Wall, Landslide) now GROWS with charge, at the
         // user's explicit request and after being shown the 1cv risk: `sizeScale` is handed down as

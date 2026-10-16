@@ -206,12 +206,24 @@ Acceptance on F13: section E's ladder verdict turns from `CONTINUOUS (no terrace
 
 **The snap is applied to the OFFSET, not to the write**, which is what keeps both invariants: the lip
 still `Max`es against `current` (repeat cast → same offset → same target, still idempotent) and the
-excavation still subtracts a non-negative amount (still an unbounded downward ratchet, §1cv). The
+excavation still subtracts a non-negative amount (a downward ratchet, §1cv). The
 cost is stated rather than hidden — a cast now moves the floor by its offset rounded to the nearest
 terrace, so the per-cast depth is `CraterStep` **within ± half a terrace** (0.30–0.80 m over the clamp
 range) rather than exactly 1.1 m; a 1.9 m-reach projectile's first cast digs 0.95 m, not 1.1 m. The
-deep core cannot round away (`CraterStep / terrace ≥ 1.375`), so the ratchet stays unbounded in
+deep core cannot round away (`CraterStep / terrace ≥ 1.375`), so the ratchet keeps its step in
 practice, not merely in intent.
+
+**1l108 bounded the ratchet against the surface it strikes.** Play-testing found a bolt into an Earth
+Wall's raised ridge also dented the ground at the wall's base. The cause is that the influence is
+purely **XZ-radial** — a corner ~2.6 m *below* the struck ridge was handed the same `s · CraterStep`
+depression as the ridge top. `DeformAt` now samples `craterGradeY = SurfaceHeightAt(center.x, center.z)`
+(the bilinear blend of the four lattice corners at the impact, **never** `center.y`, which the test
+lanes pass as 0) and skips excavation at any corner whose pre-dig `current` already sits more than
+`craterFullStep` below it, where `craterFullStep = round(CraterStep / craterTerrace) · craterTerrace`
+is the deepest one cast can write. On flat ground the guard is unreachable (the corner is at grade);
+aiming at a pit floor still ratchets (there the struck surface *is* the floor); and the write set is a
+strict subset of the old one, so no corner is newly levelled with a neighbour and no new `IsFlatTile`
+is minted. The `± MaxTerrainHeight` sanity band remains the only other bound.
 
 **Why the offset and not the absolute height.** Quantising the *absolute* Y would give genuinely flat
 treads on a *slope* (two adjacent corners land on the same rung of a world-wide ladder). It was
@@ -1933,12 +1945,14 @@ and **Crater** excavates a **terraced spherical cap** ringed by a raised, idempo
   the F13 crater lane: no rebuild, no re-stamp, no forced poll, and the VERDICT names the world XZ to
   walk to.
   ***Crater rears the terrain's strata as a signature**: unlike the capped raises, an excavation
-  is **WIDTH-bounded but DEPTH-unbounded** (1cv). The crater's **width** is always the spell's small
+  is **WIDTH-bounded** (1cv). The crater's **width** is always the spell's small
   local delivery dish (`DeliveryRadius * 0.5`, ~2 m for Earth Meteor) — never the full blast splash —
   so one cast carves a bounded local bowl in the ground and never reads as "the whole chunk / the
-whole terrain moved." Its **depth** ratchets **a `CraterStep` (~1.1 m at full influence) deeper per
-   cast or tool swing, with NO floor cap of its own** — repeated craters dig progressively deeper pits,
-   with no limit (the player's "i want no limit on my game"); the only global backstop is
+  whole terrain moved." Its **depth** ratchets **a `CraterStep` (~1.1 m at full influence) deeper per
+   cast or tool swing** — repeated craters dig progressively deeper pits
+   (the player's "i want no limit on my game"). The only bounds are 1l108's **struck-surface floor**
+   (a corner more than one full step *below* the surface the crater struck is left alone, so a bolt
+   into a raised ridge no longer dents the ground at its base — see §2.2) and
    WorldStreamer's ±200 m mesh-safety sanity band. Since **1f3** that step is applied to a
    **quantised** offset, so a cast moves the floor by `CraterStep` within ± half a terrace rather than
    exactly (see §2.2's crater lane); the ratchet itself is unchanged. Vertex colors painted at build time then reveal the dug depth
@@ -2023,7 +2037,9 @@ every cast, so the second+ cast kept lifting the whole influence footprint towar
 ground visibly rose across the chunk, reported as "the entire chunk moving"; craters grinded deeper
 the same way.) `Max` also means a raised deform can never *lower* terrain that already sits above the
 target. A **Crater**'s DISH is the deliberate inverse (see the terrain-shape bullet): each cast/swing
-lowers the floor one `CraterStep` below its current height, so excavation is bounded only by the
+lowers the floor one `CraterStep` below its current height, so at the aim point excavation is bounded
+only by 1l108's struck-surface floor (a corner already more than a full step below the surface the
+crater struck is skipped, so a raised ridge's base is not dented with it — §2.2) and by the
 mesh-safety sanity band. The crater's raised **lip** (1ez), by contrast, follows the raised-shape rule
 exactly — it targets pristine noise + a bounded offset and is `Max`'d against the current floor — so
 the lip is idempotent and can never stack higher. Two robustness fixes ride along: `SpellCaster`'s zone aim probe skips **raised terrain taller than

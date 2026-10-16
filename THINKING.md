@@ -1,3 +1,79 @@
+## 1l108. Crater dents the ground under a raised wall — reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l107`, so `1l108` (enumerate first — rule 8).
+Source: the user's **"when the magic projectile hit the earthwall on the high part the terrain below also
+got dented, fix that so dented is adapting to surround area, not hardcoded."** Diagnosis only — **no rule-7
+measurement lane was added**, because the mechanism is arithmetic-visible in `DeformAt` (an XZ-radial
+influence times a fixed `CraterStep`), not a symptom you cannot see from the code. The acceptance readout
+is the **existing** F13 crater audit (`CraterAuditKey`, focus = `_focus.position`), which already reports
+dig-vs-pristine; no new instrument is justified.
+
+**H1 — "the projectile's raycast is hitting the wrong surface". REJECTED.** `SpellEffect.ResolveProjectileImpact`
+casts `Physics.Raycast(pos + up*0.1, down, 30)` and passes `groundHit.point` to `TerrainDeformer.Apply`, and
+the raised shapes have no vertical collider face to mis-hit (the heightfield collider is the horizontal-quad
+1 m lattice, rule 12) — the surface *at the impact XZ* is genuinely the wall ridge. So the impact point is
+correct; the dent appears because the *write* reaches corners below it. The problem is in the deform, not in
+the hit. [rejected]
+
+**H2 — "3D distance from the impact would fix it". REJECTED (only partially).** `DeformAt` measures
+`dist = sqrt(dx² + dz²)` with no Y term, so a corner 2.6 m below gets the same `influence` as the crest.
+Adding a Y distance would shrink — not remove — the base dent, because the wall's own slope means the base
+corners are still within a few metres of the impact in 3D, and it would wrongly couple the crater to absolute
+elevation (a pit cast on a slope would fall off with height, not with placement). Rejected for reach, not for
+being wrong. [rejected]
+
+**H3 — "clamp the write to a hard floor at `grade − step`". REJECTED.** Writing
+`newHeights = Mathf.Max(target, craterGradeY - craterFullStep)` makes corners *equal* at the floor, which
+mints `ChunkMeshGenerator.IsFlatTile` tiles → slab side walls (`FullRebuildChunk`) and load-time
+`RelaxLegacySlabTile` re-smoothing (§3.8). A clamp that levels corners is a new flat-tile producer; the goal
+was to *stop writing*, not to write a second value. [rejected]
+
+**H4 — "guard on `target` (`if (target < grade − step) skip`)". REJECTED.** The struck surface is a bilinear
+sample while the per-corner write is not, so at full influence the target can sit a fraction of a step below a
+naive floor and the guard would fire at the aim point, stalling the ratchet. Guarding on the **pre-dig
+`current`** makes the condition "this corner is already a full step below the surface I struck", which is
+exactly the reported case and cannot be perturbed by sampling error at the centre. [rejected]
+
+**H5 — "sample `craterGradeY` from `center.y`". REJECTED.** The tool and spell test lanes call
+`TerrainDeformer.Apply(new Vector3(baseX + 7f, 0f, baseZ), …)` — `y = 0`. Any `center.y` read reports grade
+as 0 on every test-platform cast, so the guard would either never fire or fire everywhere. Grade must be
+sampled from the terrain data at the impact XZ: `SurfaceHeightAt(center.x, center.z)`, a bilinear blend of the
+four lattice corners read through `CurrentHeightOf` (the same source the deform writes). [rejected]
+
+**H6 — "bound with `craterFullStep = CraterStep`". REJECTED (off-by-terrace).** The centre's depression is
+`CraterStep` *snapped to the terrace ladder* (1f3): at a 1.5 m tool reach `craterTerrace = 0.375`, so the
+centre's offset is `round(1.1 / 0.375) * 0.375 = 1.125 m`, **greater** than `CraterStep = 1.1`. A plain
+`CraterStep` bound would be *below* the real single-cast dig and the guard would fire at the aim point. The
+bound must be the deepest the profile can write, so it is the same expression the offset uses:
+`Mathf.Round(CraterStep / craterTerrace) * craterTerrace`. [rejected]
+
+**H7 — "sample grade from pristine noise, not the current surface". REJECTED.** Pristine-based grade would
+mean a crater cast at the top of an already-built wall samples the *ground under it* (pristine), and the
+guard would then spare the wall corners too — i.e. it would stop carving the wall, the opposite of the
+request. Grade is the surface that was *struck*, current not pristine. [rejected]
+
+**H8 — "XZ-radial influence must become a function of the struck surface". CHOSEN. [confirmed — fixed]**
+One per-cast pair
+(`craterGradeY`, `craterFullStep`) and one skip in the excavation branch, gated on `shape == TerrainShape.Crater`.
+Checked against every branch:
+- On flat ground `current ≈ grade`, so `current - (grade - fullStep) = fullStep > 0` and the guard is
+  unreachable — no behaviour change on the 90% case.
+- Aimed at a pit floor, the struck surface *is* the floor, so `current ≈ grade` there too and the ratchet
+  continues — the §1cv "no limit on my game" goal is preserved at the aim point.
+- At a 2.6 m wall, the base corners sit a full wall-height below `craterGradeY`, so the guard fires and they
+  are left untouched while the ridge crest (≈ grade) still carves.
+- **Skip-only**, never a clamped write: the write set is a strict subset of the old one, so no corner is
+  newly levelled with a neighbour and no new `IsFlatTile` can appear (the H3 failure mode).
+
+**Worked example (wall base).** Impact at the ridge top, `craterGradeY ≈ grade_base + 2.6`,
+`craterFullStep ≈ 1.125` → floor `≈ grade_base + 1.475`. A base corner has `current ≈ grade_base < floor` →
+skipped. A crest corner has `current ≈ craterGradeY > floor` → carved. A flat-ground corner has
+`current ≈ grade > grade - 1.125` → carved (unchanged). Piecewise verified against the four branches.
+
+**Fix shipped:** the `craterGradeY`/`craterFullStep` block after `craterTerrace`, the
+`current < craterGradeY - craterFullStep → continue` guard in the excavation branch, and the
+`SurfaceHeightAt` helper after `CurrentHeightOf`. `StaticChecks.ps1` → 0 candidates. No Unity build (rule 3).
+
 ## 1l107. Refined-tile index stride — reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l106`, so `1l107` (enumerate first — rule 8).

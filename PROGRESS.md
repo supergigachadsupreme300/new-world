@@ -1,3 +1,58 @@
+## 1l108. Crater dents the ground under a raised wall — the carve is now bounded by the surface it struck
+
+The user: **"when the magic projectile hit the earthwall on the high part the terrain below also got
+dented, fix that so dented is adapting to surround area, not hardcoded."** A bolt into an Earth Wall's
+raised ridge dented the ground at the wall's base, ~2.6 m below the impact.
+
+**Mechanism (visible in code, so no new rule-7 measurement lane).** `WorldStreamer.DeformAt`'s crater
+influence is purely **XZ-radial** — `dx/dz` from `center` only, `influence` a smoothstep of horizontal
+distance — and the excavation branch writes `newHeights[EncodeCorner] = current + offset` with
+`offset = lipBump * CraterRimLift - s * CraterStep`, then terrace-snapped. So every corner inside the
+footprint took the same `s * CraterStep` (~1.1 m) depression **below its own current floor**, whether it
+was the ridge top (raised 2.6 m by the Wall) or the ground 2.6 m under it. The dent was a hardcoded step
+subtracted from whatever corner happened to be in range.
+
+**Fix.** Per-cast, gated on `shape == TerrainShape.Crater`, before the loop:
+- `craterGradeY = SurfaceHeightAt(center.x, center.z)` — the rendered surface at the impact XZ, a
+  bilinear blend of the four 1 m lattice corners (new helper, read through `CurrentHeightOf`, the same
+  source the deform writes). **Never `center.y`**: the tool/spell test lanes call `Apply` with `y = 0`,
+  so the caller's y is an application point, not a height.
+- `craterFullStep = Mathf.Round(CraterStep / craterTerrace) * craterTerrace` — the deepest one cast can
+  write, rounded on the **same terrace ladder** the signed offset uses (same `Mathf.Round`), so it is
+  neither short of the real dig (which would stall the ratchet at the aim point) nor past it (which
+  would let a dent slip under the guard).
+
+The excavation branch then tests the **PRE-dig** `current`: `if (current < craterGradeY - craterFullStep)
+continue;`. On flat ground `current ≈ grade` so the guard is unreachable; aimed at a pit floor the struck
+surface *is* the floor, so the ratchet continues; and at a raised ridge the ground beneath is a full
+wall-height below `craterGradeY`, so it is left untouched while the ridge still carves. The guard is on
+`current` (not `target`) because the struck surface is bilinear while the write is per-corner — a
+target-based guard could fire on a fraction of a step of sampling error at full influence and stall the
+ratchet. It **skips only** (never writes a clamped value), so the write set is a strict subset of the old
+one and no corner is newly pulled level with a neighbour — avoiding a new `IsFlatTile`, which would mint
+a slab side wall and a load-time `RelaxLegacySlabTile` re-smooth.
+
+### 1l108-status
+- Files: `Assets/Scripts/World/Streaming/WorldStreamer.Deform.cs` (`CraterStep` comment; new
+  `craterGradeY`/`craterFullStep` block after `craterTerrace`; the excavation-branch guard; new
+  `SurfaceHeightAt` helper after `CurrentHeightOf`), `Assets/Scripts/Magic/Cast/SpellCaster.Cast.cs`
+  (comment: the "no floor, no cap, no limit" note now names 1l108's struck-surface floor),
+  `game-design.md` (§2.2 terrace lane + the §3.8 crater bullet), `magic-skills.md` (crater paragraph),
+  `PROGRESS.md`, `THINKING.md`.
+- Verified by grep + reread (rule 3, **no build**): the crater branch is the only writer of the
+  excavation form; the raised lip branch (`offset > 0`, `Max` against `current`) is untouched, so raised
+  shapes stay idempotent; `SurfaceHeightAt` reads only `CurrentHeightOf` (no new data source); worked the
+  guard at flat ground (unreachable), pit floor (fires the ratchet), and a 2.6 m wall (base skipped,
+  crest carved). `StaticChecks.ps1` → **0 candidates**.
+- Not a compile: behaviour is verified by reread; Unity play-test is the compiler.
+- skills: none applied — a Unity C# logic fix across two files, not a DCC artifact and not an
+  editor-driving task (rule 15); rule 3 bars the Scenario Unity skills' MCP/CLI path anyway.
+- Play-test: raise an Earth Wall, hit its high ridge with an Earth projectile. The ridge top should
+  carve (a bowl on the crest) and the **ground at the wall's base must stay level**. Stand on that base
+  and press **F13** (`CraterAuditKey`, needs `EnableCraterAudit` + `EnableFpsStats`; focus =
+  `_focus.position`): the dig-vs-pristine readout should be ≈0 (was ≈1.1 before). Re-cast at the same
+  spot on flat ground and confirm the floor still ratchets deeper each cast.
+
 ## 1l107. Terrain mesh deformation — the refined tile's index buffer used the vertex stride, not the triangle stride
 
 A test brief reported **"large, stretched, triangular polygons across the landscape ... abnormal green
@@ -5971,13 +6026,18 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l106). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l108). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded. **Open play-test items (newest first):** **1l94** - press **H** with the
+for the reasoning it recorded. **Open play-test items (newest first):** **1l108** - raise an Earth
+Wall, hit its high ridge with an Earth projectile: the ridge top should carve and the ground at its
+base must stay level (F13 crater audit ≈0 dig-vs-pristine there; re-cast on flat ground and confirm
+the floor still ratchets). **1l107** - deform terrain with an Earth shape so a tile's corners exceed
+2.5 m and confirm no green slabs / tent facets / see-through holes appear, then walk along a cliff
+edge (no `[ChunkMeshGenerator]` topology warning in the console). **1l94** - press **H** with the
 world loaded and report the `WallFaceAudit` **`VERDICT`** line plus any world XZ it names; expect
 `A-stale` first (a stale generator fingerprint voids sections B-E as evidence), otherwise clean. Then
 cast an Earth Wall, walk to the named XZ, look at the face obliquely and check the reported sliver -
