@@ -1,3 +1,46 @@
+## 1l99. Flamethrower funnel: emitted puffs keep their launch direction - reasoning trail (SHIPPED; play-test pending)
+
+New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l98`, so this counts up to `1l99` (enumerate
+first - rule 8). Source: the user's report right after 1l98 shipped - the flow is good, but the chunks
+that already came out turn with the player; only the new emission should follow the aim.
+
+**H1 - "just stop re-orienting the parent". REJECTED.** Dropping the 1jz parent re-aim (which 1l98's
+flow had made look redundant) fixes nothing on its own: 1l98 lays each piece at `local +Z * p*length`,
+so with a frozen parent the pieces would still be a rigid local stack - they would keep pointing at the
+CAST aim and never bend, and the leading ring would leave the tip orb that chases the aim. The stream
+would freeze wholesale instead of bending; that is a different bug, not the fix.
+
+**H2 - "capture the axis once at cast time for ALL pieces". REJECTED.** That is exactly the "whole
+funnel frozen at the cast aim" defect 1jz fixed. The user wants the NEW emission to track the aim, so
+the per-piece axis has to be re-captured as pieces are born - a per-piece state, not a per-beam one.
+
+**H3 - "key the birth on a timer / on frame count". REJECTED (rule 19's distance-vs-frames lesson).**
+A piece is born when its FLOW PHASE wraps, which is a quantity the placement already computes; keying
+birth to anything else (a timer, a frame counter) would drift from the placement and detect births in
+frames the piece is not at the root. Keying on `floor(phase)` is the same event the placement calls
+"born at the root".
+
+**H4 - "let FlowFunnelVisual report births back to the beam". CONSIDERED, REJECTED as the bigger
+change.** It would keep the shape function pure but push a birth out-parameter through its signature and
+make the caller reconstruct nothing - yet the phase STILL has to be computed the same way on both sides.
+Sharing the phase via one public `PuffRawPhase(index, cycles)` (rule 8) is the smaller fix and leaves the
+shape function a pure placement. Both the caller and the shape now read the SAME stagger, so a birth can
+never be seen in a frame the piece is not at the root - and neither side can drift from the other by a
+copy-paste edit.
+
+**H5 - the discs and debris must use the SAME per-piece axis index mapping as the builder. CONFIRMED.**
+The builder returns discs `0..FunnelChunks-1` then debris, and `PuffRawPhase` uses that exact split, so
+`_puffAxis[i]` in the beam addresses the same piece `i` the builder places. The `Vector3[]` is indexed
+directly with the piece index on both sides - no second ordering (rule 17's lockstep hazard avoided
+because the index IS the ordering).
+
+**H6 - the QA still must not change. CONFIRMED.** `BuildFunnelVisual` passes `null` for `axes`, and
+`AxisFor` falls back to `+Z`; `LookRotation(+Z)` is the identity and `PuffRawPhase` is the same expression
+as before, so the pedestal still is the pre-1l99 picture - the 1l98 play-test read stays valid.
+
+**Verdict.** Ship. The bend is a play-test item: turning while channeling must leave a curved "hose" of
+puffs with the tip orb still on the crosshair.
+
 ## 1l98. Flamethrower funnel flow - reasoning trail (SHIPPED; play-test pending)
 
 New task id: `PROGRESS.md`'s top `^## 1..` heading was `1l97`, so this counts up to `1l98` (enumerate

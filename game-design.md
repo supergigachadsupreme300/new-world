@@ -2046,12 +2046,13 @@ a school read distinctly instead of feeling like copies:
   aim (caster-forward fallback, mirroring `SpellCaster.Execute`), so turning sweeps the ray and its tick
   capsule across the field. While channeling, LMB is consumed by the sustain (`IsChanneling` guard) so
   the beam can't be re-cast or switched to melee.
-  **Cone beams re-aim their WHOLE drawn funnel with the aim (1jz):** the funnel discs, orbiting debris
-  and leading ring are mounted in the beam parent's local +Z and the parent is re-oriented to the live
-  `Direction` every frame — exactly what `BeamEnd` (the tip orb, placed at the end point each frame)
-  and the line body already did. Before this, a swept cone kept its spawn-time rotation while the tick
-  and the tip orb swung with the player, so Flamethrower's funnel froze at the cast aim but its
-  bright tip orb chased the mouse.
+  **Cone beams re-aim with the aim (1jz; 1l99 refines the funnel half):** the beam parent is
+  re-oriented to the live `Direction` every frame — exactly what `BeamEnd` (the tip orb, placed at the
+  end point each frame) and the line body already did — which keeps the leading ring on the current
+  aim. Before 1jz a swept cone kept its spawn-time rotation while the tick and the tip orb swung with
+  the player, so Flamethrower's funnel froze at the cast aim but its bright tip orb chased the mouse.
+  **1l99 supersedes the "WHOLE funnel" half of that** — the discs no longer inherit the parent rotation
+  as one rigid body; see the 1l99 note below.
   **1kb/1l85: the drawn line body holds its size** (testing.md task 5). The line cylinder stops
   breathing — the old `PulseVisual` scaled it by `1 + 12% @ 23 Hz + 6% @ 41 Hz`, which read as a
   constant shrink-and-enlarge — and keeps the scale the builder wrote for the whole channel. 1l85
@@ -2070,6 +2071,16 @@ a school read distinctly instead of feeling like copies:
   radius is a pure function of its phase (`FunnelFlowSpeed` passes/second × the look's tempo), never of
   the previous frame, so the compounding growth 1l85 fixed cannot return. The axial bob is gone with the
   flow; the debris still orbits and the tip orb keeps its glow throb.
+  **1l99: an already-emitted puff keeps the direction it was launched at.** Turning while channeling no
+  longer drags the whole spray round with the aim. Each funnel piece captures its launch direction the
+  frame it is born at the muzzle (when its flow phase wraps into a new pass) and is placed along THAT
+  axis for the rest of its flight, expressed in the parent's local frame; only pieces born after the
+  turn come out along the new aim. The stream therefore bends like a real flamethrower instead of
+  rotating as a rigid body — the damage cone, the tick capsule and the leading ring still follow the
+  live aim, so only the shooting angle changes. `SpellBeam.AdvancePuffAxes` refreshes the per-piece axes
+  in `PulseVisual`, and the "born" test shares ONE stagger with the placement through
+  `SpellBeamModelBuilder.PuffRawPhase` (rule 8), so a birth is never seen in a frame the piece is not
+  back at the root. The QA pedestal still is unchanged (a null axis array makes every piece lie along +Z).
   **1l83: the beam root sits at the projectile muzzle, NOT the caster's feet.** `ResolveBeam` roots the
   beam at `origin + cast-forward * SpellCaster.CastMuzzleOffset` (0.5 m, no vertical lift) and hands the
   cast origin to `SpellBeam`, whose per-frame follow is now `anchor.position + anchor.forward * offset`

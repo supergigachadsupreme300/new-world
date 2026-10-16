@@ -127,6 +127,22 @@ public class SpellBeam : MonoBehaviour
     /// scale), so the compounding bug 1l85 fixed cannot return.</para></summary>
     private SpellBeamModelBuilder.FunnelChunk[] _funnelChunks;
 
+    /// <summary>1l99: each funnel piece's LAUNCH direction (world space), captured the frame the piece
+    /// is born at the muzzle and kept for its whole flight. A turning player re-aims <see cref="Direction"/>
+    /// and the hit cone immediately, but a puff already in flight must NOT swing round with the aim —
+    /// otherwise the whole spray rotates as a rigid body and the "chunks already emitted" follow the
+    /// player (the reported bug). Re-captured per piece at the same phase-wrap instant
+    /// <see cref="SpellBeamModelBuilder.FlowFunnelVisual"/> calls "born at the root".</summary>
+    private Vector3[] _puffAxis;
+    /// <summary>1l99: the flow PASS each piece last belonged to (<c>floor(phase)</c>). A change means
+    /// the piece wrapped past 1 back to 0 this frame — it was reborn at the muzzle, which is the only
+    /// moment its launch axis may adopt the current aim.</summary>
+    private int[] _puffPass;
+    /// <summary>1l99: scratch — the launch axes expressed in the parent's LOCAL frame, which is the
+    /// frame <see cref="SpellBeamModelBuilder.FlowFunnelVisual"/> lays the pieces out in. Reused array
+    /// so the per-frame conversion allocates nothing on the channeled path.</summary>
+    private Vector3[] _puffAxisLocal;
+
     /// <summary>1ir: every material that must fade out together (2 for a line, 1 + rays*segs + ring
     /// for a cone). Replaces the old single _mat/_orbMat pair so one fade path serves both modes
     /// instead of the cone needing a parallel copy of the fade block.
@@ -206,14 +222,12 @@ public class SpellBeam : MonoBehaviour
 
         // 1jz: a cone's funnel must re-aim with the NEW Direction each frame, exactly like the tip orb
         // (BeamEnd, placed at EndPoint every frame) and the line body (rotated in PulseVisual). The
-        // funnel's discs are laid out in the parent's local +Z once at build time, so a parent that
-        // kept its spawn rotation left the WHOLE funnel frozen pointing at the cast-time aim while the
-        // tick walked the new Direction — "the flamethrower funnel doesn't rotate with me" while the
-        // tip orb swung away from the cone. Re-orienting the parent re-aims every disc, the orbiting
-        // debris and the leading ring in one line (since 1kb they HOLD their build scale — only the
-        // debris orbits local X/Y — which stays correct because it all now re-aims on the LIVE beam
-        // axis). The line beam is untouched:
-        // it places its body in world space and never reads the parent's rotation.
+        // parent carries the muzzle/ring orientation, so re-orienting it here keeps the leading
+        // FunnelMouth ring on the current aim (and, pre-1l99, the whole funnel with it).
+        // 1l99: the DISCS no longer inherit this rotation as a rigid body — each piece is placed every
+        // frame along its OWN captured launch axis, expressed in this parent's local frame, so a turn
+        // bends only the puffs born afterwards while the ones already in flight keep their heading. The
+        // line beam is untouched: it places its body in world space and never reads the parent's rotation.
         if (_funnelChunks != null && Direction.sqrMagnitude > 0.0001f)
             transform.rotation = Quaternion.FromToRotation(Vector3.forward, Direction);
 
@@ -478,12 +492,46 @@ public class SpellBeam : MonoBehaviour
             // (SpellBeamModelBuilder.FlowFunnelVisual), so the still the builder lays out for the bench
             // and this live cast cannot drift (rule 8). The call is HERE, in the alive-loop that runs
             // while the beam MOVES, not in the builder whose other caller (the bench) is static (rule 19).
+            //
+            // 1l99: BEFORE placing the pieces, refresh each piece's launch axis — a piece born this
+            // frame adopts the CURRENT aim, a piece mid-flight keeps the axis it launched with. The
+            // "born" test and the placement share ONE stagger via PuffRawPhase (rule 8), so a birth is
+            // never seen in a frame the piece is not actually back at the root.
+            float cycles = Time.time * FunnelFlowSpeed * tempo;
+            AdvancePuffAxes(cycles);
             SpellBeamModelBuilder.FlowFunnelVisual(_funnelChunks, Length, _mouthRadius, Width,
-                _baseColor, _funnelHot, Time.time * FunnelFlowSpeed * tempo);
+                _baseColor, _funnelHot, cycles, _puffAxisLocal);
         }
 
         _endOrb.position = EndPoint();
         _endOrb.localScale = _orbBaseScale * (1f + 0.25f * Mathf.Sin(Time.time * 9f));
+    }
+
+    /// <summary>
+    /// 1l99: refresh the funnel's per-piece LAUNCH axes, then express them in the parent's local frame
+    /// for <see cref="SpellBeamModelBuilder.FlowFunnelVisual"/>. A piece is re-born exactly when its
+    /// flow phase wraps into a new pass (<c>floor(PuffRawPhase)</c> increments) — the only frame it may
+    /// adopt the current aim; every other piece keeps the heading it launched with. So a turning player
+    /// bends the stream (new puffs come out along the new aim) without dragging the puffs already in
+    /// flight, which is the reported bug. Keyed on the pass index rather than a timer, so it is
+    /// frame-rate independent and cannot drift.
+    /// </summary>
+    private void AdvancePuffAxes(float cycles)
+    {
+        if (_puffAxis == null) return;
+        int pieces = FunnelChunks + FunnelDebris;
+        if (_puffAxis.Length < pieces) return;
+
+        for (int i = 0; i < pieces; i++)
+        {
+            int pass = Mathf.FloorToInt(SpellBeamModelBuilder.PuffRawPhase(i, cycles));
+            if (_puffPass[i] != pass)
+            {
+                _puffPass[i] = pass;
+                _puffAxis[i] = Direction;
+            }
+            _puffAxisLocal[i] = transform.InverseTransformDirection(_puffAxis[i]);
+        }
     }
 
     /// <summary>1jd: the drawn body moved to <see cref="SpellBeamModelBuilder"/> (under
@@ -505,6 +553,21 @@ public class SpellBeam : MonoBehaviour
             _funnelChunks = SpellBeamModelBuilder.BuildFunnelVisual(transform, Length, _mouthRadius, Width, color, hot);
             _funnelHot = hot;
             _baseColor = color;
+
+            // 1l99: one launch axis per piece, all seeded to the cast direction; the pass is unset so
+            // the first PulseVisual captures each piece at its own phase-wrap. Boards sized to the
+            // built piece count (discs + debris + the ring, which FlowFunnelVisual never touches) so
+            // the indexed writes in PulseVisual are in range whatever the constant totals are.
+            int pieces = _funnelChunks != null ? _funnelChunks.Length : 0;
+            _puffAxis = new Vector3[pieces];
+            _puffPass = new int[pieces];
+            _puffAxisLocal = new Vector3[pieces];
+            for (int i = 0; i < pieces; i++)
+            {
+                _puffAxis[i] = Direction;
+                _puffAxisLocal[i] = Vector3.forward;
+                _puffPass[i] = int.MinValue;
+            }
         }
         else
         {

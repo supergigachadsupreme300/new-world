@@ -155,7 +155,9 @@ public static class SpellBeamModelBuilder
         // 1l98: lay the stack out at flow phase 0, so what the builder hands back (and what the QA
         // bench mounts) is one readable still of the spray. The live beam advances THIS layout each
         // frame through the same function, so the still and the cast cannot drift (rule 8).
-        FlowFunnelVisual(chunks, length, mouthRadius, tipRadius, core, hot, 0f);
+        // 1l99: a null axis array means every piece lies along the parent's +Z — the still is the
+        // cast with a straight aim, which is the bench's case.
+        FlowFunnelVisual(chunks, length, mouthRadius, tipRadius, core, hot, 0f, null);
 
         return chunks;
     }
@@ -192,9 +194,17 @@ public static class SpellBeamModelBuilder
     /// calls it PER FRAME while the beam is alive. One function, one spelling, so the pedestal still and
     /// the live cast cannot drift (rule 8). The per-frame call lives in the beam's loop — the only
     /// caller that MOVES — not in a builder (rule 19): this is a placement function, not an emitter, it
-    /// holds no state and mounts nothing.</para></summary>
+    /// holds no state and mounts nothing.</para>
+    ///
+    /// <para><b>1l99: each piece carries its OWN axis.</b> <paramref name="axes"/>, when supplied, is one
+    /// launch direction per piece in the PARENT's local frame; a null or short array falls back to the
+    /// parent's +Z (which is what <see cref="BuildFunnelVisual"/>'s still passes). The live beam fills it
+    /// with the per-piece launch directions it captured (see <see cref="SpellBeam.PulseVisual"/>), so a
+    /// puff already in flight keeps the direction it was born with while a turning player only re-aims
+    /// the pieces born afterwards — the drawing follows the same rule the hit cone does not (the cone
+    /// always walks the LIVE <c>Direction</c>; the pieces are cosmetic).</para></summary>
     public static void FlowFunnelVisual(FunnelChunk[] chunks, float length, float mouthRadius,
-        float tipRadius, Color core, Color hot, float cycles)
+        float tipRadius, Color core, Color hot, float cycles, Vector3[] axes)
     {
         if (chunks == null) return;
         float chunkLen = length / SpellBeam.FunnelChunks;
@@ -205,12 +215,15 @@ public static class SpellBeamModelBuilder
             Transform seg = chunks[i].Tr;
             if (seg == null) continue;
 
-            float p = Mathf.Repeat(cycles + i / (float)SpellBeam.FunnelChunks, 1f);
+            Vector3 axis = AxisFor(axes, i);
+            float p = Mathf.Repeat(PuffRawPhase(i, cycles), 1f);
             float rad = Mathf.Lerp(mouthRadius, tipRadius, p);
-            seg.localPosition = new Vector3(0f, 0f, p * length);
-            // A cylinder's axis is +Y; lay it over (90 about Z) then yaw it about the beam axis, and
-            // keep spinning it as it travels so the stream reads as a twisting flame.
-            seg.localRotation = Quaternion.Euler(0f, YawFor(i) + p * 220f, 90f);
+            seg.localPosition = axis * (p * length);
+            // A cylinder's axis is +Y; the funnel's axis is the piece's own `axis`. LookRotation maps
+            // +Z onto that axis (identity when the axis is +Z, which is why the bench still is
+            // unchanged), then the disc is laid over (90 about Z) and yawed about the new axis and keeps
+            // spinning as it travels so the stream reads as a twisting flame.
+            seg.localRotation = Quaternion.LookRotation(axis) * Quaternion.Euler(0f, YawFor(i) + p * 220f, 90f);
             // 0.55 keeps the discs overlapping (a cylinder primitive is 2 tall, so the overlap is
             // 1.1 * chunkLen against a chunkLen spacing) into one continuous funnel, not a row of plates.
             seg.localScale = new Vector3(rad * 2f, chunkLen * 0.55f, rad * 2f);
@@ -226,19 +239,48 @@ public static class SpellBeamModelBuilder
             Transform chunk = chunks[idx].Tr;
             if (chunk == null) continue;
 
-            float p = Mathf.Repeat(cycles + (d + 1) / (float)(SpellBeam.FunnelDebris + 1), 1f);
+            Vector3 axis = AxisFor(axes, idx);
+            // The orbit frame puts the axis on +Z, so the debris swings in the plane PERPENDICULAR to
+            // the piece's own axis (identity frame when the axis is +Z, the bench's case).
+            Quaternion frame = Quaternion.LookRotation(axis);
+            float p = Mathf.Repeat(PuffRawPhase(idx, cycles), 1f);
             float rad = Mathf.Lerp(mouthRadius, tipRadius, p) * 1.25f;
             // Absolute orbit angle from the flow position (never a per-frame accumulation), so the
             // swirl cannot drift the way a read-live-and-multiply integrator would (rule 16's class);
             // wrapped to 360 so a long channel does not feed Quaternion.Euler ever-larger degrees.
             float ang = Mathf.Repeat(cycles * 540f + d * 120f, 360f);
             float s = Mathf.Max(rad * 0.34f, 0.08f);
-            chunk.localPosition = new Vector3(
-                Mathf.Cos(ang * Mathf.Deg2Rad) * rad, Mathf.Sin(ang * Mathf.Deg2Rad) * rad, p * length);
-            chunk.localRotation = Quaternion.Euler(ang * 0.7f, ang, ang * 0.4f);
+            chunk.localPosition = axis * (p * length) + frame * new Vector3(
+                Mathf.Cos(ang * Mathf.Deg2Rad) * rad, Mathf.Sin(ang * Mathf.Deg2Rad) * rad, 0f);
+            chunk.localRotation = frame * Quaternion.Euler(ang * 0.7f, ang, ang * 0.4f);
             chunk.localScale = new Vector3(s, s, s);
             SetFade(chunks[idx].Mat, core, FadeAlpha(p));
         }
+    }
+
+    /// <summary>1l99: the launch axis for piece <paramref name="i"/> — the caller's per-piece direction
+    /// when it supplied one, else the parent's +Z (the bench still's frame). A zero vector would make
+    /// <c>Quaternion.LookRotation</c> log and fall back, so it is guarded here rather than at every
+    /// call site.</summary>
+    private static Vector3 AxisFor(Vector3[] axes, int i)
+    {
+        if (axes == null || i >= axes.Length) return Vector3.forward;
+        Vector3 a = axes[i];
+        return a.sqrMagnitude > 0.0001f ? a.normalized : Vector3.forward;
+    }
+
+    /// <summary>1l99: a funnel piece's flow phase BEFORE it is wrapped into <c>[0,1)</c> (discs are
+    /// <c>0 .. FunnelChunks-1</c>, debris follows). <see cref="FlowFunnelVisual"/> wraps this to place
+    /// the piece; <see cref="SpellBeam"/> reads <c>floor(PuffRawPhase)</c> as the piece's PASS, which
+    /// increments at exactly the wrap where the piece returns to the muzzle — the one frame its launch
+    /// axis may adopt the current aim. Both sides therefore share ONE spelling of the stagger (rule 8),
+    /// so a piece's birth is never detected in a frame it is not at the root.</summary>
+    public static float PuffRawPhase(int index, float cycles)
+    {
+        float stagger = index < SpellBeam.FunnelChunks
+            ? index / (float)SpellBeam.FunnelChunks
+            : (index - SpellBeam.FunnelChunks + 1) / (float)(SpellBeam.FunnelDebris + 1);
+        return cycles + stagger;
     }
 
     /// <summary>1l98: a flame piece's opacity over its muzzle-to-tip travel — it fades IN as it is born

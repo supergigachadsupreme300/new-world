@@ -1,3 +1,44 @@
+## 1l99. Flamethrower funnel: already-emitted puffs keep their launch direction when the player turns
+
+Follow-up to 1l98's flow. The user: the flamethrower reads well now, **but the chunks already emitted
+follow the player when turning — only the shooting angle should change.** 1l98's flow re-derived every
+piece along the parent's `+Z` each frame, and `Update` re-oriented the parent to the live `Direction`, so
+the whole spray swung as one rigid body: a turning channel bent the entire stream round instead of
+leaving the puffs already in flight where they were.
+
+**The fix is a per-piece LAUNCH AXIS.** `SpellBeam` now holds `_puffAxis[i]` (world) captured the frame
+piece `i` is born at the muzzle — detected as its flow phase wrapping into a new pass
+(`floor(PuffRawPhase)` changing) — and a reused `_puffAxisLocal[i]` scratch holding that axis in the
+parent's local frame. `FlowFunnelVisual` gains a `Vector3[] axes` parameter and places each piece along
+its OWN axis (a `LookRotation` that is the identity when the axis is `+Z`, so the QA still is
+byte-identical); `BuildFunnelVisual` passes `null` and keeps the straight-aim still. `AdvancePuffAxes`
+does the capture + local-frame conversion in `PulseVisual`, on the beam (the caller that MOVES — rule 19).
+
+**One stagger, two readers.** The "born this frame?" test and the placement must agree on a piece's
+phase or a birth is detected in a frame the piece is not at the root: both now call the new
+`SpellBeamModelBuilder.PuffRawPhase(index, cycles)` (rule 8), rather than each spelling the `i/N`
+stagger. The damage cone, tick capsule and leading ring still follow the live `Direction` — only the
+drawing of an already-born puff is pinned to its launch axis, so the stream bends while the aim (and the
+hit cone) keeps tracking, i.e. "only the shooting angle changes".
+
+The re-aim comment in `Update` and the 1jz paragraph in `game-design.md` §3.8.1 both claimed the parent
+re-orientation re-aims the *whole* funnel; both are corrected in this pass, because the discs no longer
+inherit it as a rigid body (rule 8's "a comment that names behaviour is a copy").
+
+**Files (5):** `Magic/Cast/SpellBeam.cs`, `Models/Magic/SpellBeamModelBuilder.cs`, `game-design.md`,
+`PROGRESS.md`, `THINKING.md`.
+
+### 1l99-status
+- Verification: grep + reread + `tools\StaticChecks.ps1` -> **0 candidates** (braces 21/21 & 45/45, parens
+  103/103 & 154/154; method arity unchanged; no cross-case locals). **No build run** (rule 3) — Unity is
+  the compiler.
+- skills: none applied — a C# edit to an existing procedure-built FX; the installed Unity skills drive a
+  running editor over MCP/batchmode, which rule 3 forbids here. No DCC artifact.
+- Pending play-test: hold Flamethrower and TURN — the puffs already in flight must keep flying the way
+  they were launched (the stream bends into a curve), while freshly-spawned puffs come out along the new
+  aim and the bright tip orb + hit cone still track the crosshair. Turning hard should leave a visible
+  "bent hose" of puffs, not a rigid rotation. The `EnableMagicModels` pedestal still is unchanged.
+
 ## 1l98. Flamethrower funnel flows: puffs born at the muzzle, travelling outward, cooling and fading
 
 The swept **Flamethrower** cone (`SpellBeam` + `SpellBeamModelBuilder`) drew a FIXED taper: nine discs
@@ -5594,7 +5635,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l98). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l99). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
