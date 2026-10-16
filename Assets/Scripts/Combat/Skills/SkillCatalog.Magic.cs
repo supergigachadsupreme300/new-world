@@ -36,7 +36,7 @@ public static partial class SkillCatalog
                 // Side effect to expect in the F4 readout: this spell now counts as an AUTHORED profile
                 // (21 -> 22), because Authored is "a profile exists", not "a profile overrides". That
                 // cannot move a collision verdict - LookKey does not pack Authored.
-                S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2f, summonFallingRock: true, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, castAnchor: SpellCastAnchor.Feet)), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
+                S("magic_fireball_meteor", "Meteor", Spell("magic_fireball_meteor_spell", "Meteor", DamageType.Fire, 30f, 22f, SpellDelivery.Zone, 6f, deliveryRadius: 3f, knockback: 2f, terrainShape: TerrainShape.Crater, summonFallingRock: true, look: Look(SpellImpactStyle.Inherit, SpellCastStyle.Inherit, castAnchor: SpellCastAnchor.Feet)), "A burning meteor falls from the sky, scattering the blast.", Focus(22f), DamageType.Fire, true),
             S("magic_fireball_inferno", "Inferno", Spell("magic_fireball_inferno_spell", "Inferno", DamageType.Fire, 32f, 24f, SpellDelivery.Zone, 7f, deliveryRadius: 3.4f, duration: 3.5f, statusEffect: StatusEffectType.Burn), "An expanding ring of fire that lingers, scorching all it touches.", Focus(24f), DamageType.Fire, true),
             S("magic_fireball_ember", "Embermind", Perk(PassivePerkType.SpellDamagePercent, 3f), "Embers simmer in your thoughts — spell damage +3%.", passive: true),
             S("magic_fireball_scorch", "Scorch", Spell("magic_fireball_scorch_spell", "Scorch", DamageType.Fire, 26f, 16f, SpellDelivery.Projectile, 4f, statusEffect: StatusEffectType.Burn, projectileShape: ProjectileShape.Comet), "A narrow, searing jet of fire that leaves nothing unburnt.", Focus(16f), DamageType.Fire, true),
@@ -278,7 +278,7 @@ public static partial class SkillCatalog
         /* magic_fireball_meteor children */
         bank.L2["magic_fireball_meteor"] = new BranchSlot[]
         {
-            S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f, summonFallingRock: true), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
+            S("magic_fireball_meteor_rain", "Meteor Rain", Spell("magic_fireball_meteor_rain_spell", "Meteor Rain", DamageType.Fire, 36f, 26f, SpellDelivery.Storm, 8f, deliveryRange: 10f, deliveryRadius: 3.6f, duration: 3.5f, terrainShape: TerrainShape.Crater, summonFallingRock: true), "A storm of falling meteors that bombards the area.", Focus(26f), DamageType.Fire, true),
             // 1ir: Comet's slot becomes Flamethrower — a Beam with an opt-in swept cone
             // (beamHalfAngle 22 = rays fanned across a 44-degree mouth). It is deliberately the
             // widest Beam in the game while Searing Ray (scorch_searing) stays a 1.3 m line: the two

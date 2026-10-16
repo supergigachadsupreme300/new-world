@@ -2277,7 +2277,15 @@ snapping the root to one ground height, so vertical scatter would have left the 
 or sunk on a slope — seven chances to see it, against the boulder's one core.
 
 **Spells:** Fire Meteor, Earth Meteor, Meteor Rain, Rockfall — four. (Fire Comet left this family
-in 1f7; Fire Asteroid left it in 1ir, when its slot became Continuous Fireball.)
+in 1f7; Fire Asteroid left it in 1ir, when its slot became Continuous Fireball.) **1l106: all four now
+carve a `TerrainShape.Crater` where they land.** The two **Fire** meteors (`magic_fireball_meteor`,
+`magic_fireball_meteor_rain`) had the falling rock but no `terrainShape`, so the rock landed on
+untouched ground (user report: "the meteor and meteor rain skill did not create a change in terrain").
+A falling-rock spell reads as a ground impact, so both now carry the same permanent Crater the Earth
+pair already dug — Fire Meteor at its aim point via `ResolveZoneImpact`, Meteor Rain under each strike
+via `SpellStorm.DeformGround`. This is an authored catalog flag (a Crater is still Earth's shape, just
+now also worn by the two Fire sky-events), not a school or delivery change; the falling-rock body and
+the Zone/Storm resolvers are untouched.
 
 Fifth, **Projectile Shapes** — projectile visuals are split into named shapes rather than one element
 color swap, so each spell looks like its name and not a recolor of the same ball. Since `1ec` every

@@ -1,3 +1,32 @@
+## 1l106. Fire Meteor + Meteor Rain: they now crater the ground (missing TerrainShape)
+
+The user: **"the meteor and meteor rain skill did not create a change in terrain."** The mechanism is a
+single missing catalog flag. A spell reshapes the ground only when its `TerrainShape` is set
+(`SpellCaster.ResolveZoneImpact` for Zone via `SpellCaster.Cast.cs:716-728`, `SpellStorm.DeformGround` for
+Storm via `SpellStorm.cs:196-203`), and a `None` shape no-ops in `TerrainDeformer.Apply`
+(`TerrainDeformer.cs:20`). The **Earth** `Meteor` (`magic_earth_meteor`) and `Rockfall`
+(`magic_earth_boulder_fall`) both carry `terrainShape: TerrainShape.Crater`, so they carve — but the two
+**Fire**-tree sky spells, `magic_fireball_meteor` ("Meteor") and `magic_fireball_meteor_rain` ("Meteor
+Rain"), summoned a falling rock (`summonFallingRock: true`) with **no** `terrainShape`, so the rock landed
+on untouched ground.
+
+**Fix.** Added `terrainShape: TerrainShape.Crater` to both Fire spells (one arg each). No delivery change
+(rule 20): both stay `Zone`/`Storm` — the only resolvers that spawn the falling rock and apply a terrain
+shape at the aim point; switching either to `Summon` would delete its rock and move the crater behind the
+player. The falling rock body, the SkyRock axis and the resolvers are untouched.
+
+### 1l106-status
+- Files: `Assets/Scripts/Combat/Skills/SkillCatalog.Magic.cs` (two spelling args), `game-design.md`
+  (falling-rock family "Spells:" paragraph), `magic-skills.md` (two rows).
+- Verified by grep + reread (rule 3, no build): `grep summonFallingRock` now shows all four sky spells
+  carry `terrainShape: TerrainShape.Crater` (Earth Meteor, Rockfall already did); reread the `Spell` helper
+  signature (`SkillCatalog.cs:180`) to confirm `terrainShape` is the named parameter and is assigned
+  (`:205`). No new symbols, no arity change.
+- Ran `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1` &#8594; **0 candidates**.
+- skills: none applied — a two-argument catalog edit; no DCC artifact, no Unity run (rule 15).
+- Play-test: cast **Meteor** (a pit appears at the aim point when the rock lands) and **Meteor Rain**
+  (each strike pits the ground). Earth Meteor / Rockfall must be unchanged.
+
 ## 1l105. Flamethrower: stop drawing the funnel's tip orb, spawn the flame smaller and flare it later
 
 The user: **"funnel end is still there, dont render funnel end, and adjust the size difference increment
@@ -5883,7 +5912,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l105). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l106). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

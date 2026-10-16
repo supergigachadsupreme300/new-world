@@ -1,3 +1,40 @@
+## 1l106. Fire Meteor + Meteor Rain crater the ground - reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l105`, so `1l106` (enumerate first - rule 8).
+Source: the user's "the meteor and meteor rain skill did not create a change in terrain."
+
+**H1 - "the Fire Meteor / Meteor Rain lack a TerrainShape". CHOSEN.** `grep summonFallingRock` finds four
+spells: Fire Meteor (`magic_fireball_meteor`, Zone), Fire Meteor Rain (`magic_fireball_meteor_rain`, Storm),
+Earth Meteor (`magic_earth_meteor`, Zone) and Rockfall (`magic_earth_boulder_fall`, Storm). The Earth two
+carry `terrainShape: TerrainShape.Crater`; the Fire two carry none. Reread of the only two deform call
+sites (`SpellCaster.ResolveZoneImpact` :716-728 and `SpellStorm.DeformGround` :196-203) shows both gate on
+`TerrainShape != None`, and `TerrainDeformer.Apply` no-ops on `None` (:20) - so the Fire pair's rock lands
+on untouched ground. That is the whole mechanism. [confirmed: fire meteors have no shape]
+
+**H2 - "the Earth Meteor is broken too, so all meteors are broken". REJECTED.** The Earth Meteor's path is
+intact: Zone + `SummonFallingRock` → `SkillFx.FallRock(callback)` → on landing `ResolveZoneImpact` applies
+`TerrainDeformer.Apply(center, deformRadius, Crater)`. Same for Rockfall (Storm -> `DeformGround`). No
+gate (`VoxelTerrainEnabled` / facet step) can silently delete a radius-3-4 crater at the default step. The
+two-named pair "Meteor and Meteor Rain" is exactly the Fire tree (`magic_fireball_meteor` + its child
+`Meteor Rain`), which is what the user was casting. [rejected]
+
+**H2b - "remove the falling-rock visual instead / move to Summon so it 'counts' as a meteor". REJECTED -
+rule 20's exact trap.** `ResolveZone` is the only resolver with a `SummonFallingRock` branch and the only
+one that applies a Zone `TerrainShape`; switching the delivery to `Summon` would delete both falling rocks
+and move the crater behind the player. The fix is a flag, not a delivery change. [rejected]
+
+**Fix:** add `terrainShape: TerrainShape.Crater` to `magic_fireball_meteor` and
+`magic_fireball_meteor_rain`. Fire Meteor's crater resolves at the aim point when the rock lands
+(`ResolveZoneImpact`); Meteor Rain pits the ground under each strike (`SpellStorm.DeformGround`,
+`strikeRadius = Radius * 0.55`). This is an authored catalog flag - a Crater is Earth's shape, now also
+worn by the two Fire sky-events - not a school change.
+
+Not a rule-7 measurement case: the mechanism is fully visible in source (the flag is simply absent), so no
+read-only lane is owed; the play-test names the two spells and the expected pit.
+
+Docs (rule 2, same pass): `game-design.md` falling-rock family paragraph; `magic-skills.md` two rows;
+`PROGRESS.md` 1l106 + status; this section.
+
 ## 1l105. Flamethrower: hide the funnel-end orb + spawn smaller/flare later - reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l104`, so `1l105` (enumerate first - rule 8).

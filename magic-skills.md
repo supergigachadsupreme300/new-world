@@ -164,8 +164,8 @@ All ten earlier beams leave `BeamHalfAngle` at 0 and keep the original single-ca
 
 ### Fireball (magic_fireball)
 
-- **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 2, falls-a-boulder | A burning meteor falls from the sky, scattering the blast.
-  - **Meteor Rain** (`magic_fireball_meteor_rain`) - Active (Fire) - power 36, FP 26, cd 8s, range 10, radius 3.6, dur 3.5s, rocks-per-strike, falls-a-boulder | A storm of falling meteors that bombards the area.
+- **Meteor** (`magic_fireball_meteor`) - Active (Fire) - power 30, FP 22, cd 6s, radius 3, knockback 2, falls-a-boulder, craters the ground | A burning meteor falls from the sky, scattering the blast.
+  - **Meteor Rain** (`magic_fireball_meteor_rain`) - Active (Fire) - power 36, FP 26, cd 8s, range 10, radius 3.6, dur 3.5s, rocks-per-strike, falls-a-boulder, craters the ground | A storm of falling meteors that bombards the area.
   - **Flamethrower** (`magic_fireball_meteor_flamethrower`) - Active (Fire) - power 36, FP 26, cd 6s, range 11, tip radius 2.4, channel, Burn, knockback 1.5, drains 11 FP/s | A sustained jet of fire that washes over everything in a widening cone.
   - **Impact** (`magic_fireball_meteor_impact`) - + 5 Intelligence (passive) | Permanent +5 Intelligence.
   - **Continuous Fireball** (`magic_fireball_meteor_continuous`) - Active (Fire) - power 36, FP 28, cd 8s, radius 5, follows caster, dur 8s, Burn, bolt splash 1.6 | A bound flame that follows you, spitting molten bolts straight down your aim line.
