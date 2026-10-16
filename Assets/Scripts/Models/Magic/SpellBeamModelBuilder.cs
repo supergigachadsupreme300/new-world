@@ -83,8 +83,8 @@ public static class SpellBeamModelBuilder
 
     /// <summary>1is: build the cone's drawn body as the Great Tornado's silhouette lying along the beam
     /// axis: <see cref="SpellBeam.FunnelChunks"/> chunky discs stacked muzzle-to-tip, each yawed so the
-    /// stack reads as a twisting funnel, opening from <paramref name="mouthRadius"/> at the
-    /// muzzle to <paramref name="tipRadius"/> at the far end, plus
+    /// stack reads as a twisting funnel, opening from a shrunk spawn radius at the
+    /// muzzle to <paramref name="tipRadius"/> at the far end (1l105 back-loads the flare), plus
     /// <see cref="SpellBeam.FunnelDebris"/> orbiting chunks. Returns the pieces in
     /// build order because <see cref="SpellBeam.PulseVisual"/> addresses them by hard index (indexes
     /// <c>0 .. FunnelChunks-1</c> are the discs; <c>FunnelChunks .. FunnelChunks + FunnelDebris - 1</c>
@@ -181,9 +181,11 @@ public static class SpellBeamModelBuilder
     /// every instant and reads as ONE continuous outward spray:
     /// <list type="bullet">
     /// <item>a puff is BORN at the muzzle (<c>p=0</c>: small, moving outward),</item>
-    /// <item>GROWS as it travels (radius lerps mouth&#8594;tip with <c>p</c> — the same ladder the
-    /// analytic hit cone in <see cref="SpellBeam.TickCone"/> walks, so the drawn flame stays inside
-    /// the cone that actually damages),</item>
+    /// <item>GROWS as it travels — 1l105: from a shrunk mouth (<see cref="SpellBeam.FunnelSpawnRadiusScale"/>)
+    /// to the full tip, with the widening back-loaded by <c>p^<see cref="SpellBeam.FunnelGrowthPower"/></c>
+    /// so the flare is concentrated near the far end. It still tops out at the tip radius the analytic hit
+    /// cone in <see cref="SpellBeam.TickCone"/> reaches, so the drawn flame stays inside the cone that
+    /// actually damages (and is narrower than it mid-flight),</item>
     /// <item>cools from <paramref name="hot"/> toward <paramref name="core"/> with its own age,</item>
     /// <item>then FADES OUT at the tip and re-emerges at the root (see <see cref="FadeAlpha"/>).</item>
     /// </list>
@@ -215,7 +217,12 @@ public static class SpellBeamModelBuilder
 
             Vector3 axis = AxisFor(axes, i);
             float p = Mathf.Repeat(PuffRawPhase(i, cycles), 1f);
-            float rad = Mathf.Lerp(mouthRadius, tipRadius, p);
+            // 1l105: spawn thin and flare late. `p^FunnelGrowthPower` back-loads the widening (most of
+            // the flare is near the tip) and the mouth is scaled down (FunnelSpawnRadiusScale), so the
+            // start:end size ratio is much larger than the old linear mouth→tip lerp. The tip still
+            // reaches tipRadius, so the drawn flame stays inside the analytic hit cone.
+            float rad = Mathf.Lerp(mouthRadius * SpellBeam.FunnelSpawnRadiusScale, tipRadius,
+                Mathf.Pow(p, SpellBeam.FunnelGrowthPower));
             seg.localPosition = axis * (p * length);
             // A cylinder's axis is +Y; the funnel's axis is the piece's own `axis`. LookRotation maps
             // +Z onto that axis (identity when the axis is +Z, which is why the bench still is
@@ -242,7 +249,8 @@ public static class SpellBeamModelBuilder
             // the piece's own axis (identity frame when the axis is +Z, the bench's case).
             Quaternion frame = Quaternion.LookRotation(axis);
             float p = Mathf.Repeat(PuffRawPhase(idx, cycles), 1f);
-            float rad = Mathf.Lerp(mouthRadius, tipRadius, p) * 1.25f;
+            float rad = Mathf.Lerp(mouthRadius * SpellBeam.FunnelSpawnRadiusScale, tipRadius,
+                Mathf.Pow(p, SpellBeam.FunnelGrowthPower)) * 1.25f;
             // Absolute orbit angle from the flow position (never a per-frame accumulation), so the
             // swirl cannot drift the way a read-live-and-multiply integrator would (rule 16's class);
             // wrapped to 360 so a long channel does not feed Quaternion.Euler ever-larger degrees.

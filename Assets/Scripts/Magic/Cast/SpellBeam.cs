@@ -49,6 +49,17 @@ public class SpellBeam : MonoBehaviour
     /// ~1.44 passes/s.</summary>
     public const float FunnelFlowSpeed = 1.8f;
 
+    /// <summary>1l105: the drawn funnel's SPAWN radius, as a fraction of the cone mouth. The flame is
+    /// born thin at the muzzle and flares toward the tip; below 1 the spawned puff is smaller than the
+    /// analytic cone's mouth (so the drawn flame stays inside the hit cone), while the far end still
+    /// reaches the full <see cref="Width"/>. User: "make the object spawn from start smaller".</summary>
+    public const float FunnelSpawnRadiusScale = 0.4f;
+
+    /// <summary>1l105: the drawn funnel's radius grows as <c>p</c> raised to this power, so the widening
+    /// is back-loaded — most of the flare happens near the tip, which reads as a stronger start-to-end
+    /// size increment. 1 = the old linear lerp. User: "make the increment more significant".</summary>
+    public const float FunnelGrowthPower = 2f;
+
     // 1l75: a Lightning beam's drawn body is a jagged BoltStrip (testing.md #6) — the school
     // identity, not a per-spell override (see the BuildVisual branch). Public derivations so the QA
     // bench mirrors the SAME width/jitter ladders: a re-stated number would be a second spelling of
@@ -615,6 +626,19 @@ public class SpellBeam : MonoBehaviour
             transform, EndPoint(), Width, color);
         _endOrb = tip.Orb;
         _orbBaseScale = tip.BaseScale;
+
+        // 1l105: the cone's flame now ends in its own fading disc spray, so do NOT draw the tip orb on a
+        // cone — the bright ball at the end point read as a solid "funnel end" cap, which the user asked
+        // us to stop rendering (their 1l103 "block at funnel end" report came back: removing the disc lid
+        // left this sphere as the visible end). The ORB OBJECT stays (only its renderer is disabled): the
+        // shared orb keeps `PulseVisual`'s `_endOrb != null` gate open, so the funnel flow still runs —
+        // disabling the GameObject would silently freeze the whole cone (rule 14: a removal is not just a
+        // removed name). The line body keeps its orb.
+        if (_coneHalfRad > 0f && _endOrb != null)
+        {
+            MeshRenderer orbRenderer = _endOrb.GetComponent<MeshRenderer>();
+            if (orbRenderer != null) orbRenderer.enabled = false;
+        }
 
         CollectFadeMaterials();
     }

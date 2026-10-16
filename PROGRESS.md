@@ -1,3 +1,43 @@
+## 1l105. Flamethrower: stop drawing the funnel's tip orb, spawn the flame smaller and flare it later
+
+The user: **"funnel end is still there, dont render funnel end, and adjust the size difference increment
+from start to end, make the object spawn from start smaller and make increment more signifficant."** Their
+1l103 "block at funnel end" report came back because removing the `FunnelMouth` disc lid left the **shared
+tip orb** (`BeamEnd`) as the only piece still sitting at the funnel's end — a bright ball that still read as
+a solid cap. Two changes.
+
+**1. Stop drawing the cone's tip orb.** `SpellBeam.BuildVisual` builds one `TipOrb` for BOTH beam bodies
+outside the cone/line branch; for a cone it now disables that orb's `MeshRenderer`. The **object stays** —
+only its renderer is turned off — because `PulseVisual` opens with `if (_endOrb == null) return;`, so
+disabling the GameObject would silently freeze the entire funnel flow, not just hide the ball (rule 14: a
+removal is not just a removed name). The line body keeps its orb.
+
+**2. Spawn smaller, flare later.** `FlowFunnelVisual` (`SpellBeamModelBuilder.cs`) placed each disc/debris at
+`Mathf.Lerp(mouthRadius, tipRadius, p)`. It now uses `Mathf.Lerp(mouthRadius * FunnelSpawnRadiusScale,
+tipRadius, Mathf.Pow(p, FunnelGrowthPower))` with the new `SpellBeam` constants `FunnelSpawnRadiusScale =
+0.4f` and `FunnelGrowthPower = 2f`: the puff is born at 40% of the (already narrow) cone mouth and the flare
+is back-loaded toward the tip, so the start:end size ratio roughly doubles (0.4×mouth → full tip instead of
+mouth → full tip, with a slower build mid-flight). Both discs and debris share the curve so the swirl stays
+coherent.
+
+**Drawn-only.** The analytic hit cone (`TickCone`, whose capsule radius ladder is `Mathf.Lerp(_mouthRadius,
+Width, t)`) is untouched — the change is to the flame's DRAWN radius, and because both radius and growth are
+reduced the drawn flame stays narrower than the hit cone at every phase and meets it exactly at the tip. The
+QA bench calls the same `FlowFunnelVisual`, so the pedestal and the live cast cannot drift (rule 8).
+
+### 1l105-status
+- Files: `Assets/Scripts/Models/Magic/SpellBeamModelBuilder.cs` (the disc + debris radius lerps, plus two doc
+  comments), `Assets/Scripts/Magic/Cast/SpellBeam.cs` (two new public consts + their docs; the orb-renderer
+  disable in `BuildVisual`), `game-design.md`.
+- Verified by grep + reread (rule 3, no build): `grep _coneHalfRad` confirms the new guard reads the same
+  cone flag the rest of the class uses; `grep ConeMouthFraction` confirms `_mouthRadius` (and thus the hit
+  path `TickCone`) is NOT touched by this edit; the bench's `FlowFunnelVisual` call is unchanged and shares
+  the new curve.
+- Ran `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1` &#8594; **0 candidates**
+  (`SpellBeam.cs` 46/157 and `SpellBeamModelBuilder.cs` 21/98 balanced).
+- skills: none applied — a two-constant + one-renderer-flag edit reviewed by a human, no 3D/DCC artifact and
+  no Unity run (rule 15; rule 3 forbids a build here).
+
 ## 1l104. Flamethrower: the funnel spray flows faster (shootout + generation rate, 0.9 -> 1.8)
 
 The user: **"increase flamethrower funnelchunk shootout speed and generate speed."** Both are **one
@@ -5843,7 +5883,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l104). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l105). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

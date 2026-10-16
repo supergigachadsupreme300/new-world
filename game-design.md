@@ -2074,6 +2074,15 @@ a school read distinctly instead of feeling like copies:
   0.9 &#8594; 1.8** (the user's "increase shootout speed and generate speed"): the single pass rate drives
   both a puff's axial travel speed and its muzzle re-generation rate (travel speed = `Length * passRate`),
   so the whole spray is quicker without changing the stack's density or the cone's size.
+  **1l105: the drawn cone no longer renders its tip orb, and it spawns smaller with a back-loaded flare.**
+  The 1l103 removal exposed the shared tip orb (`BeamEnd`) as the last distinct "funnel end" — a bright ball
+  at the end point that still read as a cap — so the cone now disables that orb's renderer (the OBJECT stays,
+  only its `MeshRenderer` is turned off, so `PulseVisual`'s `_endOrb != null` gate keeps the whole flow
+  running; the line body keeps its orb). The discs and debris now spawn at `mouthRadius ×
+  FunnelSpawnRadiusScale` (0.4) and grow as `p^FunnelGrowthPower` (2) toward the full tip, so the flame is
+  thin at the muzzle and flares late — a much larger start-to-end size increment (user: "make the object
+  spawn from start smaller and make the increment more significant"). The analytic hit cone is untouched: the
+  drawn flame is narrower than it mid-flight and meets it exactly at the tip (rule 8).
   **1l99: an already-emitted puff keeps the direction it was launched at.** Turning while channeling no
   longer drags the whole spray round with the aim. Each funnel piece captures its launch direction the
   frame it is born at the muzzle (when its flow phase wraps into a new pass) and is placed along THAT

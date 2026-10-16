@@ -1,3 +1,47 @@
+## 1l105. Flamethrower: hide the funnel-end orb + spawn smaller/flare later - reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l104`, so `1l105` (enumerate first - rule 8).
+Source: the user's "funnel end is still there, dont render funnel end, and adjust the size difference
+increment from start to end, make the object spawn from start smaller and make increment more signifficant."
+
+**H1 - "the 1l103 `FunnelMouth` removal didn't take, so re-remove it". REJECTED.** 1l103 shipped and
+StaticChecks was clean; `grep FunnelMouth` over `Assets\Scripts` finds only the explanatory comment. So the
+user is seeing a DIFFERENT piece at the end. (Considered "they didn't rebuild" - but a live cast rebuilds its
+visual on each spawn, so a stale mesh would not persist across recast.) [confirmed: piece is gone]
+
+**H2 - "the surviving 'funnel end' is the shared tip orb (`BeamEnd`)". CHOSEN.** After the disc lid went,
+the only object still sitting at the cone's end point is the tip orb - a bright sphere whose back face reads
+as a solid circle/cap. It matters that the user's own words for the 1l103 piece were "the flat solid disc
+capping the end", i.e. they name a CAP; the orb is exactly the remaining cap-shaped thing. The orb is built
+for BOTH bodies outside the cone/line branch (`BuildVisual`), so the fix is cone-scoped.
+
+**H3 - "delete/unmount the orb for cones". REJECTED - it would silently kill the flow.** `PulseVisual`
+opens `if (_endOrb == null) return;`, and it is the SAME `PulseVisual` that drives the funnel flow
+(`FlowFunnelVisual`). So removing the orb object (or nulling `_endOrb`) freezes the whole cone, not just the
+ball - a rule-14 "producer outlives its consumer" trap in reverse. Fix: keep the object, disable only its
+`MeshRenderer` (`if (_coneHalfRad > 0f && _endOrb != null) orbRenderer.enabled = false;`). [confirmed]
+Alt considered and rejected: hide it for ALL beams - the line beam's end flare is legitimate, so scope to
+`_coneHalfRad > 0f`.
+
+**H4 - "make the spawn smaller by lowering `ConeMouthFraction`". REJECTED - it is not visual-only.**
+`_mouthRadius = Width * ConeMouthFraction` feeds BOTH the drawn funnel AND the analytic hit cone
+(`TickCone`'s `Mathf.Lerp(_mouthRadius, Width, t)` capsule ladder, `SpellBeam.cs:404`), and the QA bench
+(`NewWorldTestGround.cs:2140`). Lowering it would shrink the damage cone near the muzzle - not what "make the
+object spawn smaller" asks. Keep the hit cone fixed; shrink only the DRAWN radius. [confirmed]
+
+**H5 - "add a drawn-only spawn scale + growth power in `FlowFunnelVisual`". CHOSEN.** New `SpellBeam`
+constants `FunnelSpawnRadiusScale = 0.4f` (drawn spawn = mouthRadius × 0.4) and `FunnelGrowthPower = 2f`
+(radius = `Lerp(spawn, tip, p^power)`). Both discs and debris use the curve (the debris' `*1.25` stays), so
+the swirl is coherent; the tip still reaches `tipRadius`, so the drawn flame stays inside the hit cone at
+every phase and meets it at the tip (rule 8 - one ladder). Values were chosen, not measured (the user gave no
+number): "smaller" -> 0.4× mouth, "more significant increment" -> power 2 back-loads the flare. If it reads
+too extreme the two constants are the retune surface.
+Reread for the balance class: the new expression is `Mathf.Lerp(a, b, Mathf.Pow(p, k))` - parens matched,
+no new locals, `Mathf` already imported; `grep _coneHalfRad` confirms the guard reads the existing flag.
+
+Docs (rule 2, same pass): `game-design.md` 1l105 paragraph + "Last updated"; `PROGRESS.md` 1l105 +
+1l105-status + "Last updated"; this section.
+
 ## 1l104. Flamethrower funnel flow speed - reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l103`, so `1l104` (enumerate first - rule 8).
