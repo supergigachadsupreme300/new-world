@@ -85,7 +85,7 @@ public static class SpellBeamModelBuilder
     /// axis: <see cref="SpellBeam.FunnelChunks"/> chunky discs stacked muzzle-to-tip, each yawed so the
     /// stack reads as a twisting funnel, opening from <paramref name="mouthRadius"/> at the
     /// muzzle to <paramref name="tipRadius"/> at the far end, plus
-    /// <see cref="SpellBeam.FunnelDebris"/> orbiting chunks and a leading ring. Returns the pieces in
+    /// <see cref="SpellBeam.FunnelDebris"/> orbiting chunks. Returns the pieces in
     /// build order because <see cref="SpellBeam.PulseVisual"/> addresses them by hard index (indexes
     /// <c>0 .. FunnelChunks-1</c> are the discs; <c>FunnelChunks .. FunnelChunks + FunnelDebris - 1</c>
     /// are the debris), so the two sides must agree — a builder that reordered its own output would
@@ -142,15 +142,13 @@ public static class SpellBeamModelBuilder
             chunks[SpellBeam.FunnelChunks + d] = new FunnelChunk { Tr = chunk, Mat = SetMaterial(chunk, shader, core) };
         }
 
-        // Leading ring so the far end reads as an opening rather than a flat cut.
-        Transform ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder).transform;
-        ring.name = "FunnelMouth";
-        ring.SetParent(parent, false);
-        ring.localPosition = new Vector3(0f, 0f, length);
-        ring.localRotation = Quaternion.Euler(0f, 0f, 90f);
-        ring.localScale = new Vector3(tipRadius * 2.1f, 0.02f, tipRadius * 2.1f);
-        DestroyCollider(ring);
-        SetMaterial(ring, shader, core);
+        // 1l103: the "leading ring" is gone. It was a SOLID opaque `CreatePrimitive(Cylinder)` disc at
+        // z = length, perpendicular to the beam and NOT touched by the 1l98 flow — so once the stream's
+        // pieces learned to fade at the tip, this static cap was the one opaque leftover and read as a
+        // block capping the funnel end (the user's report). Its intent ("so the far end reads as an
+        // opening rather than a flat cut") is already served by the tip fade: pieces now die at the far
+        // end, so there is no flat cut to cover. Nothing else referenced the piece — `FlowFunnelVisual`
+        // never placed it and the beam's piece arrays are discs + debris only.
 
         // 1l98: lay the stack out at flow phase 0, so what the builder hands back (and what the QA
         // bench mounts) is one readable still of the spray. The live beam advances THIS layout each

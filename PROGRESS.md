@@ -1,3 +1,46 @@
+## 1l103. Flamethrower: the funnel-end "block" (the `FunnelMouth` disc cap) is removed
+
+The user: **"the flamethrower still got a block at funnel end so fix it as well."** Since the report is a
+visual with several candidate pieces at the far end (rule 7 — cannot see the screen from the code), the
+piece was confirmed by question: the flat **solid disc capping the funnel**, not the tip orb, the big
+tip disc, or the debris cubes.
+
+**What it was.** `SpellBeamModelBuilder.BuildFunnelVisual` ended by spawning a `CreatePrimitive(Cylinder)`
+named `FunnelMouth` at `localPosition = (0, 0, length)`, perpendicular to the beam, scaled
+`(tipRadius * 2.1, 0.02, tipRadius * 2.1)` and made **opaque** (`SetMaterial(ring, shader, core)`). Its
+comment said it existed "so the far end reads as an opening rather than a flat cut". It was **not** added
+to the returned `FunnelChunk[]` (so `FlowFunnelVisual` never placed it) and was never faded — which is
+exactly why it read as a block: once 1l98 taught every disc and debris chunk to be born at the muzzle,
+fly out and **fade at the tip**, this static opaque lid was the one piece left solid at the flame's end.
+
+**Removed (not faded).** A fade would still leave a disc silhouette; the disc's own stated purpose is now
+served by the tip fade itself — pieces die at the far end, so there is no flat cut to cover. The flame now
+ends in the widest, nearly-transparent disc rather than a disc-shaped cap. The removal is safe by rule
+14's checks: `FunnelMouth` is created once, is named once, has **no** other reference (grep: only the two
+explanatory comments left), is absent from the `FunnelChunk[]`, and the beam's per-piece arrays
+(`_puffAxis`/`_puffPass`/`_puffAxisLocal`) are sized to `_funnelChunks.Length` = `FunnelChunks +
+FunnelDebris` = 12 — unchanged, so `PulseVisual`'s indexed writes stay in range.
+
+**Docs updated in the same pass (rule 2).** Two `game-design.md` sentences that named the "leading ring"
+as a piece that follows the aim were corrected, and a 1l103 paragraph records the removal.
+
+### 1l103-status
+- Files: `Assets/Scripts/Models/Magic/SpellBeamModelBuilder.cs` (removed the ring; corrected the builder
+  summary), `Assets/Scripts/Magic/Cast/SpellBeam.cs` (two stale comments naming the ring), `game-design.md`.
+- Verified by grep + reread (rule 3, no build): `grep FunnelMouth|"leading ring"` over `Assets\Scripts`
+  returns only the new explanatory comments; no live reference to the removed piece. Reread the builder to
+  confirm `length`/`tipRadius`/`shader` are still used (by the discs/debris and the `FlowFunnelVisual`
+  call) so the removal leaves no dead parameter.
+- `powershell -ExecutionPolicy Bypass -File tools\StaticChecks.ps1`: **0 candidates** (both files are in
+  the script's `$files` list).
+- `skills: none applied` — a two-line C# geometry deletion plus docs; not a DCC artifact and not an
+  editor-driving task (rule 15). Rule 3 bars the Unity skills' MCP/CLI path from verifying anything here.
+- Pending play-tests: (1) hold **Flamethrower** and confirm the far end of the cone now **fades out** —
+  no flat disc/block closing it, and no visible hole left behind. (2) Sweep the aim while channeling
+  (1l99) and confirm the stream still bends and the far end still just fades. (3) Open the QA bench's
+  Flamethrower/cone row and confirm the still now ends in the fading tip (the bench mounts the same
+  builder, so it changed with the cast — rule 8).
+
 ## 1l102. Deep Freeze: the frozen field's needles rise in and sink out over the storm's life
 
 The user: the Deep Freeze look is good, but "adjust so that the needles would go up then go down when
@@ -5770,7 +5813,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l102). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l103). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

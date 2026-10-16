@@ -1,3 +1,41 @@
+## 1l103. Flamethrower funnel-end "block" removed - reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l102`, so `1l103` (enumerate first - rule 8).
+Source: the user's report after 1l102 shipped — **"the flamethrower still got a block at funnel end so
+fix it as well."**
+
+**H1 - "the block is the `BeamEnd` tip orb". REJECTED as the report.** The tip orb is a pulsing SPHERE
+(`BuildTipOrb`), placed at the end point every frame — a round glow, not a flat block, and the user had
+already called that element a "boost" in an earlier report, not a defect. Still checked and left alone.
+
+**H2 - "the block is the widest tip disc / a debris cube". REJECTED.** The discs and debris are the
+1l98 flow; they are born at the muzzle, grow, cool and FADE at the tip, so none of them sits still at the
+end. A cube would be a debris chunk, which orbits.
+
+**H3 - "the block is the `FunnelMouth` disc cap". CONFIRMED (asked the user — rule 7).** The report has
+several candidate pieces and I cannot see the screen, so rather than guess I listed them and the user
+picked the flat solid disc capping the funnel. That disc is uniquely the odd one out: an **opaque**
+`CreatePrimitive(Cylinder)` at `localPosition = (0,0,length)`, part of NO flow and NO fade (not in the
+returned `FunnelChunk[]`, so `FlowFunnelVisual` never touches it). 1l98 made every other piece die at the
+tip; this lid stayed solid — a block by construction.
+
+**H4 - "fade it, or re-model it as a hollow ring?". REJECTED in favour of REMOVAL.** A fade still leaves
+a disc silhouette arriving and leaving; the ring's whole purpose was "so the far end reads as an opening
+rather than a flat cut", and the tip fade already supplies that opening (pieces vanish at the end, so
+there is no flat cut left to hide). Removal is the smaller change and the one the user's word "block"
+asks for. Checked it is safe: `FunnelMouth` is created once and referenced nowhere else (grep), it is not
+in `chunks[]`, and the beam's per-piece arrays are sized to `_funnelChunks.Length` (= 12 = discs +
+debris) — unchanged, so `PulseVisual` indexing is unaffected.
+
+**H5 - "does removing it leave a hole/dark seam at the end?". Reasoned no.** The widest disc reaches
+`tipRadius` at phase ~1 and is the piece at the far end at every instant (the flow keeps a disc at
+p≈1 while an earlier one re-emerges at the root), so removing the 2.1× cap does not shorten the cone or
+open a gap — it removes an overhang that was *wider* than the funnel it capped. Recorded as a play-test
+to confirm visually.
+
+Docs: `game-design.md`'s two sentences naming the "leading ring" as an aim-follower were corrected in the
+same pass (rule 2), plus a 1l103 paragraph; PROGRESS 1l103 + status; this section.
+
 ## 1l102. Deep Freeze frozen-field rise/sink - reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l101`, so `1l102` (enumerate first - rule 8).

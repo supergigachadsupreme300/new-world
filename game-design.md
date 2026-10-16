@@ -2048,8 +2048,8 @@ a school read distinctly instead of feeling like copies:
   the beam can't be re-cast or switched to melee.
   **Cone beams re-aim with the aim (1jz; 1l99 refines the funnel half):** the beam parent is
   re-oriented to the live `Direction` every frame — exactly what `BeamEnd` (the tip orb, placed at the
-  end point each frame) and the line body already did — which keeps the leading ring on the current
-  aim. Before 1jz a swept cone kept its spawn-time rotation while the tick and the tip orb swung with
+  end point each frame) and the line body already did — which keeps the cone's drawn body pointing
+  along the current aim. Before 1jz a swept cone kept its spawn-time rotation while the tick and the tip orb swung with
   the player, so Flamethrower's funnel froze at the cast aim but its bright tip orb chased the mouse.
   **1l99 supersedes the "WHOLE funnel" half of that** — the discs no longer inherit the parent rotation
   as one rigid body; see the 1l99 note below.
@@ -2076,11 +2076,17 @@ a school read distinctly instead of feeling like copies:
   frame it is born at the muzzle (when its flow phase wraps into a new pass) and is placed along THAT
   axis for the rest of its flight, expressed in the parent's local frame; only pieces born after the
   turn come out along the new aim. The stream therefore bends like a real flamethrower instead of
-  rotating as a rigid body — the damage cone, the tick capsule and the leading ring still follow the
+  rotating as a rigid body — the damage cone and the tick capsule still follow the
   live aim, so only the shooting angle changes. `SpellBeam.AdvancePuffAxes` refreshes the per-piece axes
   in `PulseVisual`, and the "born" test shares ONE stagger with the placement through
   `SpellBeamModelBuilder.PuffRawPhase` (rule 8), so a birth is never seen in a frame the piece is not
   back at the root. The QA pedestal still is unchanged (a null axis array makes every piece lie along +Z).
+  **1l103: the funnel's "leading ring" is removed** (the user's "block at funnel end"). It was a single
+  SOLID opaque `CreatePrimitive(Cylinder)` disc at `z = length`, perpendicular to the beam, and
+  `FlowFunnelVisual` never placed or faded it — so once 1l98 taught every other piece to fade at the tip,
+  this static cap was the one opaque leftover and read as a block closing the funnel. Its original intent
+  ("so the far end reads as an opening rather than a flat cut") is now served by the tip fade itself; the
+  cone's far end is the widest, nearly-transparent disc instead of a disc-shaped lid.
   **1l83: the beam root sits at the projectile muzzle, NOT the caster's feet.** `ResolveBeam` roots the
   beam at `origin + cast-forward * SpellCaster.CastMuzzleOffset` (0.5 m, no vertical lift) and hands the
   cast origin to `SpellBeam`, whose per-frame follow is now `anchor.position + anchor.forward * offset`

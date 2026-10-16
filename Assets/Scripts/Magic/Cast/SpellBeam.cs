@@ -222,8 +222,9 @@ public class SpellBeam : MonoBehaviour
 
         // 1jz: a cone's funnel must re-aim with the NEW Direction each frame, exactly like the tip orb
         // (BeamEnd, placed at EndPoint every frame) and the line body (rotated in PulseVisual). The
-        // parent carries the muzzle/ring orientation, so re-orienting it here keeps the leading
-        // FunnelMouth ring on the current aim (and, pre-1l99, the whole funnel with it).
+        // parent carries the muzzle orientation, so re-orienting it here keeps the whole funnel on the
+        // current aim (1l99: only the puffs born after a turn follow it; the rest keep their launch
+        // axis — see below).
         // 1l99: the DISCS no longer inherit this rotation as a rigid body — each piece is placed every
         // frame along its OWN captured launch axis, expressed in this parent's local frame, so a turn
         // bends only the puffs born afterwards while the ones already in flight keep their heading. The
@@ -556,8 +557,9 @@ public class SpellBeam : MonoBehaviour
 
             // 1l99: one launch axis per piece, all seeded to the cast direction; the pass is unset so
             // the first PulseVisual captures each piece at its own phase-wrap. Boards sized to the
-            // built piece count (discs + debris + the ring, which FlowFunnelVisual never touches) so
-            // the indexed writes in PulseVisual are in range whatever the constant totals are.
+            // built piece count (discs + debris; the 1l103 removal of the leading ring left this array
+            // exactly matching what FlowFunnelVisual places) so the indexed writes in PulseVisual are
+            // in range whatever the constant totals are.
             int pieces = _funnelChunks != null ? _funnelChunks.Length : 0;
             _puffAxis = new Vector3[pieces];
             _puffPass = new int[pieces];
