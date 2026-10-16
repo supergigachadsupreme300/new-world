@@ -147,7 +147,11 @@ public static class ChunkMeshGenerator
         // refined 2x2 sub-quad block instead of the single stretched quad. Derived (never stored) and
         // interior-of-chunk only (the 1 m border ring keeps the unchanged cross-chunk contract).
         if (refineThreshold > 0f && IsRefinable(data, h, refineThreshold))
-            return BuildRefinedMeshData(data, h);
+        {
+            ChunkMeshData refined = BuildRefinedMeshData(data, h);
+            ValidateTileTopology(refined); // 1l107
+            return refined;
+        }
 
         Vector3[] vertices =
         {
@@ -182,7 +186,7 @@ public static class ChunkMeshGenerator
             new Vector3(minX + (maxX - minX) * 0.5f, (h[0] + h[1] + h[2] + h[3]) * 0.25f, minZ + (maxZ - minZ) * 0.5f),
             new Vector3(maxX - minX, Mathf.Max(h) - Mathf.Min(h) + 0.1f, maxZ - minZ));
 
-        return new ChunkMeshData
+        ChunkMeshData tile = new ChunkMeshData
         {
             Coord = new ChunkCoord(data.ChunkX, data.ChunkZ),
             Data = data,
@@ -192,6 +196,8 @@ public static class ChunkMeshGenerator
             Normals = normals,
             Bounds = bounds,
         };
+        ValidateTileTopology(tile); // 1l107
+        return tile;
     }
 
     /// <summary>
@@ -256,7 +262,16 @@ public static class ChunkMeshGenerator
             for (int iq = 0; iq < RefineSubdiv; iq++)
             {
                 int quad = jq * RefineSubdiv + iq;
+                // 1l107: two DIFFERENT strides. A sub-quad's vertex block is 4 corners, but its
+                // index block is 2 triangles = 6 indices. Emitting the indices at the vertex base
+                // (baseV) left positions 18..23 of the 24-entry array zero-filled and clobbered the
+                // previous sub-quad's indices: e.g. quad1 wrote slots 4..9 instead of 6..11, so quad0's
+                // second triangle became (0,4,5), quad1's two triangles vanished, three of the sixteen
+                // vertices ended up unreferenced and two triangles collapsed to (0,0,0) — holes plus a
+                // stray near-vertical facet on every refined (steep) tile. EmitLowPolyIndices uses the
+                // same dual-stride pattern; this block must too.
                 int baseV = quad * 4;
+                int baseT = quad * 6;
 
                 // Sub-quad local corner coords (X rows go south->north; vertex slots NW,NE,SE,SW).
                 float lxNw = iq * 0.5f,        lzNw = (jq + 1) * 0.5f;
@@ -288,8 +303,8 @@ public static class ChunkMeshGenerator
                 normals[baseV + 2] = n;
                 normals[baseV + 3] = n;
 
-                triangles[baseV + 0] = baseV + 0; triangles[baseV + 1] = baseV + 1; triangles[baseV + 2] = baseV + 2;
-                triangles[baseV + 3] = baseV + 0; triangles[baseV + 4] = baseV + 2; triangles[baseV + 5] = baseV + 3;
+                triangles[baseT + 0] = baseV + 0; triangles[baseT + 1] = baseV + 1; triangles[baseT + 2] = baseV + 2;
+                triangles[baseT + 3] = baseV + 0; triangles[baseT + 4] = baseV + 2; triangles[baseT + 5] = baseV + 3;
 
                 for (int k = 0; k < 4; k++)
                 {
@@ -322,6 +337,55 @@ public static class ChunkMeshGenerator
     public static bool IsRefined(ChunkMeshData tile)
     {
         return tile.Vertices != null && tile.Vertices.Length > ChunkData.VertexCount;
+    }
+
+    /// <summary>Latches the one-shot topology warning so a broken build reports once, not per tile.</summary>
+    private static bool _topologyWarned;
+
+    /// <summary>
+    /// 1l107: topology self-check for a tile block's index buffer, run for both tile shapes from
+    /// <see cref="BuildMeshData"/>. It asserts the two invariants the refined stride bug broke while
+    /// keeping the array the right LENGTH and every index in range: (1) every index addresses a
+    /// vertex of THIS block, and (2) every vertex of the block is referenced by at least one
+    /// triangle. A stride mistake (the index subscript based on the 4-vertex block base instead of
+    /// the 6-index triangle base) leaves the block's tail zero-filled, clobbers the previous
+    /// sub-quad's indices and strands three of the sixteen vertices — a stretched facet plus a hole —
+    /// with no exception, no out-of-range index and no count mismatch, so only these invariants see
+    /// it. Cheap and allocation-free (blocks are 4 or 16 vertices today).
+    /// </summary>
+    private static void ValidateTileTopology(ChunkMeshData tile)
+    {
+        if (tile.Vertices == null || tile.Triangles == null)
+            return;
+        int vcount = tile.Vertices.Length;
+        // The reference bit mask below assumes at most 62 vertices per block (4 and 16 today).
+        if (vcount <= 0 || vcount > 62)
+            return;
+        long seen = 0;
+        for (int k = 0; k < tile.Triangles.Length; k++)
+        {
+            int idx = tile.Triangles[k];
+            if (idx < 0 || idx >= vcount)
+            {
+                WarnTileTopology(tile, $"triangle index {idx} at slot {k} is out of range for its {vcount} vertices");
+                return;
+            }
+            seen |= 1L << idx;
+        }
+        if (seen != (1L << vcount) - 1L)
+        {
+            int triangles = tile.Triangles.Length / 3;
+            WarnTileTopology(tile, $"its {triangles} triangles (from {vcount} vertices) do not reference every vertex of the block");
+        }
+    }
+
+    private static void WarnTileTopology(ChunkMeshData tile, string detail)
+    {
+        if (_topologyWarned)
+            return;
+        _topologyWarned = true;
+        Debug.LogWarning($"[ChunkMeshGenerator] Tile ({tile.Coord.X},{tile.Coord.Z}) has an inconsistent index buffer — " +
+            detail + ". Expect stretched facets or holes on this tile.");
     }
 
     /// <summary>

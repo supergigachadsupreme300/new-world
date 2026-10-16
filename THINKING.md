@@ -1,3 +1,53 @@
+## 1l107. Refined-tile index stride — reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l106`, so `1l107` (enumerate first — rule 8).
+Source: the harness brief in `testing.md` ("large, stretched, triangular polygons across the landscape …
+abnormal green surfaces … occurs when the terrain mesh is modified or updated"). Diagnosis only — no
+runtime instrument was added, because the defect is a static index arithmetic bug provable by hand (rule 7
+applies to a report you cannot see from the code; this one is visible in the code, so the measurement lane
+would have measured the wrong layer).
+
+**H1 — "the merged mesh's per-tile triangle offset drifts from its vertex base". REJECTED.**
+`BuildMergedMeshData` pass 2 advances a single running `vertex` by `tile.Vertices.Length` and writes
+`triangles[tri++] = tile.Triangles[k] + vertex`; pass 1 sizes `topTriIndices` from `tile.Triangles.Length`.
+Read both passes and the block table: vertex base and triangle base are independent and both counted from
+the same per-tile arrays. No drift. [rejected]
+
+**H2 — "PatchRegion re-skins a refined block with the wrong stride / wrong count". REJECTED.**
+`ChunkObject.PatchRegion` reads the block start from `MergedChunkMeshData.TileVertexBase` and writes
+`count = tile.Vertices.Length` vertices, so a 16-vertex block is written whole; and `RebuildChunkRegion`
+compares `ChunkObject.IsTileRefined` (from `TileVertexCount[idx] > 4`) against the fresh
+`ChunkMeshGenerator.IsRefined`, falling back to `FullRebuildChunk` on any flip, so the block table can
+never be resized in place. Both helpers read the same table the builder writes. [rejected]
+
+**H3 — "the low-poly / voxel / far-shell index emitters share the bug". REJECTED.** `grep triangles[`
+across `Assets/Scripts/World` finds five writers: `EmitLowPolyIndices` uses `v = q*4` / `t = q*6`
+(correct, and the project's own precedent for the dual stride); the far shell uses sequential `t++`; the
+slab-wall emitter uses `iv0..3`; the merged pass uses block-relative `tile.Triangles[k] + vertex`. Voxel
+and low-poly paths are dormant (`VoxelTerrainEnabled` false, `LowPolyFacets` false). [rejected]
+
+**H4 — "`BuildRefinedMeshData` writes its triangles at the vertex stride". CHOSEN.** `int baseV =
+quad * 4` is then used as the *triangle* subscript base, but a sub-quad emits **6** indices per quad
+(`RefinedTriangleIndexCount = 4 * 2 * 3 = 24`), so the correct base is `quad * 6`. The four quads write at
+slots `{0..5}`, `{4..9}`, `{8..13}`, `{12..17}` — overlapping, leaving `18..23` zeroed and clobbering each
+previous sub-quad's tail. Worked example (quad = jq*2 + iq, so quad1 = the SE sub-quad): quad0's second
+triangle became `(0,4,5)`, quad1 lost both triangles, quad2 lost its second, quad3 stayed correct; the two
+stray triangles connect corners of different sub-quads, and vertices 3/7/11 are never referenced. On a
+refined tile — which by definition spans >2.5 m of corner height — that is a hole across the block plus a
+near-vertical facet, i.e. "large stretched green polygons overlapping the environment". Refinement is
+reached exactly by tiles an edit steepened (Crater rim ≈73°, Wall crest, Spike tips +2.6 m), which is why
+the report ties the artifact to *modifying* the terrain. [confirmed — fixed]
+
+**Why a count/range check would have missed it (the reason the added validator checks referenced
+vertices).** The array is exactly 24 long and every written value is in `0..15`, so neither
+`Triangles.Length == verts/2*3` nor an out-of-range scan fires. The visible invariant that *does* break is
+"every block vertex is referenced" (3 of 16 unreferenced). `ValidateTileTopology` asserts that plus
+in-range indices, latched to one warning.
+
+**Fix shipped:** `baseT = quad * 6`, six writes from `baseT`. Verified by hand-computing the fixed buffer
+(all 24 slots, all 16 vertices referenced, NW,NE,SE / NW,SE,SW winding identical to the coarse tile) plus
+`grep` of every other index emitter; `StaticChecks.ps1` → 0 candidates. No Unity build (rule 3).
+
 ## 1l106. Fire Meteor + Meteor Rain crater the ground - reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l105`, so `1l106` (enumerate first - rule 8).

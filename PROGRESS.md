@@ -1,3 +1,62 @@
+## 1l107. Terrain mesh deformation — the refined tile's index buffer used the vertex stride, not the triangle stride
+
+A test brief reported **"large, stretched, triangular polygons across the landscape ... abnormal green
+surfaces that overlap the environment ... the issue occurs when the terrain mesh is modified or updated"**
+(`testing.md`). Root cause: the 1ew adaptive stretch-split's per-tile block writes its **8 triangles into a
+24-entry index array at the 4-vertex block stride** instead of the 6-index triangle stride.
+
+**Mechanism.** `ChunkMeshGenerator.BuildRefinedMeshData` sets `int baseV = quad * 4` and then writes
+`triangles[baseV + 0..5] = baseV + {0,1,2,0,2,3}`. A sub-quad's vertex block is 4 corners, but its *index*
+block is 2 triangles = **6** indices, so `baseV` is the wrong subscript base. Worked out for the four
+sub-quads (`quad = jq * 2 + iq`): the writes land at slots `{0..5, 4..9, 8..13, 12..17}` — overlapping, so
+quad1 clobbers quad0's second triangle, quad2 clobbers quad1's and quad3 clobbers quad2's, and slots
+**18..23 are never written** (they stay `0`, three degenerate `(0,0,0)` triangles). The resulting buffer is
+`[0,1,2, 0,4,5, 6,4,8, 9,10,8, 12,13,14, 12,14,15, 0,0,0, 0,0,0]`: quad0's second triangle and **both** of
+quad1's triangles are gone (a hole across the tile's lower-right), and the two stray triangles `(0,4,5)` /
+`(6,4,8)` connect corners of *different* sub-quads — on a tile whose corners span >2.5 m (which is exactly
+what makes it refined) those are near-vertical green facets poking out of the ground. Three of the sixteen
+vertices are never referenced at all.
+
+**Why it showed after a terrain *change*.** Refinement (`IsRefinable`) fires only when a tile's 4 corner
+heights differ by > `RefineThreshold` (2.5 m, well inside the 1 m tile). Natural terrain rarely reaches 68°
+per metre; a **deform** (`DeformAt` — Crater rim ≈ 73°, Wall crest, Spike tips raised 2.6 m above their
+neighbours, §3.8) does, and so do cliff edges. So the artifact appears precisely on tiles an edit pushed
+across the threshold — matching "occurs when the terrain mesh is modified or updated".
+
+**Fix (one line of real change).** Introduced the separate triangle base and wrote the 6 indices from it:
+`int baseT = quad * 6; triangles[baseT + 0..5] = baseV + {0,1,2,0,2,3}`. This mirrors the dual-stride
+pattern already used by `ChunkMeshGenerator.EmitLowPolyIndices` (`v = …*4`, `t = …*6`) — the project's own
+precedent for this exact idiom (rule 3). Buffer after the fix: `[0,1,2, 0,2,3, 4,5,6, 4,6,7, 8,9,10,
+8,10,11, 12,13,14, 12,14,15]` — all 24 slots used, all 16 vertices referenced, same NW,NE,SE / NW,SE,SW
+winding as the coarse tile, so appearance and topology are unchanged from the 1ew intent.
+
+**Validation (brief item 7).** Added `ChunkMeshGenerator.ValidateTileTopology`, called for **both** tile
+shapes at the end of `BuildMeshData`. It asserts the two invariants the stride bug broke while keeping the
+array the right *length* and every index *in range*: (1) every index addresses a vertex of its own block,
+(2) every block vertex is referenced by at least one triangle. It logs one latched
+`[ChunkMeshGenerator]` warning (project `Debug.LogWarning` convention) rather than per-tile spam. A
+count/bounds-only check would NOT have caught this class, which is why the referenced-vertex invariant is
+the one added.
+
+### 1l107-status
+- Files: `Assets/Scripts/World/Terrain/ChunkMeshGenerator.cs` (baseT + 6 triangle writes + new
+  `ValidateTileTopology`/`WarnTileTopology`/`_topologyWarned` + a call site on each return of
+  `BuildMeshData`), `game-design.md` §2.10 (new "Index buffer is a full triangulation (1l107)" bullet),
+  `PROGRESS.md`, `THINKING.md`.
+- Verified by grep + reread (rule 3, **no build**): the only other triangle-index write sites are
+  `BuildMergedMeshData` pass 2 (`tile.Triangles[k] + vertex`, block-relative, counted via
+  `tile.Triangles.Length`), the slab-wall emitter (`iv0..3`), the far shell (`t++` sequential) and
+  `EmitLowPolyIndices` (`t = quad*6`, already correct) — none share the bug. `StaticChecks.ps1` →
+  **0 candidates**. Hand-computed the fixed 24-entry buffer (above) and confirmed all 16 vertices are
+  referenced and the winding matches the coarse tile.
+- Not a compile: behaviour is verified by reread; Unity play-test is the compiler.
+- skills: none applied — a 1-line index-stride fix plus a self-check in C#; no DCC artifact and rule 3
+  forbids a Unity run, so no Unity skill could verify anything (rule 15).
+- Play-test: deform terrain with an Earth shape (Wall / Spikes / Crater) so a tile's corners exceed
+  2.5 m, and confirm the affected tiles show a continuous surface with **no** green slabs, tent-like
+  facets or see-through holes; then walk along a natural cliff edge. Console should show no
+  `[ChunkMeshGenerator]` topology warning.
+
 ## 1l106. Fire Meteor + Meteor Rain: they now crater the ground (missing TerrainShape)
 
 The user: **"the meteor and meteor rain skill did not create a change in terrain."** The mechanism is a

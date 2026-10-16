@@ -987,6 +987,16 @@ bite and a cliff reads as a single un-editable surface.
   `EdgeIsRaised` is false) and slab tiles are flat (delta ≈ 0 ⇒ never refined).
 - **UVs/normals:** sub-quads keep whole-tile 1 m UVs (texture density unchanged) and flat per-sub-quad
   normals (same style as the coarse quad).
+- **Index buffer is a full triangulation (1l107):** each sub-quad block emits its 2 triangles (6 indices)
+  at a **6-index** stride, not the 4-vertex stride of its corner block — the two strides are separate
+  (`baseV = quad * 4`, `baseT = quad * 6`), exactly as `EmitLowPolyIndices` does for the facet grid. The
+  block's 24 indices therefore reference its own 16 vertices once each way a quad needs, with no
+  zero-filled tail and no clobbered neighbour. `ChunkMeshGenerator.ValidateTileTopology` asserts both
+  invariants for every emitted tile (in-range indices + every block vertex referenced) and logs one
+  latched `[ChunkMeshGenerator]` warning if a future edit breaks them: a stride mistake keeps the array
+  the right length and every index in range, so it is invisible to a count or bounds check alone — it
+  renders as a stretched facet plus a hole on the steep tiles only, which reads as large stretched green
+  polygons once a deform (§3.8) pushes a tile across the refine threshold.
 - **Edit granularity in 1ew:** the split is **render + hit granularity** — `DeformAt`/`FlattenAt`/
   `GetDigDepth` still move/sample the 4 coarse corners and the fine points re-derive from them
   (corners move → the whole refined patch follows). 1ex adds the fine lattice writes so a dig can move
