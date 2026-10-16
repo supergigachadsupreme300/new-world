@@ -101,8 +101,19 @@ public static class SpellZoneModelBuilder
     /// "just two discs placing on top of each other"). Authored-only, first through
     /// <c>ZoneBody.FrozenField</c> (1l6z) and since 1l70 through <c>StormBody.FrozenField</c>; the storm
     /// gate is shown by <c>SpellStorm</c> sharing this exact builder. Every collider is destroyed, so
-    /// this is body-only by construction.</summary>
-    public static void BuildFrozenField(Transform parent, float radius, Color core, Color edge)
+    /// this is body-only by construction.
+    /// <para><b>1l102 adds the needles' rise-and-sink</b> ("adjust so that the needles would go up then
+    /// go down when spell end"). When <paramref name="lifetime"/> &gt; 0 the spikes and the spire grow
+    /// up out of the ground over <c>RiseTime</c> and sink back down over <c>SinkTime</c> before the
+    /// storm ends, driven by one <see cref="FrozenFieldRise"/> component on <paramref name="parent"/>
+    /// (rule 19: per-frame work lives in the loop that runs while the body MOVES, on the caller's own
+    /// root, not in this shape factory). Every spike is built at full authored height and the component
+    /// only scales it — the build is identical to the static field, so the QA bench pass
+    /// (<paramref name="lifetime"/> = 0, no component) mounts the exact geometry the storm will, at its
+    /// finished size. Each spike scales in Y about its base (<c>position.y == 0.5 * scaledHeight</c>), so
+    /// the bottom stays planted.</summary>
+    public static void BuildFrozenField(Transform parent, float radius, Color core, Color edge,
+        float lifetime = 0f)
     {
         Material coreMat = SkillFx.SharedSpriteMaterial(core);
         Material edgeMat = SkillFx.SharedSpriteMaterial(edge);
@@ -113,6 +124,12 @@ public static class SpellZoneModelBuilder
         disc.transform.SetParent(parent, false);
         disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
         ApplyShared(disc, coreMat);
+
+        // 1l102: every raised piece, with the authored height that its Y is scaled from. 10 + 6 spikes
+        // + the spire; a fixed array keeps this allocating-free and needs no collection import.
+        var risers = new Transform[17];
+        var heights = new float[17];
+        int n = 0;
 
         // Two rings of spikes: an outer rosette near the rim and a shorter inner cluster, each spike
         // taller toward the centre. Each is an elongated cube, tilted a little so the field is not
@@ -138,6 +155,12 @@ public static class SpellZoneModelBuilder
                 spike.transform.localRotation = Quaternion.Euler(
                     Random.Range(-9f, 9f), ang * Mathf.Rad2Deg, Random.Range(-9f, 9f));
                 ApplyShared(spike, edgeMat);
+                if (lifetime > 0f)
+                {
+                    risers[n] = spike.transform;
+                    heights[n] = h;
+                    n++;
+                }
             }
         }
 
@@ -150,6 +173,15 @@ public static class SpellZoneModelBuilder
         spire.transform.localScale = new Vector3(0.22f, 1.8f, 0.22f);
         spire.transform.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         ApplyShared(spire, edgeMat);
+
+        if (lifetime > 0f)
+        {
+            risers[n] = spire.transform;
+            heights[n] = 1.8f;
+            n++;
+            parent.gameObject.AddComponent<FrozenFieldRise>()
+                .Init(risers, heights, lifetime);
+        }
     }
 
     /// <summary>The 1kc Conflagration body: a flat ground circle with a rising curtain of spinning
@@ -312,6 +344,51 @@ public static class SpellZoneModelBuilder
             float env = Mathf.Clamp01(cyc / FadeFraction) * Mathf.Clamp01((1f - cyc) / FadeFraction);
             for (int i = 0; i < _embers.Length; i++)
                 _embers[i].localScale = _baseScales[i] * env;
+        }
+    }
+
+    /// <summary>1l102: the frozen field's needle rise/sink. Grows every spike (and the spire) up out
+    /// of the ground over <c>RiseTime</c>, then sinks it back down over <c>SinkTime</c> as
+    /// <c>lifetime</c> approaches — the user's "needles would go up then go down when spell end".
+    /// Scaling only Y and keeping <c>position.y == 0.5 * scaledHeight</c> keeps each needle's bottom
+    /// planted on the ground as it grows (translating would lift it off). It lives on the storm's own
+    /// root, so it is destroyed with the body — <c>SpellStorm</c> ends at the same <c>lifetime</c>.
+    /// These pieces never had a collider, so this is drawn-only by construction.</summary>
+    private sealed class FrozenFieldRise : MonoBehaviour
+    {
+        private const float RiseTime = 0.35f;
+        private const float SinkTime = 0.5f;
+
+        private Transform[] _risers;
+        private float[] _baseHeights;
+        private float _life;
+        private float _age;
+
+        public void Init(Transform[] risers, float[] baseHeights, float life)
+        {
+            _risers = risers;
+            _baseHeights = baseHeights;
+            _life = life;
+        }
+
+        private void Update()
+        {
+            _age += Time.deltaTime;
+            // One envelope: up from 0 over RiseTime, held, then back to 0 over the last SinkTime.
+            // Min() of the two ramps means a lifetime shorter than the sum simply never reaches full.
+            float up = RiseTime > 0f ? _age / RiseTime : 1f;
+            float down = SinkTime > 0f ? (_life - _age) / SinkTime : 1f;
+            float env = Mathf.Clamp01(Mathf.Min(up, down));
+            for (int i = 0; i < _risers.Length; i++)
+            {
+                Transform t = _risers[i];
+                if (t == null) continue;
+                float h = _baseHeights[i] * env;
+                Vector3 s = t.localScale;
+                t.localScale = new Vector3(s.x, h, s.z);
+                Vector3 p = t.localPosition;
+                t.localPosition = new Vector3(p.x, h * 0.5f, p.z);
+            }
         }
     }
 

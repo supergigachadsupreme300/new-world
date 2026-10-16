@@ -1,3 +1,55 @@
+## 1l102. Deep Freeze: the frozen field's needles rise in and sink out over the storm's life
+
+The user: the Deep Freeze look is good, but "adjust so that the needles would go up then go down when
+spell end." `SpellZoneModelBuilder.BuildFrozenField` (1l6z) built the frost disc, the outer rosette of
+10 spikes, the inner cluster of 6, and the central spire **once, at full height**, then nothing moved
+until `SpellStorm` destroyed the whole body. There was no way to make the needles "go up then go down"
+because nothing owned their transform after the build.
+
+**A lifetime parameter, and one motion component.** `BuildFrozenField` gained an optional
+`float lifetime = 0f`. When it is > 0 the builder records every spike transform (and the spire) with its
+authored height into two fixed arrays (`Transform[17]` / `float[17]`, no collection import) and, after
+the spire, adds one `FrozenFieldRise` to the **storm root** — the loop that runs while the body MOVES
+(rule 19), never the shape factory. The component applies a single envelope in `Update`:
+`env = clamp01(min(age/0.35, (lifetime-age)/0.5))`, stored as a **Y-only local scale** with
+`localPosition.y = 0.5 · (baseHeight · env)`. Because the pivot stays at the needle's foot, scaling Y
+**plants the bottom on the ground** while the tip grows upward — a translation would lift the whole
+needle off the disc. The envelope reaches 0 exactly at `age == lifetime`, which is the same tick
+`SpellStorm.Update` destroys the body (`_age >= Lifetime`), so the needles are fully down when the storm
+ends. The disc does not move (its own authored scale), so only the raised pieces animate.
+
+**Asymmetry between the two gates, and why it is correct (rule 13).** `BuildFrozenField` has three
+callers. The **storm** gate passes `Lifetime` — `SpellStorm.Initialize` sets `Lifetime` from
+`spell.Duration` *before* it builds the body, so the value is final and correct. The **dormant**
+`ZoneBody.FrozenField` gate (`SpellZone.BuildVisual`) deliberately does **not**: `SpellZone` calls
+`BuildVisual` from inside `Initialize`, which runs *before* the caller assigns `Zone.Lifetime`, so
+passing it there would animate on the stale default. That gate therefore keeps the static field it had
+(lifetime defaults to 0). The **QA bench** also passes no lifetime, so its pedestal is the finished,
+static field — the readout that has always shown the Deep Freeze body cannot start animating.
+
+**No F4 key moves.** This adds no new `StormBody`/`ZoneBody` value and no authored field, so the 1l100
+counters (`storm bodies:` / `zone bodies:` / `authored = 27`) are unchanged — the axis is untouched.
+
+**Files (4):** `Models/Magic/SpellZoneModelBuilder.cs`, `Magic/Cast/SpellStorm.cs`, `game-design.md`,
+plus `PROGRESS.md`, `THINKING.md`.
+
+### 1l102-status
+- Verification: grep + reread; `SpellZoneModelBuilder.cs` is not in `StaticChecks.ps1`'s `$files`
+  list, so balance was checked directly — braces 27/27, parens 182/182, and the sibling files
+  (`SpellStorm` 23/23, `SpellEffect` 35/35, `ChargedProjectilePreview` 19/19) all balance. The new
+  `FrozenFieldRise` mirrors the existing private-sealed nested `RisingRing` pattern in the same class,
+  and `AddComponent<T>().Init(...)` on a nested `MonoBehaviour` is already proven there. No compile run
+  (rule 3) — Unity is the compiler; paste any console error into a new commit.
+- `skills: none applied` — a Unity C# logic change in two files, not a DCC artifact and not an
+  editor-driving task; rule 3 bars the Scenario Unity skills' MCP/CLI path from verifying anything here.
+- Pending play-tests: (1) cast **Deep Freeze** and watch the spikes **grow up** out of the ground over
+  ~0.35 s, hold, then **sink** over the last ~0.5 s as the storm ends — the bottoms should stay planted,
+  never lift. (2) Confirm the storm still deals its per-strike freezes and ends on schedule (the rise
+  component only writes spike transforms). (3) Open the QA bench's Deep Freeze row and confirm the body
+  is still the static fully-grown field (bench passes no lifetime). (4) A very short Deep Freeze
+  duration (< 0.85 s) will simply never reach full height — `Min()` of the two ramps — which is
+  expected, not a bug.
+
 ## 1l101. Chill Touch: the hand is flipped up 90° and no longer rolls in flight
 
 The user: **"Chill Touch is palm shape projectile — flip it up 90 degree and dont rotate when fly."**
@@ -5718,7 +5770,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l101). Read this first in a new session; then continue with the
+Last updated: 2026-10-16 (1l102). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

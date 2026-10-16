@@ -84,8 +84,11 @@ public class SpellStorm : MonoBehaviour
         // storm's repeated freeze strikes. The SAME builder the 1l6z zone body used (one
         // implementation, two delivery gates); it deliberately does NOT spin — 240 deg/s is a wind,
         // and a frozen field has none.
+        // 1l102: pass the storm's lifetime so the spikes grow up at the start and sink back down as
+        // the storm ends ("needles would go up then go down when spell end"). Lifetime is set from the
+        // spell above (spell.Duration), so the sink lands exactly when SpellStorm destroys the body.
         if (_look.StormBodyModel == StormBody.FrozenField)
-            SpellZoneModelBuilder.BuildFrozenField(transform, Radius, _color, _look.Edge);
+            SpellZoneModelBuilder.BuildFrozenField(transform, Radius, _color, _look.Edge, Lifetime);
 
         // 1l100: Blizzard wears the conflagration's model (the user's "use the same model as
         // Conflagration"), mounted here as a STORM body rather than by switching Blizzard to

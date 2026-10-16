@@ -1,3 +1,45 @@
+## 1l102. Deep Freeze frozen-field rise/sink - reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l101`, so `1l102` (enumerate first - rule 8).
+Source: the user's request that Deep Freeze's needles "go up then go down when spell end".
+
+**What the body is now.** Deep Freeze is a `SpellDelivery.Storm` resolving `StormBody.FrozenField`, so
+`SpellStorm.Initialize` calls `SpellZoneModelBuilder.BuildFrozenField(transform, Radius, _color,
+_look.Edge)` (1l70). 1l6z's builder builds the disc + 10 + 6 spikes + a spire, once, at final height. It
+had no per-piece motion at all.
+
+**H1 - "animate the whole body up/down as one scale/translation (like the spawn ring)". REJECTED.**
+Scaling the root grows the disc too (the disc must stay flat and planted), and translating the root
+would lift the disc off the ground. The user asked for the **needles** to move, not the field.
+
+**H2 - "build the needles short and grow them in a coroutine on the storm". REJECTED.** `SpellStorm`
+already has an `Update` with `_age`; a coroutine duplicates the clock and cannot be cancelled cleanly
+when the body is destroyed early. The bug class rule 19 names: a per-frame effect belongs in the loop
+that runs while the body moves.
+
+**H3 - "one component on the storm root, one envelope, Y-only scale". CHOSEN.** `FrozenFieldRise` takes
+the spike transforms + authored heights + `lifetime`, and per frame writes `scale.y = baseHeight * env`
+and `position.y = 0.5 * baseHeight * env`. The `0.5*h` planting is the whole trick: the primitive cube's
+pivot is its centre, so matching the *bottom* to y=0 means the centre sits at half the scaled height -
+otherwise a needle grows out of thin air and, as it shrinks, sinks *below* the ground. Authored heights
+are captured once at build, so the jitter (0.75-1.3x) survives the scaling.
+`env = clamp01(min(age/Rise, (life-age)/Sink))` - `Rise = 0.35`, `Sink = 0.5`. At `age == life` the
+envelope is exactly 0, the same tick `SpellStorm.Update` does `_age >= Lifetime` -> destroy. So the
+needles are down when the storm dies; no cleanup needed (the component dies with the root).
+
+**H4 - "does the dormant zone gate also get the lifetime?". CHECKED - no (rule 13).** `SpellZone`
+calls `BuildVisual` from `Initialize`, and its `Lifetime` is assigned by the CALLER *after* `Initialize`
+returns (`SpellCaster.Cast.cs:404` / `:738`). So `Zone.Lifetime` is still the field default (4 s) at
+build time; passing it would animate on the wrong number. The storm path has the opposite order
+(`SpellStorm.Initialize` sets `Lifetime` then builds the body). The two gates share the builder but not
+the lifetime ordering, so the zone gate keeps the static field (lifetime 0). This is a real asymmetry,
+documented, not a bug to "fix" by passing the wrong value.
+
+**H5 - "must the disc shrink too?". CHOSEN - no.** The disc is the ground the needles sit on; scaling it
+would make the field's footprint pulse. Only the raised pieces are registered in `risers[]`; the disc is
+left exactly as authored. This also keeps the "drawn-only" claim trivial: none of these pieces has a
+collider (`DestroyCollider` at build), so the rise/sink cannot affect physics.
+
 ## 1l101. Chill Touch hand flip + no in-flight roll - reasoning trail (SHIPPED; play-test pending)
 
 New task id: top `^## 1..` was `1l100`, so `1l101` (enumerate first - rule 8). Source: the user's

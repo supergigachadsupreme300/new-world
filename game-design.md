@@ -2784,6 +2784,23 @@ reads `None` = every spell but Firestorm and Blizzard, `Funnel = 1`, `VortexCirc
 stays **27**. The axis now reaches bit 42 (a 3-bit field where the header said 2), which was the
 first free bit above the block and collides with nothing.
 
+**1l102 makes the frozen field's needles rise and sink.** The user: the Deep Freeze spikes are good,
+but the "needles would go up then go down when spell end". `BuildFrozenField` now takes an optional
+`lifetime`; when it is > 0 the builder records every spike (and the spire) and adds one
+`FrozenFieldRise` component to the storm root, which grows each needle up out of the ground over 0.35 s
+and sinks it back down over the last 0.5 s — one envelope, `clamp01(min(age/RiseTime,
+(lifetime-age)/SinkTime))`, applied as a Y-only scale with `position.y == 0.5 · scaledHeight` so each
+needle's **bottom stays planted** (a translation would lift it; the disc does not move). Because the
+envelope reaches 0 exactly at `lifetime`, the needles are down when `SpellStorm` destroys the body.
+The per-frame work lives on the storm's own root — the loop that runs while the body MOVES — never in
+the shape factory (rule 19), and the pieces have no collider, so it is drawn-only. **Asymmetry,
+justified:** the storm gate passes its `lifetime` (set from `spell.Duration` in `SpellStorm.Initialize`,
+*before* it builds the body), but the dormant `ZoneBody.FrozenField` gate does **not** — `SpellZone`
+calls `BuildVisual` from `Initialize` *before* the caller sets `Zone.Lifetime`, so passing it there
+would animate on the stale default; the zone body therefore stays the static field. The QA bench
+passes no lifetime, so its pedestal is the finished, static field. No F4 key moves — this adds no axis,
+only per-frame motion to an existing body.
+
 **1l85: the shared `Funnel` body's rings no longer show gaps.** `SpellZoneModelBuilder.BuildFunnel` — the
 tornado body Firestorm draws over its storm area (and any pulling zone draws over its radius) — is a
 stack of 7 rings whose centres rise with the taper. The rings were flat 1-unit cubes, so once the taper's
@@ -3591,7 +3608,7 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   | Builder | Moved out of | What stayed behind |
   |---|---|---|
   | `SpellBeamModelBuilder` | `SpellBeam` | the debris orbit — the body scale HOLDS since 1kb (no funnel flare) |
-  | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime; the 1kc conflagration body is a `ConflagrationEmitter` that spawns its own `RisingRing`s (1l6u) |
+  | `SpellZoneModelBuilder` | `SpellZone` | the zone's lifetime; the 1kc conflagration body is a `ConflagrationEmitter` that spawns its own `RisingRing`s (1l6u), and the frozen-field body adds a `FrozenFieldRise` that grows/sinks its spikes over the lifetime (1l102) |
   | `SpellStormModelBuilder` | `SpellStorm` | strike scheduling |
   | `SummonModelBuilder` | `SpellSummon` | the pulse |
   | `SkillFxModelBuilder` | `SkillFx` | nothing — slash/ring are one-shot |
