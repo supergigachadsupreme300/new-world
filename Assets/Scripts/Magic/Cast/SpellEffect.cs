@@ -311,7 +311,15 @@ public class SpellEffect : MonoBehaviour
                 bool bc = r.GetComponent<BossController>() != null;
                 sb.Append($"[{i}] col='{c.name}' root='{r.name}' tag={r.tag} layer={c.gameObject.layer} trigger={c.isTrigger} EC={ec} BC={bc} isEnemy={isEnemy}; ");
             }
-            Debug.LogWarning($"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} queriesHitTriggers={Physics.queriesHitTriggers} :: {sb}");
+            string line = $"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} queriesHitTriggers={Physics.queriesHitTriggers} :: {sb}";
+            Debug.LogWarning(line);
+            try
+            {
+                string path = System.IO.Path.Combine(Application.dataPath, "..", "zap_aura_debug.txt");
+                if (_zapDebugLogs == 0) System.IO.File.WriteAllText(path, line + "\n");
+                else System.IO.File.AppendAllText(path, line + "\n");
+            }
+            catch { }
             _zapDebugLogs++;
         }
         if (count == 0) return;
