@@ -24,17 +24,36 @@ public partial class PlayerController
 
     private void LoadPlayerModel()
     {
-        if (_playerModelInstance != null)
-            Destroy(_playerModelInstance);
+        var combat = CombatCached;
 
+        // 1l117: rescue the equipped rigs from the old model BEFORE it is destroyed. They hang
+        // under its hand bones (drawn) or its Torso stow anchor (stowed), so destroying the model
+        // takes them with it and the held weapon vanishes on any rebuild â€” the reported
+        // "weapon disappears after ragdoll" (PlayerRagdoll.Exit -> RebuildPlayerModel). Park them
+        // on the player root; ReparentToHands below re-seats them on the fresh hands.
+        DetachRigToRoot(combat != null ? combat.RightHand : null);
+        DetachRigToRoot(combat != null ? combat.LeftHand : null);
+
+        // Dispose the old model. The Destroy is deferred, so detach each instance from the player
+        // first: otherwise the freshly built model (same "PlayerModel" name) is shadowed by the
+        // dying one in every Find("PlayerModel") for the rest of the frame, and ReparentToHands
+        // would seat the rescued weapons onto a bone that is about to be deleted.
+        if (_playerModelInstance != null)
+        {
+            _playerModelInstance.transform.SetParent(null, true);
+            Destroy(_playerModelInstance);
+        }
         var existing = transform.Find("PlayerModel");
         if (existing != null)
+        {
+            existing.SetParent(null, true);
             Destroy(existing.gameObject);
+        }
+        _playerModelInstance = null;
 
         // Remember what was equipped so a model reload (gender/race change) can re-rig the same
         // weapons once the fresh hands exist â€” but never auto-equips weapons the player unequipped.
         _pendingAutoRig.Clear();
-        var combat = CombatCached;
         if (combat != null)
         {
             var rh = combat.RightHand != null ? combat.RightHand.GetComponent<WeaponRigHost>() : null;
@@ -83,6 +102,14 @@ public partial class PlayerController
     /// physics rig - a hand-made restore would have to walk every bone back to its authored pose,
     /// and the rebuild also re-seeds the weapon poses and body/arm layers for free.</summary>
     public void RebuildPlayerModel() => LoadPlayerModel();
+
+    /// <summary>1l117: move an equipped rig onto the player root so the deferred destroy of the old
+    /// model cannot take it with it. A no-op when the rig is null or already on the root.</summary>
+    private void DetachRigToRoot(GameObject rig)
+    {
+        if (rig != null && rig.transform.parent != transform)
+            rig.transform.SetParent(transform, true);
+    }
 
     /// <summary>True when the renderer sits on the arm chain (Shoulder â†’ Elbow â†’ Hand) or a held
     /// weapon rig parented to it. Declared inline so no top-level helper is added to the class.</summary>

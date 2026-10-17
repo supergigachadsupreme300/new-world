@@ -1,3 +1,43 @@
+## 1l117. After a ragdoll, the equipped weapon disappeared (SHIPPED; play-test pending)
+
+**Report:** "after ragdoll the weapon disapear".
+
+**H1 - the ragdoll's ENTER destroys the weapon. REJECTED.** `PlayerRagdoll.Enter` (`PlayerRagdoll.cs:67`)
+only `EnsureRig()`s the model bones (adds `Rigidbody`/`BoxCollider`/`CharacterJoint`), disables the
+animator + `CharacterController`, and applies an impulse. It never touches `combat.RightHand`/`LeftHand`;
+the weapon rig is a child of the hand bone and simply follows the physics. The weapon is intact through
+the whole flop.
+
+**H2 - the recovery rebuild destroys the model, and the weapon is a descendant of it. CONFIRMED.**
+`PlayerRagdoll.Exit` (`:126`) calls `pc.RebuildPlayerModel()` -> `PlayerController.Animation.cs:85`
+`RebuildPlayerModel() => LoadPlayerModel()`. `WeaponRigBuilder.AttachToHand` parents the `Wpn_<id>` rig to
+the model's `HandR`/`HandL` while drawn, and the stow path parents it under the model's `Torso` (`StowBack`
+/ `StowWaist`, `StowAnchorParent` -> model `Torso`) while stowed. Both are INSIDE the model tree, so the
+rebuild's `Destroy` takes the weapon with it.
+
+**H3 - the rescue that was already there re-seats onto the WRONG model. CONFIRMED (the real bug).**
+`LoadPlayerModel` calls `WeaponRigBuilder.ReparentToHands` to re-seat a rig that was parked on the root.
+`ReparentHand` -> `FindHand` -> `playerRoot.Find("PlayerModel")`, and `StowAnchorParent` likewise
+(`WeaponRigBuilder.cs:493` / `:468`). `Object.Destroy` is **deferred** to end of frame, and the freshly
+built model is a NEWER sibling of the SAME name (`PlayerModelBuilder.BuildPlayerModel` always names the
+root `"PlayerModel"`, `:125`), so `Find` kept returning the OLD, dying model - `ReparentToHands` re-seated
+the rescued weapon onto a bone that was deleted a moment later, and the weapon vanished anyway. Evidence
+that made this fire: the ragdoll demo lane was unreachable (`Key.F14`) until 1l115 re-homed it to **N**, so
+this is the first time the ragdoll recovery was actually exercised.
+
+**H4 - the `_pendingAutoRig` fallback would recover it anyway. REJECTED.** The re-equip-after-reload lives
+in `PlayerController.Interactions` (`:242`) and is gated on `FightingMode` (`:237`). The ragdoll demo is
+usually pressed in casual mode, where weapons are stowed and the block is skipped - so once H3 deleted the
+rig, nothing restored it. This is a second, independent spelling of "restore the weapons" and it only
+covered the combat-mode case.
+
+**Verdict (shipped):** `LoadPlayerModel` now (a) parks each equipped rig on the player root
+(`DetachRigToRoot`) BEFORE the model destroy, and (b) detaches the old model from the player
+(`SetParent(null, true)`) before its deferred `Destroy`, so the only `"PlayerModel"` the rest of the method
+- and `FindHand`/`StowAnchorParent` - can resolve is the fresh one. `ReparentToHands` +
+`ReApplyWeaponPose(instant: true)` then re-seat and re-pose the surviving rigs. Fixes casual and combat mode,
+and the race-change rebuild that shares the method.
+
 ## 1l116. Static Nova: lingering Zone -> caster-centred radial wave (SHIPPED; play-test pending)
 
 **Report/request:** Static Nova should behave like a Wave delivery but as a circle spreading radially

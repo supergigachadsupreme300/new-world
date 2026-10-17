@@ -1,3 +1,43 @@
+## 1l117. After a ragdoll the equipped weapon disappeared (model rebuild deleted the held rigs)
+
+The user reported "after ragdoll the weapon disapear". The ragdoll recovery calls
+`PlayerRagdoll.Exit` -> `PlayerController.RebuildPlayerModel` -> `LoadPlayerModel`, and the rebuild
+destroys the whole player model. The equipped weapon rigs (`Wpn_<id>`, built by
+`WeaponRigBuilder.BuildRig`) hang as children of the model's hand bones while drawn and of its
+`Torso` stow anchors while stowed, so destroying the model took the weapons with it.
+
+**Two failure modes compounded (rule 14 - a removal has more than one).** (1) `LoadPlayerModel`
+called `WeaponRigBuilder.ReparentToHands`, whose `FindHand`/`StowAnchorParent` both resolve the
+hand/stow-parent through `playerRoot.Find("PlayerModel")`. `Object.Destroy` is **deferred** to the
+end of the frame, so for the rest of `LoadPlayerModel` the OLD model still resolved by that name -
+and it is the FIRST sibling, so `Find` returned the dying model and re-seated the weapon onto a bone
+about to be deleted. (2) The `_pendingAutoRig` fallback that re-equips after a reload lives in
+`PlayerController.Interactions` and is gated on `FightingMode`, so in casual mode (the ragdoll demo's
+usual state, weapons stowed) nothing re-created the weapon and it stayed gone.
+
+**Fix (one place, both modes).** `LoadPlayerModel` now rescues first: it parks each equipped rig
+(`combat.RightHand`/`LeftHand`) on the player root with `DetachRigToRoot`, then detaches the old
+model from the player (`SetParent(null, true)`) before its deferred `Destroy`, so the only
+`"PlayerModel"` the rest of the method can resolve is the fresh one - `ReparentToHands` then seats
+the surviving rigs on the new hands and `ReApplyWeaponPose(instant: true)` re-applies the drawn/stowed
+pose. Detaching the old model also protects rule 17's name-based lookups (`FindHand`,
+`StowAnchorParent`) for the whole frame. The same path fixes the race-change rebuild, which shares
+`LoadPlayerModel`.
+
+### 1l117-status
+- Files touched: `Assets/Scripts/Player/PlayerController.Animation.cs` (rescue + old-model detach in
+  `LoadPlayerModel`, new `DetachRigToRoot` helper, doc comments), `game-design.md` (ragdoll section
+  note), plus this `PROGRESS.md` and `THINKING.md`.
+- Verification: grep + reread only (no build, rule 3). Traced the whole path
+  (`PlayerRagdoll.Exit` :126 -> `RebuildPlayerModel` -> `LoadPlayerModel`), confirmed both name-based
+  resolvers (`WeaponRigBuilder.FindHand` :493, `StowAnchorParent` :468) use `Find("PlayerModel")`, and
+  confirmed `PlayerModelBuilder.BuildPlayerModel` always names the root `"PlayerModel"` (:125) so the
+  deferred-destroy shadowing is real. `tools/StaticChecks.ps1` is not mandated here (rule 3 covers
+  `WorldBuilder*.cs` / `NewWorldTestGround.cs`; neither was touched).
+- Pending play-test: (1) equip a weapon, press **N** (ragdoll demo), recover - the weapon is still in
+  hand (drawn) / on the back (stowed), in both casual and combat mode; (2) same on a race change
+  (weapon survives the rebuild); (3) bare-handed ragdoll - fists still work, no duplicate rig.
+
 ## 1l116. Static Nova reworked from a lingering Zone to a caster-centred radial wave (`SpellDelivery.NovaWave`)
 
 The user asked for Static Nova (`magic_lightning_fury_beam`) to behave like a Wave delivery but as a

@@ -1091,6 +1091,8 @@ The player model is **procedural** (`PlayerModelBuilder`: a plain transform tree
 
 Enemy and boss melee carry a serialized **`KnockbackForce`** (enemy 5, boss 8 m/s) which, with the ragdoll's own `KnockdownImpulse`, sets the flop's direction and speed. Damage still passes through the same mitigation gates (i-frames, class aura, tree `DamageReduction`, melee guard); whether a hit knocks down is decided on the **mitigated** number the HUD loses. While down the camera is forced to **third person** and follows the body (the pivot tracks the torso's position only), restoring the prior mode on recovery. Death currently has **no respawn** other than starting a new game or returning to the main menu.
 
+The recovery rebuild (`PlayerRagdoll.Exit` → `PlayerController.RebuildPlayerModel`) destroys the whole model — and the equipped weapon rigs hang under its hand bones (drawn) or its `Torso` stow anchors (stowed) — so `LoadPlayerModel` **rescues them first**: it parks each equipped rig on the player root, then detaches the old model from the player before its (deferred) `Destroy`, so `Find("PlayerModel")` resolves to the fresh model and `ReparentToHands` re-seats the rescued weapons on the new hands. Without that rescue a rebuild silently deleted the held weapon (1l117). The same path serves the race-change rebuild.
+
 #### Stamina System
 
 - Stamina regenerates over time (pauses briefly after actions).
