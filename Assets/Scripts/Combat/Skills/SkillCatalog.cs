@@ -224,10 +224,10 @@ public static partial class SkillCatalog
         spell.SkyStrikeBolt = skyStrikeBolt;
         spell.StormCloud = stormCloud;
         // 1ii: null (the default) means "fully deterministic from spell.id" — the resolver treats a
-        // profile that merely EXISTS as authored, so these 22 (16 here + 6 in SkillCatalog.Magic.cs;
-        // 21 before 1kf's Firestorm storm-body-only profile — both counts regex-measured, the older
-        // "21 (16 + 5...)" here was off by one) must be a deliberate list and not a
-        // blanket default. Assigning a null here is the same as leaving the field at its default.
+        // profile that merely EXISTS as authored, so the authored list (31 as of 1l112: 16 in this
+        // file + 15 in SkillCatalog.Magic.cs; regex-measured on the profile argument, and it grows
+        // with every look-axis phase) must be a deliberate list and not a blanket default. Assigning
+        // a null here is the same as leaving the field at its default.
         spell.Look = look;
         return new SpellCastEffect { Spell = spell };
     }

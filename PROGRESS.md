@@ -1,3 +1,107 @@
+## 1l112. Lightning tree rework, Phase 3 of 4 — the `magic_lightning_fury` bank (Fury Bolt / Static Nova / Thunder Vortex / Devastation)
+
+Phase 3 of the 13-skill Lightning rework (Phase 1 = 1l110, Phase 2 = 1l111). Same fixed decisions: keep
+the school's `Stagger`, renames + delivery reclassifications allowed, **skill ids unchanged** (save
+keys), new procedural voxel bodies in C#, one commit per L2 bank. The Fury bank was the flattest of the
+four (five near-identical "zap" spells), so each spell now gets a distinct silhouette through the
+drawn-only look axes — plus one new `ProjectileShape`, one `Vortex` reclassification, and two spells
+that needed a real `duration` to carry a body at all.
+
+**The five skills (`SkillCatalog.Magic.cs`).**
+- **Lightning Strike** (`magic_lightning_fury`) — keeps the signature instant sky-nuke (Zone +
+  `skyStrikeBolt: true`) but is rebudgeted as the bank's heavy opener: power 30 -> **40**, FP 20 -> **28**,
+  cd 5 -> **9**, `deliveryRadius` 2.2 -> **2.5**. No profile.
+- **Fury Bolt** (`magic_lightning_fury_bolt`) — takes the new shape **`ProjectileShape.FuryLance`**
+  (value 20): power 38 / FP 24 / cd 8 / range 16 / speed 18 / knockback 2.5. No profile — its axis is
+  `spell.Shape`.
+- **Static Nova** (`magic_lightning_fury_beam`) — gains **`duration: 2.5f`** (it was an *instant* Zone;
+  with no duration `ResolveZone` fires one overlap burst and spawns no `SpellZone`, so it could never
+  carry a persistent body), keeps `centerOnCaster: true`, and is authored **`ZoneBody.NovaRing`**
+  (value 4): power 22 / FP 26 / cd 11 / radius 3.4.
+- **Devastation** (`magic_lightning_fury_devastation`) — authored **`StormBody.Maelstrom`** (value 7):
+  power 38 -> **52**, FP 28 -> **36**, cd 8 -> **16**, range 10 -> 11, radius 3.6 -> **4.2**, duration
+  3.5 -> **6**, still `stormCloud: true`.
+- **Lightning Tempest -> Thunder Vortex** (`magic_lightning_fury_tempest`) — **delivery reclassified
+  `Zone` -> `Vortex`** and authored **`ZoneBody.LightningCyclone`** (value 5): power 30 / FP 24 / cd 9 /
+  range 9 / radius 3.2 / `duration: 5f` (`SpawnVortex` supplies `pullSpeed 3.5`).
+
+**New drawn-only bodies (`SpellZoneModelBuilder`).** `BuildNovaRing(parent, radius, core, edge)` — a flat
+ground disc ringed by 18 jittered rim arcs (tilted off vertical so the edge crackles) plus a short inner
+Core ring; `BuildLightningCyclone(parent, radius, core)` — a bright eye column wrapped by five rings of
+jagged vertical bolts (widest at the base, narrowing upward); `BuildMaelstrom(parent, radius, height,
+cloud, core)` — a four-band cumulonimbus (one band more than the Thunderhead, wider, eight down-teeth
+under a `MaelstromSeat`). All three join the authored-only axes and are mounted from the resolved `_look`
+the same way the 1l111/1kc/1l6z bodies are; every call site was checked against each builder's signature.
+
+**`SpellZone.BuildVisual` ordering is the seam that makes a body visible.** The NovaRing and
+LightningCyclone mount branches sit **above** the `PullSpeed > 0f` funnel check, because a pulling zone
+(Thunder Vortex is a Vortex) would otherwise fall through to the plain funnel and never draw its authored
+body.
+
+**New shape (`ProjectileShape.FuryLance` = 20).** `MagicProjectileModelBuilder.FuryLance` builds a long
+forked lightning lance; dispatched through `spell.Shape` (display-only, like `StormWave`/`GreatBolt`).
+
+**`SpellStorm` gains a third cloud altitude (rule 8's `_cloudY` seam).** `MaelstromHeight = 22f`; `_cloudY`
+is now a 3-way pick (Thunderhead 16 / Maelstrom 22 / `StormCloudHeight` 45), and the generic `_stormCloud`
+puff gate also excludes Maelstrom, so Devastation draws its own cumulonimbus instead of the legacy 45 m
+`MapBuilder.BuildCloud`.
+
+**The `LookKey` had to be re-laid-out, and the old comment's bit counts were already a lie.** Phase 1
+(1l110) pushed `ProjectileShape` to 16/17/18 and Phase 3 pushes it to 19/20, but `DisplayShape` was
+packed in only **4 bits** at `<<26`, so it overflowed into `Cast` at bit 30; and `ZoneBody` was packed in
+only **2 bits** at `<<38`, so the new values 4/5 lost their high bit into `StormBody` at bit 40 and their
+truncated field read 0/1 — each authored body's key became **indistinguishable from an unauthored
+spell's** (a 1ic-audit "same look" the spell does not have, plus a phantom `StormBody` bit). `NewWorldTestGround.LookKey` is now laid out sequentially from bit 24 with an explicit width per
+field (SkyRock 2, DisplayShape 5, Cast 3, Impact 3, CastAnchor 2, ZoneModel 3, StormBody 3, SummonBody 2
+= 23 bits) with r/g/b unchanged at 0-23 — and every enum checked to fit its width (ProjectileShape max 20
+needs 5, ZoneBody max 5 needs 3, StormBody max 7 needs 3, the rest fit). The map is injective over the
+enum block, so the two collapsed keys are corrected and `colliding` can only **fall**. Only the colour
+half (bits 0-23) and SkyRock (bits 24-25) are preserved verbatim — widening DisplayShape by one bit
+shifts every later field up one, so a non-authored spell's key value **does** change; the guarantee is on
+the equality structure (splitting keys, never merging), not on byte identity. The re-layout is also why
+the 1kc/1l70/1l111 paragraphs' quoted `<<38`/`<<40`/`<<42`/`<<43` are now historical positions.
+
+### 1l112-status
+- Files touched (9 C# + 3 md): `Assets/Scripts/Magic/Cast/SpellData.cs` (`ProjectileShape.FuryLance = 20`;
+  `GreatBolt` doc made true — it no longer promises "Fury Bolt joins it"), `Assets/Scripts/Magic/Look/
+  SpellLook.cs` (`ZoneBody.NovaRing = 4`, `ZoneBody.LightningCyclone = 5`, `StormBody.Maelstrom = 7`; the
+  stale "34 bits" audit comment corrected), `Assets/Scripts/Models/Magic/SpellZoneModelBuilder.cs`
+  (`BuildNovaRing`, `BuildLightningCyclone`, `BuildMaelstrom`), `Assets/Scripts/Magic/Cast/SpellZone.cs`
+  (NovaRing + LightningCyclone mount branches above the `PullSpeed` check),
+  `Assets/Scripts/Magic/Cast/SpellStorm.cs` (`MaelstromHeight`, 3-way `_cloudY`, Maelstrom puff-gate
+  exclusion), `Assets/Scripts/Models/Magic/MagicProjectileModelBuilder.cs` (`FuryLance` dispatch +
+  builder), `Assets/Scripts/Combat/Skills/SkillCatalog.Magic.cs` (the five rows),
+  `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (authored-profile count comment corrected to the measured
+  31 = 16 + 15), `Assets/Scripts/Opt/NewWorldTestGround.cs` (LookKey re-lay + corners-comment bit count),
+  `game-design.md` (§3.8.5 additions + the LookKey byte-identity claim corrected), `magic-skills.md` (row
+  updates), `THINKING.md`.
+- Verified by grep + reread (rule 3, **no build**): every new enum value's width checked against its
+  enum's own max (that is the `LookKey` injectivity premise, not assumed); the `Look(...)` named-arg calls
+  resolve to the `SkyRockStyle` overload; `SpellZone.BuildVisual` reads the same resolved `_look` for
+  `Core`/`Edge`/`ZoneModel` (the pre-existing FrozenField branch already proves those members coexist);
+  `SpawnVortex` -> `SpellZone.Initialize(..., pullSpeed)` reaches the new mount branches;
+  `BuildNovaRing`/`BuildLightningCyclone`/`BuildMaelstrom` signatures matched to each call site;
+  `MapBuilder.BuildSeatedPlayerModel` not touched. `tools\StaticChecks.ps1` -> **0 candidates**.
+- **Rotten-number sweep (rule 8):** the earlier comment header quoted a "34-bit" / "38-bit" key that the
+  1l112 re-layout made stale — both corrected in the same pass (`SpellLook.cs` 34, `NewWorldTestGround.cs`
+  38). The authored-profile comment's own arithmetic ("34 = 16 + 18") was also wrong (Magic holds 15, not
+  18) and was corrected to the grep-measured 31 = 16 + 15; the deliverable F4 delta stays **+3**.
+- Not a compile: behaviour is verified by reread; the Unity play-test is the compiler.
+- skills: `none applied` — the artifact is a C# edit reviewed by a human (and the LookKey arithmetic is
+  pure bit math), so no installed skill governs it; the Scenario Unity skills cannot verify anything here
+  (rule 3 bars their MCP/CLI path). Stated deliberately rather than by omission.
+- Predicted F4 deltas (state them; do not "fix" the readout): `authored` **+3** (Static Nova, Devastation,
+  Thunder Vortex each gained a profile; Lightning Strike and Fury Bolt stayed unauthored — their axes ride
+  on `spell.Delivery`/`spell.Shape`); `zone bodies:` gains `NovaRing = 1`, `LightningCyclone = 1`;
+  `storm bodies:` gains `Maelstrom = 1`; the projectile bank gains one `FuryLance`. `colliding` should
+  **fall** (the re-layout separates the two authored bodies' keys from whatever unauthored twin each
+  leaked onto) — the exact delta is the lane's to print, not a number to assert here.
+- Play-test: cast each of the five — Lightning Strike a heavy single sky-bolt, Fury Bolt a forked lance
+  that punches through and staggers, Static Nova a lingering ring of static centred on the caster,
+  Devastation a maelstrom cumulonimbus raining relentless bolts at its own higher altitude, Thunder Vortex
+  a spinning lightning cyclone that drags foes in. Then F4 (`MagicTestMatrix`) to confirm `authored +3`,
+  the three new body families, and `FuryLance`; and press the LookKey lane to see `colliding` not rise.
+
 ## 1l111. Lightning tree rework, Phase 2 of 4 — the `magic_lightning_storm` bank (Thunderhead / Downpour / Storm Fan / Storm Lash)
 
 Phase 2 of the 13-skill Lightning rework (Phase 1 = 1l110). Same fixed decisions: keep the school's
@@ -6246,13 +6350,18 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-16 (1l108). Read this first in a new session; then continue with the
+Last updated: 2026-10-17 (1l112). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded. **Open play-test items (newest first):** **1l108** - raise an Earth
+for the reasoning it recorded. **Open play-test items (newest first):** **1l112** - cast the five
+Fury-bank spells and confirm each silhouette (Fury Bolt a forked lance, Static Nova a lingering
+caster-centred static ring, Devastation a maelstrom cumulonimbus, Thunder Vortex a spinning
+lightning cyclone that pulls), then press F4 (`MagicTestMatrix`) and check `authored` rose by 3,
+`zone bodies:` shows NovaRing/LightningCyclone, `storm bodies:` shows Maelstrom, and `colliding`
+did not rise (the LookKey re-layout was for exactly that). **1l108** - raise an Earth
 Wall, hit its high ridge with an Earth projectile: the ridge top should carve and the ground at its
 base must stay level (F13 crater audit ≈0 dig-vs-pristine there; re-cast on flat ground and confirm
 the floor still ratchets). **1l107** - deform terrain with an Earth shape so a tile's corners exceed

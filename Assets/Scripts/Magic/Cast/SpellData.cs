@@ -155,9 +155,8 @@ public enum ProjectileShape
     SparkSwarm = 17,
 
     /// <summary>1l110: a heavy great-bolt — a thick, long jagged streak wrapped around a white-hot core,
-    /// the body Volt Bolt wears (Fury Bolt joins it in a later Lightning phase). A plain display body with NO behaviour,
-    /// granted by an authored <c>spell.Shape</c>. Not in <c>Shape_Lightning</c> for the same reason as
-    /// <see cref="VoltBolt"/>.</summary>
+    /// the body Volt Bolt wears. A plain display body with NO behaviour, granted by an authored
+    /// <c>spell.Shape</c>. Not in <c>Shape_Lightning</c> for the same reason as <see cref="VoltBolt"/>.</summary>
     GreatBolt = 18,
 
     /// <summary>1l111: a ground-hugging arc-wall of jagged lightning — a bowed floor whose crest carries
@@ -167,7 +166,14 @@ public enum ProjectileShape
     /// value. Granted through an authored <c>spell.Shape</c> (the <see cref="Wave"/> precedent) and
     /// deliberately not a member of <c>Shape_Lightning</c>, so no un-authored Lightning spell's
     /// deterministic <c>Auto</c> body moves.</summary>
-    StormWave = 19
+    StormWave = 19,
+
+    /// <summary>1l112: Fury Bolt's body — a long, thick forked lightning lance (a bright core rod with
+    /// two short branches near the head, trailing flecks) that reads as heavier and more branching than
+    /// <see cref="GreatBolt"/>'s single streak, so the fury-bank bolt does not duplicate Volt Bolt. A
+    /// plain display body with NO behaviour, granted by an authored <c>spell.Shape</c>; not in
+    /// <c>Shape_Lightning</c> for the same reason as <see cref="VoltBolt"/>.</summary>
+    FuryLance = 20
 }
 
 /// <summary>

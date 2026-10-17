@@ -833,7 +833,10 @@ the near/far boundary so a resident chunk and a freshly built one are on screen 
   than one**: a **cone beam** mounts the live `SpellBeam.BuildConeVisual` wedge, a **caster-anchored
   summon** mounts its familiar ring via the live `SummonModelBuilder.BuildFamiliarCircle` (1l6p; a
   flat ground circle + core before that), a **ground summon** whose look grants
-  `SummonBody.TeslaCoil` mounts the live `SummonModelBuilder.BuildTeslaCoil` spire (1l110), and
+  `SummonBody.TeslaCoil` mounts the live `SummonModelBuilder.BuildTeslaCoil` spire (1l110), an authored
+  **storm body** (`StormBody.Rain`/`Thunderhead` 1l111, `Maelstrom` 1l112) mounts its live
+  `SpellZoneModelBuilder` cloud, an authored **zone body** (`ZoneBody.NovaRing`/`LightningCyclone` 1l112)
+  mounts its live zone body, and
   anything else shows the default icon — before 1ir both
   of the new spells fell through to `CreateProjectileDisplay`, which has no body for a Beam or a
   familiar, so the bench would have kept reporting the generic orb for exactly the two deliveries
@@ -1870,7 +1873,7 @@ A spell is a data asset carrying:
 - **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **selfTeleport** (1l78: Instant delivery moves the CASTER instead — e.g. **Leap Bolt**: the player is teleported up to `Range` in the direction they are **choosing on WASD** — `PlayerController.MoveInput` through `transform.TransformDirection`, exactly the direction the character would walk — cleared of obstructions, and the ground under the landing is found with the shared `GroundUnder` probe. With no move key held the leap falls back to the flat camera look, then the body's forward. A jagged bolt links where the caster WAS to where they land, and everything within `Radius` at the landing takes the hit. The one delivery that moves the player.)
-- **centerOnCaster** (1l73/1l79: a Zone/Storm bursts **under the caster** instead of the aim point — e.g. **Static Nova** (was Sky Beam): a `Zone`, `centerOnCaster`, radius 2.8, Stagger, no channel drain. `ResolveZone` ground-snaps the centre with `GroundUnder`, and the armed AoE preview disc follows it under the feet.)
+- **centerOnCaster** (1l73/1l79: a Zone/Storm bursts **under the caster** instead of the aim point — e.g. **Static Nova** (was Sky Beam): a `Zone`, `centerOnCaster`, radius 3.4, duration 2.5 s, Stagger, no channel drain (1l112 added the duration so the zone persists with its nova-ring body). `ResolveZone` ground-snaps the centre with `GroundUnder`, and the armed AoE preview disc follows it under the feet.)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
 - **summonFallingRock** (sky spells: a rock formation drops from the sky onto the target and the
@@ -2184,7 +2187,7 @@ a school read distinctly instead of feeling like copies:
 - **Storm** — a persistent ground zone that **strikes repeatedly** while it lasts: `StrikesPerTick`
   (2) bolts per tick at `StrikePowerMultiplier` ×0.8 with randomized sub-second delays, element-styled
   visuals (e.g. crossed bolt bars on Lightning). Examples: Thunderstorm, Meteor Rain, Blizzard,
-  Hail Lance, Avalanche, Eclipse. **1l77**: a **storm-cloud** storm (`StormCloud`, Devastation) mounts
+  Hail Lance, Avalanche, Eclipse. **1l77**: a **storm-cloud** storm (`StormCloud`) mounts
   a dark cloud (`MapBuilder.BuildCloud`, tinted `SpellStorm.StormCloudTint`) `StormCloudHeight` (45 m)
   above the area and draws each strike as a long multi-segment `SpellBoltModelBuilder` bolt from that
   cloud down to the strike point, in place of the crossed bars — the cloud is the spell's identity.
@@ -2193,7 +2196,9 @@ a school read distinctly instead of feeling like copies:
   is always the cloud the bolts leave), and a `StormBody`-authored storm supplies its own cloud: a
   **Thunderhead** storm mounts its voxel cumulonimbus **instead of** `MapBuilder.BuildCloud` (its
   `_stormCloud` mount is gated `… && _look.StormBodyModel != StormBody.Thunderhead`) and strikes from the
-  body's own altitude (16 m) rather than 45 m.
+  body's own altitude (16 m) rather than 45 m. **1l112**: Devastation — the original storm-cloud
+  example — now supplies its own **Maelstrom** body at 22 m for the same reason (its gate also excludes
+  `StormBody.Maelstrom`), so it too strikes from its own cloud rather than the legacy 45 m puff.
 - **Chain** — 1l76 (testing.md #7): an instant strike that **bounces between foes**. `SpellCaster`
   hits whatever the aim ray meets if it is a combatant, else the nearest combatant within `Range`
   (so a cast aimed into a crowd still starts on someone); then up to `ChainMaxJumps` (2) leaps to the
@@ -2334,7 +2339,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 
 | Shape | Rendered as |
 |---|---|
-| **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Fork/Leap/Arc, Fury Bolt, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. (1l110: Volt left it for `VoltBolt` and Volt Bolt for `GreatBolt`.) |
+| **Bolt** | Jagged 8-segment cube chain along the flight axis (already a cube chain tapering 0.17→0.05, the same segment technique as the thunder-storm event's `SpawnJaggedBolt`) — used by every spell with "Bolt" in the name: Frost Bolt, Chain Lightning, Dark Bolt, Fork/Leap/Arc, Shadow/Doom Bolt, Void Rend, and the class-flavored Arcane Bolt. (1l110: Volt left it for `VoltBolt` and Volt Bolt for `GreatBolt`; 1l112: Fury Bolt for `FuryLance`.) |
 | **Sphere** | Hot voxel orb: a 0.24 lead cube + 4 jittered cubes shrinking to ~0.05 behind it, each darker — the Fireball and every generic orb. (Scorch/Burn/Frost Bite use the Comet shape instead.) |
 | **Ball** | 1l71: the round hot voxel orb — the shape that used to be called **Shard** and drawn as a diamond (the fireball look the user asked to become a ball) is renamed and rebuilt as the round cluster. It takes the diamond's slot in **Fire's** family only (`Sphere, Comet, Ball`), so a Fire Auto spell reads as a ball, never a chip. |
 | **Shard** | 1l71: a thin long flat triangle — a 5-cube sliver tapering to a point along the flight line, paper-thin edge-on. The diamond's old "frost & stone chips" identity, rebuilt flat; it now sits in the diamond's slot in the seven chip families (Ice, Lightning, Holy, Dark, Earth, Water, Arcane). |
@@ -2342,6 +2347,7 @@ built once and fully static (no sphere meshes remain on projectiles):
 | **SparkSwarm** | 1l110: nine tiny bright motes jittered in a loose cloud around the travel axis (±0.13 on X/Y, -0.16→0.22 on Z, sizes 0.045-0.09, a third of them lerped 0.6 toward white) - a crackle of static rather than a dart volley. **Display-only and authored-only** (same contract as **Soul**/**Hand**): the homing that makes Volt Spark seek rides on `Missile` in `spell.Shape`, and this body is granted through `Look.DisplayShape`. |
 | **GreatBolt** | 1l110: the heavy bolt - 10 segments over 1.7 m tapering 0.26→0.10 wrapped around a 0.07 white-hot core rod and shedding 3 trailing flecks, so a charged bolt reads as more mass than a plain zap. Volt Bolt. Display-only, granted through `spell.Shape` like **VoltBolt**, not in `Shape_Lightning`. |
 | **StormWave** | 1l111: the Lightning wave floor — the same `Wave` lattice (a 12 × 18 crest over 6 m deep, a jagged spike column rising from each floor column) re-tinted to the spell's own colour, its crest carrying a `WaveRipple` so the ground-running crest shimmers as `SpellWave` sweeps it. Display-only and authored-only, granted through `spell.Shape` (the route **VoltBolt**/**GreatBolt** take), never in a `Shape_*` family. Storm Lash (`magic_lightning_storm_wrack`, a `Wave` delivery). |
+| **FuryLance** | 1l112: the heavy **forked** bolt — 11 segments over 2.0 m tapering 0.28→0.11 around a 0.08 white-hot core rod, with two short white-tinted branches forking off the shaft near the head, so the fury-bank bolt reads as longer and branching than a plain **GreatBolt**. Fury Bolt. Display-only, granted through `spell.Shape` like **VoltBolt**/**GreatBolt**, not in `Shape_Lightning`. |
 | **Debris** | Clustered grey rock cubes (mixed sizes, random rotations, one leading chunk) — the Earth school's Stone Shard. Dressed like the world's breakable-rock debris (`Color.Lerp(gray, black, rand)` cubes) with two chunks dusted in the earthy tan accent so it reads as magic; at impact the crater plays the spell's own impact family from the pooled `SpellImpactFx` dispatcher (1id) rather than the *excavation* cube burst (that one is stratum-tinted dirt thrown upward — 1gb), and 1jh adds grey rock chips thrown forward from the hit point on top of it; the embedded model cubes only remain as the pickaxe/mining look (1de). |
 | **Lance** | Long straight pointed spike (shaft + tip) with two small trailing flecks behind its tail — Ice Lance, Frost Pierce, Glacial Impale. |
 | **Spear** | Tapered spear: dark shaft + broad diamond head + trailing flecks behind — Shadow Spear. |
@@ -2900,9 +2906,10 @@ built in `SpellZoneModelBuilder` (where the other persistent bodies live) and mo
 `StormCloud` storm hard-codes 45 m for both the cloud mount and the strike origin, the two bodies sit lower
 (a rain shelf at 5 m, a thunderhead at 16 m), so `SpellStorm.Initialize` computes `_cloudY` **once** from
 the resolved body and both the body mount and `SpawnStrikeFx`'s bolt origin read that one field — a
-corner-copy invariant: the cloud the player sees is always the cloud the bolts leave. `Devastation` is
-unchanged: its `_stormCloud` gate is `… && _look.StormBodyModel != StormBody.Thunderhead`, so it still
-mounts the legacy 45 m `MapBuilder.BuildCloud` and strikes from 45 m exactly.
+corner-copy invariant: the cloud the player sees is always the cloud the bolts leave. **At 1l111 `Devastation`
+still mounted the legacy 45 m `MapBuilder.BuildCloud`** (its `_stormCloud` gate was
+`… && _look.StormBodyModel != StormBody.Thunderhead`); **1l112 gives it its own sky body instead** — see
+below.
 
 **F4 impact (predicted, verified by lane re-press):** the two new authored profiles (Downpour, Thunderhead)
 flip the `authored` count **+2**; because `StormBody` already packed three bits at `<<40` (0-7), the two
@@ -2919,6 +2926,67 @@ the pedestal; only a thunderhead's sky-bolt strike origin is live-only. The benc
 draws one cloud-to-ground `SpellBoltModelBuilder.BuildBolt` (segments 8, jitter 0.7, long lifetime) so the
 pedestal shows the sky-bolt the live `stormCloud: true` spell strikes with, and its branch sits **before**
 the generic `spell.StormCloud` puff branch, so a Thunderhead never also draws the legacy cloud.
+
+**1l112 (Phase 3, the Fury bank) adds three more authored bodies on the same axes and reworks the five
+Fury spells.** The L2 `magic_lightning_fury` bank was the flattest of the four (five near-identical
+"zap" spells), so Phase 3 gives each a distinct silhouette through the drawn-only axes — plus one new
+`ProjectileShape`, one `Vortex` reclassification, and two spells that needed a real `duration` to have a
+body at all:
+
+- **Lightning Strike** (`magic_lightning_fury`) keeps its signature sky-nuke (Zone + `skyStrikeBolt`,
+  instant) but is rebudgeted as the bank's heavy opener: power 30 -> **40**, FP 20 -> **28**, cd 5 -> **9**,
+  `deliveryRadius` 2.2 -> **2.5**.
+- **Fury Bolt** (`magic_lightning_fury_bolt`) takes the new shape **`ProjectileShape.FuryLance`** (value
+  20) — a long forked lightning lance (below) — power 38, FP 24, cd 8, range 16, speed 18, `knockback 2.5`.
+- **Static Nova** (`magic_lightning_fury_beam`) gains **`duration: 2.5f`** (it was an *instant* Zone — with
+  no duration `ResolveZone` fires one overlap burst and spawns no `SpellZone`, so it could never carry a
+  persistent body), keeps `centerOnCaster: true`, and is authored **`ZoneBody.NovaRing`** (value 4):
+  `BuildNovaRing(parent, radius, core, edge)` — a flat ground disc, 18 jittered rim arcs (tilted off
+  vertical so the edge crackles) and a short inner ring of brighter Core blocks, so the nova reads as
+  radiating outward. Power 22, FP 26, cd 11, radius 3.4. **A `duration` Zone skips `ResolveZoneImpact`'s
+  instant overlap burst** — all its damage is the 0.4x tick — so the longer cd/FP pay for the lingering
+  field, not a double hit.
+- **Devastation** (`magic_lightning_fury_devastation`) is authored **`StormBody.Maelstrom`** (value 7):
+  `BuildMaelstrom(parent, radius, height, cloud, core)` — a larger, angrier cumulonimbus than the
+  Thunderhead (FOUR bands vs three, wider span, eight down-teeth under a `MaelstromSeat`) at its own
+  higher altitude **`SpellStorm.MaelstromHeight = 22f`**; `_cloudY` is now a 3-way pick
+  (Thunderhead 16 / Maelstrom 22 / `StormCloudHeight` 45) and the generic `_stormCloud` puff gate also
+  excludes Maelstrom, so Devastation no longer mounts the legacy 45 m `MapBuilder.BuildCloud`. Power 38 ->
+  **52**, FP 28 -> **36**, cd 8 -> **16**, range 10 -> 11, radius 3.6 -> **4.2**, duration 3.5 -> **6**.
+- **Lightning Tempest** -> renamed **Thunder Vortex** (`magic_lightning_fury_tempest`) is reclassified
+  from `Zone` to **`Vortex`** and authored **`ZoneBody.LightningCyclone`** (value 5):
+  `BuildLightningCyclone(parent, radius, core)` — a bright eye column wrapped by five rings of jagged
+  vertical bolts (widest at the base, narrowing upward). It is a Vortex body, so `SpellZone` already
+  spins the zone root at 240 deg/s (rule 19: the churn belongs to the component, not this factory) and
+  `SpawnVortex` gives it `pullSpeed 3.5` (and a lifetime floor of 5s; the catalog sets `duration: 5f` so it
+  reads honestly at 5s). Power 30, FP 24, cd 9, range 9, radius 3.2, duration 5. Its
+  `BuildVisual` branch sits **above** the `PullSpeed > 0f` funnel check, because a pulling zone would
+  otherwise fall through to the plain funnel.
+
+**The `LookKey` had to be re-laid-out, and the old comment's bit counts were already a lie.** (The bit
+positions quoted in the 1kc / 1l70 / 1l111 paragraphs above — `<<38`, `<<40`, `<<42`, `<<43` — are all
+**pre-1l112**; only this block describes where the fields actually sit now.) Phase 1
+(1l110) pushed `ProjectileShape` to 16/17/18 and Phase 3 pushes it to 19/20, but `DisplayShape` was
+packed in only **4 bits** at `<<26` — so it overflowed into `Cast` at bit 30 — and `ZoneBody` was packed
+in only **2 bits** at `<<38`, so the new values 4 (`0b100`) and 5 (`0b101`) lost their high bit into
+`StormBody` at bit 40 and their truncated field read 0 (`Inherit`) and 1 (`Funnel`) — **so each authored
+body's key became indistinguishable from an unauthored spell's**, the audit unable to tell either new body
+from a plain zone/projectile (and reading a phantom `StormBody` bit). The block is now laid out
+sequentially from bit 24 with an explicit width per field (SkyRock 2, DisplayShape 5, Cast 3, Impact 3,
+CastAnchor 2, ZoneModel 3, StormBody 3, SummonBody 2 = 23 bits) with r/g/b unchanged at 0-23. The new map is injective
+over the enum block, so the two corrupted keys are corrected and `colliding` can only **fall**. Only the
+colour half (bits 0-23) and `SkyRock` (bits 24-25) are preserved verbatim — widening `DisplayShape` from
+4 to 5 bits shifts `Cast`/`Impact`/`CastAnchor`/`ZoneModel`/`StormBody`/`SummonBody` each up by exactly one
+bit, so a non-authored spell's key **does** change value; the guarantee is on the equality structure (a
+corrected injective map can only split keys, never merge them), not on byte identity.
+
+**F4 impact (predicted):** three new authored profiles (Static Nova, Devastation, Thunder Vortex) flip
+`authored` **+3**; the absolute total is the lane's to print (the catalogue declares 31 profile arguments —
+16 in `SkillCatalog.cs` + 15 in `SkillCatalog.Magic.cs` — but the F4 counter's roster also folds in the
+class catalogue, so quote the readout, not this sum). `zone bodies:` gains `NovaRing = 1`,
+`LightningCyclone = 1`; `storm bodies:` gains `Maelstrom = 1`; the projectile bank gains one `FuryLance`
+shape (`GreatBolt`-style). Fury Bolt carries no profile (its axis is `spell.Shape`, like Volt Bolt/Storm
+Lash).
 
 #### 3.8.6 Ground-Summon Bodies - `SummonBody` (1l110)
 

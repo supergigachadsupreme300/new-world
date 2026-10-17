@@ -152,6 +152,24 @@ public class SpellZone : MonoBehaviour
             return;
         }
 
+        // 1l112: Static Nova's authored NovaRing — a lingering ring of static drawn in place of the
+        // generic ground discs (Static Nova is a Zone, so this does not spin).
+        if (_look.ZoneModel == ZoneBody.NovaRing)
+        {
+            SpellZoneModelBuilder.BuildNovaRing(transform, Radius, color, _look.Edge);
+            return;
+        }
+
+        // 1l112: Thunder Vortex's authored LightningCyclone — a lightning funnel. Like VortexCircle
+        // this is drawn REGARDLESS of pull (its churn IS the "wind" that drags foes in), so the branch
+        // must sit ABOVE the PullSpeed check: Thunder Vortex is a Vortex and does pull (PullSpeed 3.5),
+        // and without this ordering the body would fall through to the plain pull funnel.
+        if (_look.ZoneModel == ZoneBody.LightningCyclone)
+        {
+            SpellZoneModelBuilder.BuildLightningCyclone(transform, Radius, color);
+            return;
+        }
+
         if (PullSpeed > 0f)
         {
             SpellZoneModelBuilder.BuildFunnel(transform, Radius, sharedMat);

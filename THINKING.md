@@ -1,3 +1,73 @@
+## 1l112. Lightning tree rework Phase 3 (Fury bank) — reasoning trail (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l111`, so `1l112` (enumerate first — rule 8). Phase
+3 of the 13-skill Lightning rework: the `magic_lightning_fury` bank (Lightning Strike / Fury Bolt / Static
+Nova / Devastation / Thunder Vortex). Same fixed decisions as Phases 1-2 (Stagger stays; ids are save keys;
+new models are procedural C# bodies; one commit per bank). Hypotheses below are about **how** to grant each
+new mechanic/body, plus the review hypotheses re-run when finishing the pass.
+
+**H1 — "the Fury bank is flat for the same reason the Storm bank was: same delivery, different numbers."
+CONFIRMED.** Reading the committed rows (`git show HEAD:…SkillCatalog.Magic.cs`) showed Lightning Strike
+and Fury Bolt as two plain `Projectile`/`Zone` zaps, Static Nova an *instant* `Zone` blob, Devastation a
+generic `Storm` with `stormCloud: true` and no body, and Lightning Tempest another ground `Zone`. So the
+Phase-3 move is again a **delivery / body** change per skill: Fury Bolt gains a real forked body, Static
+Nova gains a `duration` so it can carry a persistent ring at all, Devastation gains its own sky body, and
+Thunder Vortex is reclassified `Zone` → `Vortex` (the Phase-1 Static Coil `Zone` → `Summon` pattern).
+
+**H2 — "Static Nova can wear the new NovaRing body without any other change." REJECTED.** It was authored
+as an *instant* Zone. `ResolveZone` fires one overlap burst and spawns **no** `SpellZone` when the spell has
+no `duration`, so the body would never be built. Evidence: the mount lives in `SpellZone.BuildVisual`, which
+only runs on a live zone. Verdict: Static Nova had to gain `duration: 2.5f` first — and because a lasting
+zone skips the instant overlap burst, all its damage is the 0.4x tick, which is why cd 6 → 11 as well.
+
+**H3 — "the LookKey has room for the new shape/zone values." REJECTED (the key was already overflowing).**
+Phase 1 pushed `ProjectileShape` to 16/17/18 and Phase 3 to 19/20; `DisplayShape` was packed in **4 bits**
+at `<<26` (holds 0-15), so 16-20 spill into `Cast` at bit 30. `ZoneBody` was packed in **2 bits** at `<<38`
+(holds 0-3), so values 4/5 spill into `StormBody` at bit 40. Worked example: `ZoneModel 4` (`0b100`)
+truncates to field value 0 with a leaked bit40, and `5` (`0b101`) to field value 1 with the same leaked
+bit — so Static Nova's key reads like an unauthored projectile's and Thunder Vortex's like a plain Zone's
+(a 1ic-audit "same look" neither spell has, plus a phantom `StormBody` bit). Verdict: re-lay `LookKey`
+sequentially from bit 24 with explicit widths.
+
+**H4 — "the new widths fit every enum they must hold." CONFIRMED by checking each enum's OWN max** (this is
+the injectivity premise, not an assumption): SkyRockStyle max 1 (2b), ProjectileShape/DisplayShape max 20
+(5b), SpellCastStyle max 7 (3b), SpellImpactStyle max 7 (3b), SpellCastAnchor max 2 (2b), ZoneBody max 5
+(3b), StormBody max 7 (3b), SummonBody max 2 (2b) = 23 bits, colours 0-23. Injective over the enum block, so
+`colliding` can only fall (it can split keys, never merge).
+
+**H5 — "the re-laid key is byte-identical for every look the old packing handled." REJECTED.** Widening
+`DisplayShape` from 4 to 5 bits shifts `Cast`/`Impact`/`CastAnchor`/`ZoneModel`/`StormBody`/`SummonBody` each
+up by exactly one bit, so a non-authored spell's key value changes. Only bits 0-25 (colours + SkyRock) are
+preserved. The guarantee is on the *equality structure*, not byte identity. The game-design paragraph that
+claimed byte identity was corrected in the same pass (rule 8 — and the corrected statement names which side
+of the trade it made).
+
+**H6 — "the earlier comment's 'authored = 34 (16 + 18)' is right." REJECTED by grep.** `look: Look(`
+measures 16 in `SkillCatalog.cs` + 15 in `SkillCatalog.Magic.cs` = **31**, not 34 (HEAD was 16 + 12 = 28;
+1l112 adds 3). The comment's history series ("22 at 1ii, 31 after 1l111") was also internally inconsistent
+(HEAD Magic holds 12, not 15). The F4 `authored` count the lane prints is a *different* number again — it
+folds in `ClassSkillCatalog`, so the deliverable statement is the **+3 delta**, not an absolute. The
+SkillCatalog.cs comment was corrected to the measured 31 = 16 + 15, and game-design's F4 paragraph now
+states +3 and points at the readout for the total.
+
+**H7 — "the new builders and dispatch are wired to their call sites." CONFIRMED by reread of signatures vs
+calls.** `BuildNovaRing(Transform, float, Color core, Color edge)` ← `BuildNovaRing(transform, Radius, color,
+_look.Edge)`; `BuildLightningCyclone(Transform, float, Color)` ← `BuildLightningCyclone(transform, Radius,
+color)`; `BuildMaelstrom(Transform, float, float, Color, Color)` ← `BuildMaelstrom(transform, …Radius,
+_cloudY, StormCloudTint, _color)`; `MagicProjectileModelBuilder.FuryLance(string, Shader, Color)` reached
+from `case ProjectileShape.FuryLance`. `SpellLook` resolves `Core`/`Edge`/`ZoneModel` on one struct (the
+pre-existing FrozenField branch proves they coexist), so `_look.Core`/`_look.Edge` are valid in the new
+branches.
+
+**Open / unverified (rule 3 — no build):** compilation and all runtime behaviour are the user's Unity
+play-test. In particular the F4 `authored` absolute, the `colliding` count after the re-layout, and the
+three new bodies' looks are read off the lane, not asserted here.
+
+**Case notes (rule 8):** two live comments quoted a "34-bit"/"38-bit" key that 1l112's re-layout made stale
+(`SpellLook.cs`, `NewWorldTestGround.cs`) — both corrected in the same pass, and the standalone "34 bits"
+strings that survive are in *historical* PROGRESS/THINKING entries, which are records and must not be
+rewritten.
+
 ## 1l111. Lightning tree rework Phase 2 (Storm bank) — reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l110`, so `1l111` (enumerate first — rule 8).

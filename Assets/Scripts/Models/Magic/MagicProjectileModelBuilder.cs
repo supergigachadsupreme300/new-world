@@ -145,6 +145,7 @@ internal static class MagicProjectileModelBuilder
             case ProjectileShape.VoltBolt: return VoltBolt("VoltBolt", shader, color);
             case ProjectileShape.SparkSwarm: return SparkSwarm("VoltSpark", shader, color);
             case ProjectileShape.GreatBolt: return GreatBolt("GreatBolt", shader, color);
+            case ProjectileShape.FuryLance: return FuryLance("FuryLance", shader, color);
             case ProjectileShape.StormWave: return StormWave("StormWave", shader, color, waveExtent);
             default: return Cluster("Orb", shader, color, 0.24f, 5, 0.10f, 0.03f); // fireball + generic orbs
         }
@@ -414,6 +415,57 @@ internal static class MagicProjectileModelBuilder
         var core = Primitive(PrimitiveType.Cube, "Core", root);
         core.localScale = new Vector3(0.07f, 0.07f, length);
         Materialize(core, shader, Color.Lerp(color, Color.white, 0.75f));
+        AddTrailingFlecks(root, shader, color, length * 0.5f + 0.05f, 3);
+        return root;
+    }
+
+    /// <summary>1l112: Fury Bolt's body — a long forked lightning lance: a thick jagged shaft around a
+    /// white-hot core (built like <see cref="GreatBolt"/>) but longer (2.0 vs 1.7) with two short
+    /// branches forking off the shaft near the head, so the fury-bank bolt reads as heavier and
+    /// branching rather than a plain Streak. Display-only: no behaviour rides on the shape.</summary>
+    private static Transform FuryLance(string name, Shader shader, Color color)
+    {
+        var root = new GameObject(name).transform;
+        int segments = 11;
+        float length = 2.0f;
+        float jitter = 0.13f;
+        Vector3 prev = new Vector3(0f, 0f, -length * 0.5f);
+        for (int i = 0; i < segments; i++)
+        {
+            float t = i / (float)(segments - 1);
+            Vector3 next = i == segments - 1
+                ? new Vector3(0f, 0f, length * 0.5f)
+                : new Vector3(
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    UnityEngine.Random.Range(-jitter, jitter),
+                    Mathf.Lerp(-length * 0.5f, length * 0.5f, t));
+            var seg = Primitive(PrimitiveType.Cube, "Seg" + i, root);
+            seg.localPosition = (prev + next) * 0.5f;
+            Vector3 segDir = (next - prev).normalized;
+            float w = Mathf.Lerp(0.28f, 0.11f, t);
+            seg.localScale = new Vector3(w, w, Mathf.Max(0.1f, Vector3.Distance(prev, next)));
+            if (segDir.sqrMagnitude > 0.001f && Mathf.Abs(segDir.z) < 0.999f)
+                seg.rotation = Quaternion.LookRotation(segDir, Vector3.up);
+            Materialize(seg, shader, color);
+            prev = next;
+        }
+
+        // White-hot core rod down the flight axis (heavier than GreatBolt's so the lance has mass).
+        var core = Primitive(PrimitiveType.Cube, "Core", root);
+        core.localScale = new Vector3(0.08f, 0.08f, length);
+        Materialize(core, shader, Color.Lerp(color, Color.white, 0.75f));
+
+        // Two short branches forking off the shaft near the head — the "forked" in the lance.
+        for (int b = 0; b < 2; b++)
+        {
+            float side = b == 0 ? 1f : -1f;
+            var fork = Primitive(PrimitiveType.Cube, "Fork" + b, root);
+            fork.localPosition = new Vector3(side * 0.18f, side * 0.10f, length * 0.28f);
+            fork.localScale = new Vector3(0.09f, 0.09f, 0.5f);
+            fork.localRotation = Quaternion.Euler(side * -22f, side * 26f, 0f);
+            Materialize(fork, shader, Color.Lerp(color, Color.white, 0.35f));
+        }
+
         AddTrailingFlecks(root, shader, color, length * 0.5f + 0.05f, 3);
         return root;
     }

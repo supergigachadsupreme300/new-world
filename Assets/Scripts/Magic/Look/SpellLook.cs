@@ -122,7 +122,8 @@ public enum SkyRockStyle
 /// flame), so there is deliberately no school family and no deterministic <see cref="SpellLook.Pick"/>
 /// — a jitter would have given a quarter of the Zone spells a body their delivery never described.
 /// <see cref="Inherit"/> always resolves to <see cref="Funnel"/>; only an authored profile may grant
-/// <see cref="VortexCircle"/> or <see cref="FrozenField"/>.
+/// <see cref="VortexCircle"/>, <see cref="FrozenField"/>, <see cref="NovaRing"/> or
+/// <see cref="LightningCyclone"/>.
 /// <para><b>Read by <c>SpellZone.BuildVisual</c>, and by the QA spell band's bench so the new body
 /// has an acceptance readout.</b> Placement/reach still come from the spell's own fields (radius,
 /// duration); this axis is drawn-only and never touches delivery (rule 13).</para></summary>
@@ -141,7 +142,21 @@ public enum ZoneBody
     /// spikes jutting up at varied heights, tallest toward the centre. Deep Freeze's own body — it
     /// draws this instead of the generic ground zone's two stacked discs (a disc and a floating halo,
     /// which read as nothing in particular). 1l6z.</summary>
-    FrozenField = 3
+    FrozenField = 3,
+
+    /// <summary>1l112 Static Nova's body: a flat ground disc ringed by a bright annulus of short
+    /// jagged lightning arcs (Edge colour) with an inner Core ring, drawn where a self-centred Zone
+    /// lands — so Static Nova reads as a lingering ring of static rather than the generic ground
+    /// discs. Mounted through <see cref="SpellZoneModelBuilder.BuildNovaRing"/>. Does not spin
+    /// (Static Nova is a Zone, PullSpeed 0).</summary>
+    NovaRing = 4,
+
+    /// <summary>1l112 Thunder Vortex's body: a lightning cyclone — stacked rings of jagged vertical
+    /// bolts, widest at the base and narrowing upward around a bright core column. It is a Vortex
+    /// body, so <c>SpellZone</c> spins its root at 240 deg/s and the static bolts read as a churning
+    /// lightning funnel (rule 19: the body is static; the component the spell already runs owns the
+    /// spin). Mounted through <see cref="SpellZoneModelBuilder.BuildLightningCyclone"/>.</summary>
+    LightningCyclone = 5
 }
 
 /// <summary>Persistent-storm body family for a <c>SpellDelivery.Storm</c> spell (1kf) — what a storm
@@ -152,11 +167,11 @@ public enum ZoneBody
 /// have changed resolution, added the pull and lost the per-strike flashes). <see cref="Inherit"/>
 /// resolves to <see cref="None"/> — storms draw only their spawn ring and per-strike flashes unless
 /// a profile says otherwise — and only an authored profile may grant <see cref="Funnel"/>,
-/// <see cref="FrozenField"/>, <see cref="VortexCircle"/>, <see cref="Rain"/> or
-/// <see cref="Thunderhead"/>; Firestorm authors <see cref="Funnel"/>
+/// <see cref="FrozenField"/>, <see cref="VortexCircle"/>, <see cref="Rain"/>,
+/// <see cref="Thunderhead"/> or <see cref="Maelstrom"/>; Firestorm authors <see cref="Funnel"/>
 /// (1kf), Deep Freeze authors <see cref="FrozenField"/> (1l70), Blizzard authors
 /// <see cref="VortexCircle"/> (1l100), Downpour authors <see cref="Rain"/> and Thunderhead authors
-/// <see cref="Thunderhead"/> (both 1l111).
+/// <see cref="Thunderhead"/> (both 1l111), and Devastation authors <see cref="Maelstrom"/> (1l112).
 /// <para><b>Read by <c>SpellStorm</c> (builds the body and spins its root the 240 deg/s the
 /// pre-1kc <c>SpellZone</c> pulled-vortex spin) and by the QA spell band's bench, so the axis has
 /// an acceptance readout.</b> Placement/sizing come from the storm's own charge-scaled Radius;
@@ -167,7 +182,8 @@ public enum StormBody
     Inherit = 0,
     /// <summary>No body: only the spawn ring and the per-strike flashes — every Storm spell
     /// resolves here unless a profile grants <see cref="Funnel"/>, <see cref="FrozenField"/>,
-    /// <see cref="VortexCircle"/>, <see cref="Rain"/> or <see cref="Thunderhead"/> (other deliveries
+    /// <see cref="VortexCircle"/>, <see cref="Rain"/>, <see cref="Thunderhead"/> or
+    /// <see cref="Maelstrom"/> (other deliveries
     /// never read this axis; their own body axis is <see cref="ZoneBody"/>).</summary>
     None = 1,
     /// <summary>The generic whirling pull funnel: 7 spinning rings + 6 orbiting debris blocks
@@ -197,12 +213,22 @@ public enum StormBody
     Rain = 5,
     /// <summary>1l111 Thunderhead's body: a stacked cumulonimbus — dark base slab, billowing mid band
     /// and a lightning-lit underside in the spell's Core — replacing the generic cloud puff
-    /// (<c>MapBuilder.BuildCloud</c>) for this spell only; Devastation's cloud is untouched.
-    /// It is the only storm body that lives above the field: the storm's strike bolts fall from
+    /// (<c>MapBuilder.BuildCloud</c>) for this spell only; Devastation draws its own larger
+    /// <see cref="Maelstrom"/> body instead (1l112).
+    /// It is one of the two storm bodies that live above the field: the storm's strike bolts fall from
     /// <c>SpellStorm._cloudY</c>, which for this body is the thunderhead's own altitude rather than
-    /// the 45 m Devastation one, so the bolts start at the cloud. Mounted through
+    /// the generic 45 m <c>StormCloudHeight</c> (or, since 1l112, Devastation's 22 m Maelstrom), so
+    /// the bolts start at the cloud. Mounted through
     /// <see cref="SpellZoneModelBuilder.BuildThunderhead"/>. Does <b>not</b> spin.</summary>
-    Thunderhead = 6
+    Thunderhead = 6,
+    /// <summary>1l112 Devastation's body: a maelstrom — a larger, angrier cumulonimbus than
+    /// <see cref="Thunderhead"/> (four cloud bands instead of three, a wider span, and a jagged
+    /// downward-toothed underside), mounted at its own higher altitude (<c>SpellStorm.MaelstromHeight</c>)
+    /// so the ultimate fury storm reads bigger and more distant than the Thunderhead spell. It keeps
+    /// the sky-bolt behaviour (Devastation still passes <c>stormCloud: true</c>), so the generic cloud
+    /// puff is skipped for it exactly as it is for <see cref="Thunderhead"/>. Mounted through
+    /// <see cref="SpellZoneModelBuilder.BuildMaelstrom"/>. Does <b>not</b> spin.</summary>
+    Maelstrom = 7
 }
 
 /// <summary>
@@ -576,8 +602,9 @@ public readonly struct SpellLook
     // (1ig: `Fingerprint` was deleted here. 1ib built it as the 1ic audit's measuring instrument
     //  and 1ic refused to use it — grouping by a 32-bit hash reports a bucket-full collision as
     //  "two spells look the same", a claim about the instrument rather than the world. The audit
-    //  packs the real axes into 34 bits instead (NewWorldTestGround.LookKey). This is also the
-    //  admission that 1ib's plan named the wrong measuring device; THINKING.md 1ic H40.)
+    //  packs the real axes into a bit field instead (NewWorldTestGround.LookKey; its comment is the
+    //  one place the widths live — 1l112 widened DisplayShape and ZoneModel after they overflowed).
+    //  This is also the admission that 1ib's plan named the wrong measuring device; THINKING.md 1ic H40.)
 
     // ------------------------------------------------------------------ families
 

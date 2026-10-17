@@ -10,9 +10,10 @@ using UnityEngine;
 /// <see cref="SpellLook.StormBodyModel"/> gates it: only an authored profile grants
 /// <see cref="StormBody.Funnel"/> (Firestorm alone), <see cref="StormBody.FrozenField"/>
 /// (1l70: Deep Freeze) or <see cref="StormBody.VortexCircle"/> (1l100: Blizzard, wearing the
-/// conflagration's model) — and 1l111 added <see cref="StormBody.Rain"/> (Downpour) and
-/// <see cref="StormBody.Thunderhead"/> (Thunderhead, which also swaps Devastation's generic cloud
-/// puff for a body of its own at its own altitude) — and that funnel spins its root 240 deg/s,
+/// conflagration's model) — 1l111 added <see cref="StormBody.Rain"/> (Downpour) and
+/// <see cref="StormBody.Thunderhead"/> (Thunderhead), and 1l112 added <see cref="StormBody.Maelstrom"/>
+/// (Devastation, which also swaps its generic cloud puff for a body of its own at its own altitude) —
+/// and that funnel spins its root 240 deg/s,
 /// the same spin the pre-1kc conflagration's <c>SpellZone</c> ran while it pulled. The other 10
 /// storms resolve <see cref="StormBody.None"/> and are byte-for-byte unchanged. Spin and build
 /// share ONE predicate — the body's presence — so they cannot drift apart.</para>
@@ -41,10 +42,17 @@ public class SpellStorm : MonoBehaviour
     /// (see <c>_cloudY</c>).</summary>
     public const float ThunderheadHeight = 16f;
 
-    /// <summary>1l111: the altitude the long strike bolts fall FROM — Devastation's 45 m cloud, or the
-    /// Thunderhead body's own. Written once in <c>Initialize</c> from the resolved body and read by
-    /// both the body mount and <c>SpawnStrikeFx</c>, so the cloud and the bolts it throws can never
-    /// be authored against two different numbers (rule 8).</summary>
+    /// <summary>1l112: how high Devastation's <see cref="StormBody.Maelstrom"/> body sits — between
+    /// <see cref="ThunderheadHeight"/> (16, the Thunderhead's own cloud) and
+    /// <see cref="StormCloudHeight"/> (45, Blizzard-style horizon puffs), so the fury-bank ultimate
+    /// reads higher, bigger and more distant than the Thunderhead spell while its body still stays in
+    /// frame. The strike bolts fall from this altitude either way (see <c>_cloudY</c>).</summary>
+    public const float MaelstromHeight = 22f;
+
+    /// <summary>1l111: the altitude the long strike bolts fall FROM — Devastation's cloud, the
+    /// Thunderhead body's own, or the 1l112 Maelstrom's. Written once in <c>Initialize</c> from the
+    /// resolved body and read by both the body mount and <c>SpawnStrikeFx</c>, so the cloud and the
+    /// bolts it throws can never be authored against two different numbers (rule 8).</summary>
     private float _cloudY;
 
     /// <summary>1l77: the storm cloud's dark tint. Public so the QA bench mounts the SAME colour
@@ -83,7 +91,9 @@ public class SpellStorm : MonoBehaviour
         // used the real Radius. Zone/Beam/Tornado all seed the fallback for this reason;
         // read as a sibling rather than re-derived per class.
         _look = spell != null ? SpellLook.Resolve(spell) : SpellLook.Resolve(DamageType.Wind, ProjectileShape.Auto);
-        _cloudY = _look.StormBodyModel == StormBody.Thunderhead ? ThunderheadHeight : StormCloudHeight;
+        _cloudY = _look.StormBodyModel == StormBody.Thunderhead ? ThunderheadHeight
+               : _look.StormBodyModel == StormBody.Maelstrom ? MaelstromHeight
+               : StormCloudHeight;
         if (spell != null)
         {
             Radius = Mathf.Max(spell.Radius * radiusMult, 1.5f);
@@ -138,6 +148,15 @@ public class SpellStorm : MonoBehaviour
             SpellZoneModelBuilder.BuildThunderhead(transform, Mathf.Max(Radius * 0.85f, 2.5f),
                 _cloudY, StormCloudTint, _color);
 
+        // 1l112: Devastation's Maelstrom body — a larger, angrier cumulonimbus than the Thunderhead
+        // (four bands, a wider span, a jagged down-toothed underside) at its own higher altitude. Like
+        // the Thunderhead it keeps the sky-bolt behaviour (Devastation still passes stormCloud: true),
+        // and the puff gate below excludes it exactly as it excludes the Thunderhead, so the body and
+        // the long bolts are the whole storm.
+        if (_look.StormBodyModel == StormBody.Maelstrom)
+            SpellZoneModelBuilder.BuildMaelstrom(transform, Mathf.Max(Radius * 0.9f, 3f),
+                _cloudY, StormCloudTint, _color);
+
         // 1l77: a StormCloud storm (Devastation, testing.md #8) mounts a dark cloud high above the
         // area; every strike then falls as a long jagged bolt from that cloud down to the strike
         // point, so the spell reads as a sky-fury instead of ground pings. The cloud is parented to
@@ -147,7 +166,8 @@ public class SpellStorm : MonoBehaviour
         // 1l111: a Thunderhead-bodied storm keeps the SKY-BOLT behaviour (it still passes
         // stormCloud: true) but draws its own voxel cloud at the same altitude instead of this puff —
         // two gates, one behaviour: this branch is the generic fallback, not the definition.
-        if (_stormCloud && _look.StormBodyModel != StormBody.Thunderhead)
+        if (_stormCloud && _look.StormBodyModel != StormBody.Thunderhead
+            && _look.StormBodyModel != StormBody.Maelstrom)
         {
             Vector3 cloudPos = transform.position + Vector3.up * _cloudY;
             var cloud = MapBuilder.BuildCloud(transform, cloudPos, 5f);

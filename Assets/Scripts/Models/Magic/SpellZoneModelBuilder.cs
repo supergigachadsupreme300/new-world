@@ -324,6 +324,127 @@ public static class SpellZoneModelBuilder
             new Vector3(0.52f, 0.14f, 0.52f), coreMat);
     }
 
+    /// <summary>1l112: Static Nova's body (<see cref="ZoneBody.NovaRing"/>) — a flat ground disc ringed
+    /// by a bright annulus of short jagged lightning arcs (the spell's Edge) with a hotter Core ring
+    /// inside, so a self-centred Zone reads as a lingering ring of static rather than the generic
+    /// ground discs. Body-only and motion-free like the other ground bodies here: Static Nova is a
+    /// Zone (PullSpeed 0), so <c>SpellZone</c> does not spin its root.</summary>
+    public static void BuildNovaRing(Transform parent, float radius, Color core, Color edge)
+    {
+        Material coreMat = SkillFx.SharedSpriteMaterial(core);
+        Material edgeMat = SkillFx.SharedSpriteMaterial(edge);
+
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        disc.name = "SpellNovaDisc";
+        DestroyCollider(disc);
+        disc.transform.SetParent(parent, false);
+        disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
+        ApplyShared(disc, coreMat);
+
+        // The rim: a ring of short jagged arcs, each tilted a little off vertical, so the edge of the
+        // nova crackles instead of reading as a smooth hoop.
+        int stations = 18;
+        for (int i = 0; i < stations; i++)
+        {
+            float ang = (i / (float)stations) * Mathf.PI * 2f;
+            float rr = radius * Random.Range(0.88f, 0.98f);
+            float h = Random.Range(0.35f, 0.7f);
+            var arc = Cube(parent, "NovaArc_" + i,
+                new Vector3(Mathf.Cos(ang) * rr, h * 0.5f, Mathf.Sin(ang) * rr),
+                new Vector3(Random.Range(0.07f, 0.12f), h, Random.Range(0.07f, 0.12f)), edgeMat);
+            arc.localRotation = Quaternion.Euler(
+                Random.Range(-16f, 16f), ang * Mathf.Rad2Deg, Random.Range(-16f, 16f));
+        }
+
+        // The heart: a short inner ring of brighter blocks, so the nova reads as radiating outward.
+        int inner = 8;
+        for (int i = 0; i < inner; i++)
+        {
+            float ang = (i / (float)inner) * Mathf.PI * 2f + 0.3f;
+            float rr = radius * 0.5f;
+            Cube(parent, "NovaGlow_" + i,
+                new Vector3(Mathf.Cos(ang) * rr, 0.12f, Mathf.Sin(ang) * rr),
+                Vector3.one * Random.Range(0.14f, 0.22f), coreMat);
+        }
+    }
+
+    /// <summary>1l112: Thunder Vortex's body (<see cref="ZoneBody.LightningCyclone"/>) — a bright core
+    /// column wrapped by rings of jagged vertical bolts, widest at the base and narrowing upward, so
+    /// the stack reads as a lightning funnel. It is a Vortex body: <c>SpellZone</c> spins the zone root
+    /// at 240 deg/s, and because this body is STATIC the bolts themselves churn (rule 19 — the spin
+    /// belongs to the component the spell already runs, not to this factory).</summary>
+    public static void BuildLightningCyclone(Transform parent, float radius, Color core)
+    {
+        Material coreMat = SkillFx.SharedSpriteMaterial(core);
+        Material brightMat = SkillFx.SharedSpriteMaterial(Color.Lerp(core, Color.white, 0.7f));
+
+        // The column down the eye of the vortex.
+        Cube(parent, "CycloneCore", new Vector3(0f, 1.1f, 0f), new Vector3(0.22f, 2.2f, 0.22f), brightMat);
+
+        int rings = 5;
+        for (int ring = 0; ring < rings; ring++)
+        {
+            float t = ring / (float)(rings - 1);
+            float rr = Mathf.Lerp(radius * 0.9f, radius * 0.28f, t);
+            float y = Mathf.Lerp(0.15f, 2.4f, t);
+            int count = Mathf.RoundToInt(Mathf.Lerp(10f, 5f, t));
+            for (int i = 0; i < count; i++)
+            {
+                float ang = (i / (float)count) * Mathf.PI * 2f + ring * 0.6f;
+                float h = Random.Range(0.55f, 1.25f);
+                var bolt = Cube(parent, "CycloneBolt_" + ring + "_" + i,
+                    new Vector3(Mathf.Cos(ang) * rr, y, Mathf.Sin(ang) * rr),
+                    new Vector3(Random.Range(0.08f, 0.14f), h, Random.Range(0.08f, 0.14f)),
+                    i % 3 == 0 ? brightMat : coreMat);
+                bolt.localRotation = Quaternion.Euler(
+                    Random.Range(-14f, 14f), ang * Mathf.Rad2Deg, Random.Range(-14f, 14f));
+            }
+        }
+    }
+
+    /// <summary>1l112: Devastation's body (<see cref="StormBody.Maelstrom"/>) — a larger, angrier
+    /// cumulonimbus than <see cref="BuildThunderhead"/>: FOUR cloud bands (vs three) with a wider span
+    /// and a jagged down-toothed underside in the spell's Core. Mounted at the caller's altitude
+    /// (<c>SpellStorm.MaelstromHeight</c>), which is also where its strike bolts fall from. Body-only
+    /// and motion-free; like the Thunderhead it does not spin.</summary>
+    public static void BuildMaelstrom(Transform parent, float radius, float height,
+        Color cloudColor, Color core)
+    {
+        Material cloudMat = SkillFx.SharedSpriteMaterial(cloudColor);
+        Material coreMat = SkillFx.SharedSpriteMaterial(core);
+
+        for (int band = 0; band < 4; band++)
+        {
+            float y = height + band * 0.7f;
+            float span = radius * (1.75f - band * 0.34f);
+            int count = 11 - band * 2;
+            for (int i = 0; i < count; i++)
+            {
+                float ang = (i / (float)count) * Mathf.PI * 2f + band * 0.55f;
+                float rr = span * Random.Range(0.4f, 0.98f);
+                Cube(parent, "Maelstrom_" + band + "_" + i,
+                    new Vector3(Mathf.Cos(ang) * rr, y + Random.Range(-0.18f, 0.18f), Mathf.Sin(ang) * rr),
+                    new Vector3(Random.Range(0.7f, 1.15f), Random.Range(0.5f, 0.95f), Random.Range(0.7f, 1.15f)),
+                    cloudMat);
+            }
+        }
+
+        // A jagged down-toothed belly: short Core spikes under the base band, so the maelstrom's
+        // underside crackles and the strike origin has a seat to hang from.
+        int teeth = 8;
+        for (int i = 0; i < teeth; i++)
+        {
+            float ang = (i / (float)teeth) * Mathf.PI * 2f;
+            float rr = radius * Random.Range(0.35f, 0.75f);
+            float depth = Random.Range(0.5f, 1.1f);
+            Cube(parent, "MaelstromTooth_" + i,
+                new Vector3(Mathf.Cos(ang) * rr, height - 0.5f - depth * 0.5f, Mathf.Sin(ang) * rr),
+                new Vector3(0.22f, depth, 0.22f), coreMat);
+        }
+        Cube(parent, "MaelstromSeat", new Vector3(0f, height - 0.55f, 0f),
+            new Vector3(0.6f, 0.18f, 0.6f), coreMat);
+    }
+
     /// <summary>1l111: one shared cube primitive, parented, collider-destroyed and material-applied —
     /// the four lines every builder in this file repeats, factored so the two new bodies do not carry
     /// forty copies of them. Returns the transform so a caller can attach a motion component.</summary>

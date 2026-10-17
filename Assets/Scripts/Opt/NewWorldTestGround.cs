@@ -1819,9 +1819,9 @@ public sealed class NewWorldTestGround : MonoBehaviour
         sb.Append('\n').Append("  cast anchors:   ").Append(CountLine(byAnchor))
           .Append("   (1jt: Feet = Summon deliveries + the two authored Meteors; front = everything else; 1ka: resolved for the audit only, placement no longer reads it)");
         sb.Append('\n').Append("  zone bodies:    ").Append(CountLine(byZone))
-          .Append("   (1kc: Funnel for every non-authored zone; VortexCircle = Conflagration's own body)");
+          .Append("   (1kc: Funnel for every non-authored zone; VortexCircle = Conflagration; 1l112 NovaRing = Static Nova, LightningCyclone = Thunder Vortex)");
         sb.Append('\n').Append("  storm bodies:   ").Append(CountLine(byStorm))
-          .Append("   (1kf: None for every spell but Firestorm and Blizzard; Funnel = Firestorm's pre-1kc conflagration tornado; 1l100 VortexCircle = Blizzard's conflagration body; 1l111 Rain = Downpour's rain shelf, Thunderhead = Thunderhead's cumulonimbus)");
+          .Append("   (1kf: None for every spell but Firestorm and Blizzard; Funnel = Firestorm's pre-1kc conflagration tornado; 1l100 VortexCircle = Blizzard's conflagration body; 1l111 Rain = Downpour's rain shelf, Thunderhead = Thunderhead's cumulonimbus; 1l112 Maelstrom = Devastation's maelstrom)");
         sb.Append('\n').Append("  summon bodies:  ").Append(CountLine(bySummon))
           .Append("   (1l110: Default for every summon; TeslaCoil = Static Coil's stationary spire)");
         foreach (var kv in groups)
@@ -1833,8 +1833,15 @@ public sealed class NewWorldTestGround : MonoBehaviour
         Debug.Log("[NewWorldTestGround] " + sb.ToString());
     }
 
-    /// <summary>Packs the perceptual axes into one key. 42 bits: 3+3+4+2+2+2+2 for the enums, 8 per channel.
-    /// 1f7 added SkyRock's 2 bits. Because determinism always resolves that axis to
+    /// <summary>Packs the perceptual axes into one key. 1l112 re-laid the block out sequentially from
+    /// bit 24 with an explicit width per field: SkyRock 2, DisplayShape 5, Cast 3, Impact 3,
+    /// CastAnchor 2, ZoneModel 3, StormBody 3, SummonBody 2 (23 bits), then 8 per colour channel
+    /// (0..23) = 47 bits. The <c>3+3+4+2+2+2+2</c> this header used to give was already a lie before
+    /// 1l112: DisplayShape (4 bits) overflowed when 1l110 pushed ProjectileShape to 16..18, and
+    /// ZoneModel (2 bits) could not hold the two bodies 1l112 adds. Both spilled into the next field,
+    /// so the fix is a widening, not a cosmetic change — and because the new map is injective over the
+    /// enum block, `colliding` can only FALL after it.
+    /// <para><b>1f7 added SkyRock's 2 bits.</b> Because determinism always resolves that axis to
     /// <see cref="SkyRockStyle.Boulder"/> (see the enum remarks), every non-authored spell gets the
     /// SAME two bits, so no existing collision verdict moved - the axis only separates the spells
     /// that actually wear a different falling body, which is exactly the pair 1f7 authored.
@@ -1882,15 +1889,22 @@ public sealed class NewWorldTestGround : MonoBehaviour
             int r = Mathf.Clamp(Mathf.RoundToInt(look.Core.r * 255f), 0, 255);
             int g = Mathf.Clamp(Mathf.RoundToInt(look.Core.g * 255f), 0, 255);
             int b = Mathf.Clamp(Mathf.RoundToInt(look.Core.b * 255f), 0, 255);
-            return ((ulong)(uint)look.Impact << 33)
-                 | ((ulong)(uint)look.Cast << 30)
-                 | ((ulong)(uint)look.DisplayShape << 26)
-                 | ((ulong)(uint)look.SkyRock << 24)
-                 | ((ulong)(uint)look.CastAnchor << 36)
-                 | ((ulong)(uint)look.ZoneModel << 38)
-                 | ((ulong)(uint)look.StormBodyModel << 40)
-                 | ((ulong)(uint)look.SummonBodyModel << 43)
-                 | ((ulong)(uint)r << 16) | ((ulong)(uint)g << 8) | (ulong)(uint)b;
+            // 1l112 re-layout: the enum block is laid out sequentially from bit 24 with a width for
+            // EACH field (the old 4-bit DisplayShape and 2-bit ZoneModel fields could no longer hold
+            // their enums — ProjectileShape reaches 20 and ZoneBody 5 — so both overflowed into the
+            // next field and collapsed distinct looks onto one key). r/g/b stay at 0..23 so the
+            // colour half of every key is unchanged. Injective over the enum block, so the equality
+            // structure is preserved except where the OLD key was corrupted (a corrupted key could
+            // only merge or split a group, so `colliding` can only FALL after this fix).
+            return ((ulong)(uint)look.SkyRock << 24)           // 2 bits (24..25)
+                 | ((ulong)(uint)look.DisplayShape << 26)      // 5 bits (26..30) — was 4, overflowed
+                 | ((ulong)(uint)look.Cast << 31)              // 3 bits (31..33)
+                 | ((ulong)(uint)look.Impact << 34)            // 3 bits (34..36)
+                 | ((ulong)(uint)look.CastAnchor << 37)        // 2 bits (37..38)
+                 | ((ulong)(uint)look.ZoneModel << 39)         // 3 bits (39..41) — was 2, overflowed
+                 | ((ulong)(uint)look.StormBodyModel << 42)    // 3 bits (42..44)
+                 | ((ulong)(uint)look.SummonBodyModel << 45)   // 2 bits (45..46)
+                 | ((ulong)r << 16) | ((ulong)g << 8) | (ulong)b;
         }
 
 private static string Describe(in SpellLook look)
@@ -1903,7 +1917,9 @@ private static string Describe(in SpellLook look)
     // so that axis is strictly COARSER than the Core RGB already packed - it could only split a group
     // in the coincidence where two schools Tint to the same Core, which is not a collision the 1ic
     // audit is measuring. (The older version of this comment gave "the key is bit-full at 34 bits" as
-    // the reason; that arithmetic was wrong - it is 38 bits of a 64-bit ulong. Space was never the
+    // the reason; that arithmetic was wrong - even before 1l112 grew it, the key used far fewer than
+    // 64 bits (1l112 widened DisplayShape/ZoneModel to hold ProjectileShape 20 and ZoneBody 5). Space
+    // was never the
     // reason Trail is excluded. 1jt.)
     // 1jt DOES add CastAnchor, because the anchor duplicates nothing already packed: the same
     // fireball with its halo at the feet and 1.8 m in front is two different pictures.
@@ -2083,6 +2099,24 @@ private static string Describe(in SpellLook look)
                 SpellZoneModelBuilder.BuildFrozenField(modelRoot.transform, spell.Radius,
                     fl.Core, fl.Edge);
             }
+            // 1l112: Static Nova's NovaRing zone body — the SAME builder the runtime SpellZone runs,
+            // for the same rule-13 reason as the branches above: a visual that exists only inside a
+            // live cast has no acceptance readout.
+            else if (SpellLook.Resolve(spell).ZoneModel == ZoneBody.NovaRing)
+            {
+                var nl = SpellLook.Resolve(spell);
+                SpellZoneModelBuilder.BuildNovaRing(modelRoot.transform, spell.Radius,
+                    nl.Core, nl.Edge);
+            }
+            // 1l112: Thunder Vortex's LightningCyclone zone body — the SAME builder the runtime
+            // SpellZone runs. The bench mounts it STATIC (the pedestal does not spin), so only the
+            // cyclone's shape is judgeable here; its live churn (the 240 deg/s root spin) is a
+            // play-test item, exactly like Conflagration's rising rings are on this bench.
+            else if (SpellLook.Resolve(spell).ZoneModel == ZoneBody.LightningCyclone)
+            {
+                var cl = SpellLook.Resolve(spell);
+                SpellZoneModelBuilder.BuildLightningCyclone(modelRoot.transform, spell.Radius, cl.Core);
+            }
             // 1kf: Firestorm's authored storm body — the pre-1kc conflagration funnel — mounted via
             // the SAME builder SpellStorm runs, for the same rule-13 reason as the branches above: a
             // visual that exists only inside a live cast has no acceptance readout. Full spell
@@ -2137,6 +2171,21 @@ private static string Describe(in SpellLook look)
                 SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
                     new Vector3(0f, benchCloudY - 0.7f, 0f), new Vector3(0f, 0.05f, 0f),
                     SkillFx.SharedSpriteMaterial(tl.Core), 1000f, segments: 8, jitterAmplitude: 0.7f);
+            }
+            // 1l112: Devastation's Maelstrom storm body — the SAME builder SpellStorm runs, mounted
+            // LOW on the pedestal like Thunderhead above (the live altitude is SpellStorm.MaelstromHeight,
+            // a world-anchored cloud the pedestal has no ground to measure). It still carries the
+            // sky-bolt behaviour (Devastation passes stormCloud: true), so show the long cloud-to-ground
+            // bolt too, from under the body down to the pedestal top.
+            else if (SpellLook.Resolve(spell).StormBodyModel == StormBody.Maelstrom)
+            {
+                var ml = SpellLook.Resolve(spell);
+                const float benchCloudY = 2.1f;
+                SpellZoneModelBuilder.BuildMaelstrom(modelRoot.transform,
+                    Mathf.Max(spell.Radius * 0.9f, 3f), benchCloudY, SpellStorm.StormCloudTint, ml.Core);
+                SpellBoltModelBuilder.BuildBolt(modelRoot.transform,
+                    new Vector3(0f, benchCloudY - 0.9f, 0f), new Vector3(0f, 0.05f, 0f),
+                    SkillFx.SharedSpriteMaterial(ml.Core), 1000f, segments: 8, jitterAmplitude: 0.7f);
             }
             // 1ir: the two deliveries that have NO projectile body at all. Without these two branches
             // a Beam and a Summon both fall through to CreateProjectileDisplay, which draws the generic
