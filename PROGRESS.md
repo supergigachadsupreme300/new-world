@@ -1,3 +1,52 @@
+## 1l113. Arc Volley — a slow ball-lightning sphere that zaps nearby foes in flight
+
+Arc Volley (`magic_lightning_volt_arc`) was a plain fast bolt that read identically to its neighbours.
+It now fires a **slow sphere** (`projectileShape: Sphere`, speed 7) that **additionally zaps nearby foes
+every tick while it flies** — a drifting ball of lightning, the user's "shooting a slow moving sphere
+that would zap nearby enemy with lightning coming from it".
+
+**New mechanism — `SpellData.ZapsInFlight` (one flag).** A Projectile-delivery spell that sets it, in
+addition to its normal contact/ground/expiry detonation, runs an in-flight aura: every `TickInterval` it
+damages each enemy within the charge-scaled `Radius` for **40%** of the cast's power and draws a jagged
+Lightning arc (`SpellBoltModelBuilder.BuildBolt`, the school's one two-point bolt builder) from the
+sphere to it. The scan reach is `Radius`; the impact burst stays `BoltSplashRadius` (the 1ir field
+designed for exactly that "bolt detonates smaller than the area it scans" split). The loop lives in
+`SpellEffect.Update` — the consumer that MOVES (rule 19) — after the move/trail block and inside the
+`_launched` gate, so no static pedestal or turret bolt (which never reaches this Update) can trail or
+zap. Victims are de-duped by enemy ROOT (one zap + one arc per foe per tick — a per-collider walk would
+multiply both by the foe's collider count), and the arc colour is the already-resolved `SpellLook.Core`
+(rule 13). Damage + status ride the shared `ResolveHitAt` pipeline, so Arc Volley's Stagger applies on
+each zap.
+
+**Catalog (`SkillCatalog.Magic.cs`, id unchanged).** Arc Volley: `deliveryRange` 10 -> **12**,
+`deliveryRadius` 1 -> **5** (the zap scan reach), `projectileSpeed` 20 -> **7** (slow), `tickInterval`
+0.5 -> **0.35**, `projectileShape` Bolt -> **Sphere**, `boltSplashRadius` -> **2** (a modest impact
+burst), `zapsInFlight: true`; description updated. A new `zapsInFlight` parameter on the `SkillCatalog.Spell`
+factory (defaulted off; deliberately not added to `ClassSkillCatalog.MakeSpell`, which needs it for no
+class skill).
+
+**Verification (no build — rule 3).** `tools\StaticChecks.ps1` -> **0 candidates**; helper signatures and
+named args grepped; `SkillFx.SharedSpriteMaterial` / `SpellBoltModelBuilder.BuildBolt` confirmed to be
+existing shared APIs (`SpellStorm.cs:333`, `SpellCaster.Cast.cs:488` call sites); `SpellLook.Resolve`
+confirmed to let `spell.Shape` win, and `MagicProjectileModelBuilder.BuildProjectileBody` confirmed to map
+`Sphere` to the orb body (its `default` branch, shared with `Ball`).
+
+### 1l113-status
+- Files touched (4 C# + 3 md): `Assets/Scripts/Magic/Cast/SpellData.cs` (`ZapsInFlight`),
+  `Assets/Scripts/Magic/Cast/SpellEffect.cs` (`ZapPowerFraction` 0.4, `ZapBoltLife` 0.15, `_zapBuffer`/
+  `_zapRoots`/`_zapTimer` fields, `Launch` seeding, `UpdateZapAura` + its `Update` call),
+  `Assets/Scripts/Combat/Skills/SkillCatalog.cs` (`zapsInFlight` param + assignment),
+  `Assets/Scripts/Combat/Skills/SkillCatalog.Magic.cs` (Arc Volley row); `game-design.md` (§3.8 field
+  list), `magic-skills.md` (Projectile delivery row + delivery-fields line + Arc Volley row), this file +
+  `THINKING.md`.
+- Verification: `tools\StaticChecks.ps1` -> 0 candidates; grep + reread only (no build).
+- Pending play-test: the sphere drifts and arcs to nearby foes a few times before detonating on the first
+  foe/wall/ground it reaches; confirm the arc reads as coming FROM the sphere (not the caster) and that
+  Stagger re-applied each tick (0.35 s cadence vs the 0.35 s stun) does not perma-lock a foe the sphere
+  lingers beside.
+- skills: none applied — a contained C# gameplay/visual edit reviewed by code; no DCC or Unity-driving
+  artifact is produced.
+
 ## 1l112. Lightning tree rework, Phase 3 of 4 — the `magic_lightning_fury` bank (Fury Bolt / Static Nova / Thunder Vortex / Devastation)
 
 Phase 3 of the 13-skill Lightning rework (Phase 1 = 1l110, Phase 2 = 1l111). Same fixed decisions: keep
@@ -6350,7 +6399,7 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-17 (1l112). Read this first in a new session; then continue with the
+Last updated: 2026-10-17 (1l113). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.

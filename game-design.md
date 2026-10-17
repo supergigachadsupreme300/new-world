@@ -1879,6 +1879,14 @@ A spell is a data asset carrying:
 - **summonFallingRock** (sky spells: a rock formation drops from the sky onto the target and the
   burst resolves on landing — which formation is the spell's own resolved `SkyRock` axis, §3.8.4;
   see §3.8.1 Delivery Behaviors "Sky spells")
+- **zapsInFlight** (1l113: a Projectile ADDITIONALLY zaps nearby foes every `TickInterval` while it
+  flies — each enemy within the charge-scaled `Radius` takes a fraction (40%) of the cast's power and
+  has a jagged Lightning arc drawn from the bolt to it. Because it is additional and not a replacement,
+  the bolt still detonates on contact/ground/expiry as any projectile does — which is why `Radius` is
+  the scan reach here while the impact burst stays `BoltSplashRadius`. Victims are de-duped by enemy
+  root, and the arc's colour is the bolt's own resolved `SpellLook.Core`. **Arc Volley**
+  (`magic_lightning_volt_arc`) is the only user: a slow sphere of ball lightning — speed 7, radius 5,
+  tick 0.35 s, `BoltSplashRadius` 2.)
 - **projectile shape** (`ProjectileShape`, §3.8.1): the *visual* built for a Projectile-delivery
   spell. When a spell leaves it `Auto`, the body shape comes from the spell's resolved **display
   shape** (§3.8.3) — picked from its school's shape family by `SpellLook`, deterministically per

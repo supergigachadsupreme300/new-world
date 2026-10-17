@@ -1,3 +1,52 @@
+## 1l113. Arc Volley — slow ball-lightning sphere that zaps in flight (SHIPPED; play-test pending)
+
+Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l112`, so `1l113` (enumerate first — rule 8). User
+request: "change arc volley to shooting a slow moving sphere that would zap nearby enemy with lightning
+coming from it". This is a NEW mechanic (no projectile currently damages on a timer while flying), so the
+investigation was about **where** to put it and **how** to signal it from the catalog with the smallest
+new surface.
+
+**H1 — "there is already an in-flight 'zaps nearby' path to reuse." REJECTED.** The only shipped
+"zap nearby foe" is the **Static Coil** turret (`SpellDelivery.Summon` + `SpellSummon.FireAtNearest` +
+`boltSplashRadius`), but its zap is a *bolt it fires at a target*, not an aura around a moving source: the
+turret is stationary and each tick spawns a fresh projectile. Nothing in `SpellEffect` (the projectile's
+own loop) damages on a timer. Verdict: a new in-flight aura is required; the re-usable pieces are the
+already-shared `SpellBoltModelBuilder.BuildBolt` (two-point arc) and `SkillFx.SharedSpriteMaterial`.
+
+**H2 — "put the aura in the projectile body factory, next to where bodies are built." REJECTED (rule 19).**
+`MagicProjectileModelBuilder.AttachDefaultProjectileVisual` has FOUR callers and only one is a projectile
+in flight: the QA spell band (motionless pedestals), `SpellSummon.SpawnBolt` (a turret bolt), and the
+charged-projectile preview. A per-frame emitter there would hang a row of arcs in mid-air on a pedestal
+that never moves. Verdict: the aura belongs in `SpellEffect.Update` — the loop gated on `_launched`, which
+the pedestals and the preview never reach (the same reasoning 1jg/1jq used for the trail).
+
+**H3 — "reuse `Radius` as the scan reach and `BoltSplashRadius` as the burst, rather than add numeric
+fields." CONFIRMED.** `SpellEffect.SplashRadius` already prefers `BoltSplashRadius` when `> 0` (the 1ir
+field built for "a bolt detonates smaller than the area it scans"); so `Radius` is free to be the scan
+reach with zero new numbers. Only ONE new field is added (`ZapsInFlight`) plus the factory parameter and a
+constant 40% fraction — the fraction is deliberately a constant, not a per-spell knob (one author, one
+number). Checked that a Projectile's `Radius` draws nothing: `PlayerController.UpdateAoePreview` only
+shows a disc for Zone/Vortex/Summon/Storm — a Projectile gets none, so raising `Radius` 1 -> 5 draws no
+marker.
+
+**H4 — "the sphere will pop on the first foe before it can zap." RESOLVED by asking, not guessing.** The
+two behaviours (pass-through vs detonate) are a gameplay fork the user owns, so the question was put
+directly. User chose **detonate on contact** and **~40% per tick**. So the aura is strictly ADDITIONAL to
+the normal impact — which is exactly why the scan reach and the burst had to be different fields (H3):
+`Radius` 5 for the aura, `BoltSplashRadius` 2 for the burst.
+
+**H5 — "`projectileShape: Sphere` gives a round body." CONFIRMED by reading the dispatch.**
+`MagicProjectileModelBuilder.BuildProjectileBody` has no explicit `Sphere` case, but `Sphere` (value 2)
+falls to its `default` branch — the same `Cluster("Orb", …)` that `Ball` uses — so an authored `Sphere`
+draws the round orb. `SpellLook.Resolve` lets an authored `spell.Shape` win over the school family, so no
+`Look` profile is needed.
+
+**H6 — "applying the school's Stagger on every zap is safe." OPEN — flagged for play-test.** The zap
+routes through `ResolveHitAt` → `ApplyHit` → `ApplyStatus`, so each 0.35 s zap re-applies Stagger
+(`ApplyStun(0.35f)`). Cadence (0.35 s) ≈ stun length (0.35 s), so a foe the sphere lingers beside could be
+near-continuously stunned. Kept as authored (the status is the spell's signature and the user asked for no
+status change); recorded as a play-test/balance item rather than silently reduced.
+
 ## 1l112. Lightning tree rework Phase 3 (Fury bank) — reasoning trail (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l111`, so `1l112` (enumerate first — rule 8). Phase

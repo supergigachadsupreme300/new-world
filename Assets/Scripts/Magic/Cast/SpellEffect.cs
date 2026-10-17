@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -39,6 +40,12 @@ public class SpellEffect : MonoBehaviour
     private readonly Collider[] _homingBuffer = new Collider[32];
     private readonly Collider[] _contactHits = new Collider[16];
 
+    /// <summary>1l113: the in-flight zap aura's (buffer, per-tick countdown, de-dup set). See
+    /// <see cref="UpdateZapAura"/> for the whole mechanic.</summary>
+    private readonly Collider[] _zapBuffer = new Collider[32];
+    private readonly HashSet<Transform> _zapRoots = new HashSet<Transform>();
+    private float _zapTimer;
+
     /// <summary>1l109: the contact (enemy/wall/prop) hitbox radius, scaled by the same charge
     /// ladder that grows the body and the splash. A charged bolt therefore collides as wide as it
     /// renders, instead of the old zero-width centerline ray. Ground is excluded from this probe.</summary>
@@ -49,6 +56,17 @@ public class SpellEffect : MonoBehaviour
     /// overcharge cannot carve a whole chunk. The carve DEPTH is unaffected — it is CraterStep
     /// (the crater profile's cap depth), so a wider dent is a wider bowl, never a deeper dig.</summary>
     private const float MaxDentRadius = 5f;
+
+    /// <summary>1l113: fraction of the cast's power each in-flight zap deals. A slow sphere lands
+    /// several ticks as it drifts, so a full-power tick would multiply the spell's damage by its tick
+    /// count; a fraction keeps the whole pass near the authored hit and lets the count scale the
+    /// total instead of the amount. Written once here — it is the same number for every zapping
+    /// projectile, not an authored per-spell knob.</summary>
+    private const float ZapPowerFraction = 0.4f;
+
+    /// <summary>1l113: lifetime of each in-flight zap's drawn Lightning arc, in seconds. Short enough
+    /// to flicker like a live arc between ticks rather than sit as a static rod across the gap.</summary>
+    private const float ZapBoltLife = 0.15f;
 
     private const float MissileTurnRate = 240f;
     private bool _homing;
@@ -123,6 +141,11 @@ public class SpellEffect : MonoBehaviour
         Speed = speed;
         if (_spell != null && _spell.Shape == ProjectileShape.Missile)
             _homing = true;
+        // 1l113: seed the zap countdown to one full interval so the first arc fires after the sphere
+        // has travelled, not on the frame it leaves the muzzle (which would zap foes still standing
+        // at the caster). Only read when ZapsInFlight is set, so every other projectile is unchanged.
+        if (_spell != null && _spell.ZapsInFlight)
+            _zapTimer = _spell.TickInterval > 0f ? _spell.TickInterval : 0.5f;
     }
 
     /// <summary>1l1/1l87: the rate a fired bolt rolls around its travel axis (degrees/second). One
@@ -234,7 +257,55 @@ public class SpellEffect : MonoBehaviour
             else _trail.Push(transform.position);
         }
 
+        // 1l113: the in-flight zap aura lives in the loop that runs while the projectile MOVES
+        // (rule 19) and is gated on the authored flag, so every other projectile's Update is
+        // unchanged. It reads the charge-scaled radius, so an overcharged sphere arcs wider too.
+        if (_spell != null && _spell.ZapsInFlight)
+            UpdateZapAura();
+
         // Spin already applied at start of Update
+    }
+
+    /// <summary>1l113: every <see cref="SpellData.TickInterval"/> while in flight, damage each enemy
+    /// inside the charge-scaled <see cref="SpellData.Radius"/> for <see cref="ZapPowerFraction"/> of
+    /// the cast's power and draw a jagged Lightning arc from the sphere to it. This is an ADDITIONAL
+    /// in-flight effect, not a replacement for the normal contact detonation — the bolt still bursts
+    /// on enemies/walls/ground and at expiry exactly as any projectile does, which is why the scan
+    /// radius is <c>Radius</c> while the burst stays <see cref="SpellData.BoltSplashRadius"/> (the
+    /// 1ir field designed for exactly this "bolt detonates smaller than the area it scans" split).
+    /// <para>Distinct by enemy ROOT, not by collider: a foe with several child colliders is one
+    /// victim, so it takes one zap and one arc per tick. The victim passed to
+    /// <see cref="SpellCaster.ResolveHitAt"/> is the root's GameObject, which is where
+    /// <see cref="IDamageable"/> lives — the same "the root is the combatant" predicate the other
+    /// delivery paths use. The arc's colour is the already-resolved <see cref="_look"/>, so no second
+    /// colour lookup (rule 13).</para></summary>
+    private void UpdateZapAura()
+    {
+        _zapTimer -= Time.deltaTime;
+        if (_zapTimer > 0f) return;
+        _zapTimer = _spell.TickInterval > 0f ? _spell.TickInterval : 0.5f;
+
+        float radius = _spell.Radius * _radiusMult;
+        if (radius <= 0f) return;
+
+        int count = Physics.OverlapSphereNonAlloc(transform.position, radius, _zapBuffer, HitLayers);
+        if (count == 0) return;
+
+        Material mat = SkillFx.SharedSpriteMaterial(_look.Core);
+        _zapRoots.Clear();
+        for (int i = 0; i < count; i++)
+        {
+            Collider col = _zapBuffer[i];
+            if (col == null) continue;
+            Transform root = col.transform.root;
+            if (root == null || root == _casterRoot) continue;
+            if (!IsEnemyRoot(root)) continue;
+            if (!_zapRoots.Add(root)) continue;
+
+            Vector3 point = root.position + Vector3.up * 0.8f;
+            SpellBoltModelBuilder.BuildBolt(null, transform.position, point, mat, ZapBoltLife);
+            _caster?.ResolveHitAt(root.gameObject, _spell, _power * ZapPowerFraction);
+        }
     }
 
     /// <summary>

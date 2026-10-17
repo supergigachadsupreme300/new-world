@@ -254,4 +254,6 @@ public class SpellData : ScriptableObject
     public bool SkyStrikeBolt;
     [Tooltip("1l73: a Storm delivery mounts a dark cloud over the storm center and each strike draws a long multi-segment bolt from the cloud down to its ground point instead of the crossed bars (Devastation). The cloud and every bolt ship with and die with the storm.")]
     public bool StormCloud;
+    [Tooltip("1l113: a Projectile delivery ZAPS nearby foes IN FLIGHT — every TickInterval it damages each enemy within Radius (charge-scaled) for a fraction of the cast's power and draws a jagged Lightning arc from the projectile to it. An ADDITIONAL in-flight effect: the bolt still detonates on contact/ground/expiry as any projectile does, so Radius is the scan reach here while the impact burst stays BoltSplashRadius. Arc Volley is the only user — a slow ball of lightning that drifts and arcs to whatever it passes.")]
+    public bool ZapsInFlight;
 }

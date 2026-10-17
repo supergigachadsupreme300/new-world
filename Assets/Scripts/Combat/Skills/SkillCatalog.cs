@@ -182,7 +182,7 @@ public static partial class SkillCatalog
         bool summonFallingRock = false, SpellLookProfile look = null,
         float beamHalfAngle = 0f, bool casterAnchored = false, float boltSplashRadius = 0f,
         bool summonFiresForward = false, bool centerOnCaster = false, bool selfTeleport = false,
-        bool skyStrikeBolt = false, bool stormCloud = false)
+        bool skyStrikeBolt = false, bool stormCloud = false, bool zapsInFlight = false)
     {
         var spell = ScriptableObject.CreateInstance<SpellData>();
         spell.name = spellId;
@@ -223,6 +223,10 @@ public static partial class SkillCatalog
         spell.SelfTeleport = selfTeleport;
         spell.SkyStrikeBolt = skyStrikeBolt;
         spell.StormCloud = stormCloud;
+        // 1l113: the in-flight zap aura (Arc Volley). Like the 1ir/1l73 opt-ins, defaulted so every
+        // other spell is unchanged, and deliberately absent from ClassSkillCatalog.MakeSpell — no
+        // class skill uses it.
+        spell.ZapsInFlight = zapsInFlight;
         // 1ii: null (the default) means "fully deterministic from spell.id" — the resolver treats a
         // profile that merely EXISTS as authored, so the authored list (31 as of 1l112: 16 in this
         // file + 15 in SkillCatalog.Magic.cs; regex-measured on the profile argument, and it grows
