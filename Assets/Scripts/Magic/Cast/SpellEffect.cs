@@ -46,6 +46,10 @@ public class SpellEffect : MonoBehaviour
     private readonly HashSet<Transform> _zapRoots = new HashSet<Transform>();
     private float _zapTimer;
 
+    // 1l113 DIAGNOSTIC (temporary): counts logged zap attempts so a play-test can name the mechanism
+    // (guard false / zero overlaps / no enemy roots) instead of guessing. Remove once diagnosed.
+    private int _zapDebugLogs;
+
     /// <summary>1l109: the contact (enemy/wall/prop) hitbox radius, scaled by the same charge
     /// ladder that grows the body and the splash. A charged bolt therefore collides as wide as it
     /// renders, instead of the old zero-width centerline ray. Ground is excluded from this probe.</summary>
@@ -145,7 +149,10 @@ public class SpellEffect : MonoBehaviour
         // has travelled, not on the frame it leaves the muzzle (which would zap foes still standing
         // at the caster). Only read when ZapsInFlight is set, so every other projectile is unchanged.
         if (_spell != null && _spell.ZapsInFlight)
+        {
             _zapTimer = _spell.TickInterval > 0f ? _spell.TickInterval : 0.5f;
+            Debug.Log($"[ZapAura] Launch id={_spell.id} radius={_spell.Radius * _radiusMult} tick={_spell.TickInterval} speed={speed}");
+        }
     }
 
     /// <summary>1l1/1l87: the rate a fired bolt rolls around its travel axis (degrees/second). One
@@ -289,6 +296,18 @@ public class SpellEffect : MonoBehaviour
         if (radius <= 0f) return;
 
         int count = Physics.OverlapSphereNonAlloc(transform.position, radius, _zapBuffer, HitLayers);
+        if (_zapDebugLogs < 12)
+        {
+            int enemyRoots = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Collider c = _zapBuffer[i];
+                if (c == null) continue;
+                if (IsEnemyRoot(c.transform.root)) enemyRoots++;
+            }
+            Debug.Log($"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} casterRoot={(_casterRoot != null ? _casterRoot.name : "null")}");
+            _zapDebugLogs++;
+        }
         if (count == 0) return;
 
         Material mat = SkillFx.SharedSpriteMaterial(_look.Core);
