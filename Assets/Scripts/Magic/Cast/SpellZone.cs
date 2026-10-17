@@ -153,7 +153,10 @@ public class SpellZone : MonoBehaviour
         }
 
         // 1l112: Static Nova's authored NovaRing — a lingering ring of static drawn in place of the
-        // generic ground discs (Static Nova is a Zone, so this does not spin).
+        // generic ground discs. 1l116: Static Nova is now a NovaWave (SpellCaster.ResolveNova builds
+        // this same body and scales it outward), so no live Zone reaches this branch — it stays
+        // data-driven for any future Zone that authors ZoneBody.NovaRing, and its runtime user moved
+        // rather than disappeared (rule 14: a consumer may be absent, the builder is not dead).
         if (_look.ZoneModel == ZoneBody.NovaRing)
         {
             SpellZoneModelBuilder.BuildNovaRing(transform, Radius, color, _look.Edge);

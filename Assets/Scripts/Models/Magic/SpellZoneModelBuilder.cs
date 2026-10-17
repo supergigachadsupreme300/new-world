@@ -326,9 +326,12 @@ public static class SpellZoneModelBuilder
 
     /// <summary>1l112: Static Nova's body (<see cref="ZoneBody.NovaRing"/>) — a flat ground disc ringed
     /// by a bright annulus of short jagged lightning arcs (the spell's Edge) with a hotter Core ring
-    /// inside, so a self-centred Zone reads as a lingering ring of static rather than the generic
-    /// ground discs. Body-only and motion-free like the other ground bodies here: Static Nova is a
-    /// Zone (PullSpeed 0), so <c>SpellZone</c> does not spin its root.</summary>
+    /// inside, so a self-centred spell reads as a radiating ring of static rather than the generic
+    /// ground discs. Body-only and motion-free like the other ground bodies here. <b>1l116:</b> its one
+    /// runtime user, Static Nova, is now a <c>SpellDelivery.NovaWave</c> — <c>SpellCaster.ResolveNova</c>
+    /// mounts this body at the front's final radius and scales the root outward each frame, so the ring
+    /// appears to grow from the caster (the builder's own local layout is unchanged: build it at the
+    /// authoring extent, let the caller scale). Still mounted by the QA pedestal.</summary>
     public static void BuildNovaRing(Transform parent, float radius, Color core, Color edge)
     {
         Material coreMat = SkillFx.SharedSpriteMaterial(core);

@@ -1880,11 +1880,11 @@ A spell is a data asset carrying:
 - `DamageType` (one of the 10 damage types, §3.7) — or **none** for pure utility/heal spells
 - base power
 - **FP cost**, **cast time**, **cooldown**
-- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell) / **beam** / **summon** / **storm** / **wave** (1l87: a ground-hugging sweep that rides the terrain forward for `Range`, hitting each foe once as its band passes — see §3.8.1 Delivery Behaviors "Ground waves")
+- range, area/radius, delivery: projectile / instant / zone / **vortex** (persistent damage-zone that pulls, e.g. the Tornado wind spell) / **beam** / **summon** / **storm** / **wave** (1l87: a ground-hugging sweep that rides the terrain forward for `Range`, hitting each foe once as its band passes — see §3.8.1 Delivery Behaviors "Ground waves") / **nova-wave** (1l116: the radial sibling — a ground-hugging band whose front is a CIRCLE growing from the caster out to `Range` at `ProjectileSpeed`, hitting each foe once as it passes; Static Nova, and implemented as `SpellWave`'s radial mode — see §3.8.1 "Ground waves")
 - **duration** (zone/vortex lifetime; `> 0` makes the zone **persistent**, ticked by `SpellZone.cs`)
 - **selfbuff** (Instant delivery grants a timed caster effect instead of damage/heal — e.g. **Wind Walk**: `PlayerController.BeginFlight(Duration)`, free vertical movement for the buff's seconds)
 - **selfTeleport** (1l78: Instant delivery moves the CASTER instead — e.g. **Leap Bolt**: the player is teleported up to `Range` in the direction they are **choosing on WASD** — `PlayerController.MoveInput` through `transform.TransformDirection`, exactly the direction the character would walk — cleared of obstructions, and the ground under the landing is found with the shared `GroundUnder` probe. With no move key held the leap falls back to the flat camera look, then the body's forward. A jagged bolt links where the caster WAS to where they land, and everything within `Radius` at the landing takes the hit. The one delivery that moves the player.)
-- **centerOnCaster** (1l73/1l79: a Zone/Storm bursts **under the caster** instead of the aim point — e.g. **Static Nova** (was Sky Beam): a `Zone`, `centerOnCaster`, radius 3.4, duration 2.5 s, Stagger, no channel drain (1l112 added the duration so the zone persists with its nova-ring body). `ResolveZone` ground-snaps the centre with `GroundUnder`, and the armed AoE preview disc follows it under the feet.)
+- **centerOnCaster** (1l73/1l79: a Zone/Storm bursts **under the caster** instead of the aim point — e.g. **Static Nova**. 1l116 moved Static Nova off `Zone` to **`NovaWave`**, which is caster-centered *by definition* (`ResolveNova` snaps its centre with the same `GroundUnder` probe `ResolveZone` uses), so this flag no longer picks a spell's delivery — it now carries only the **armed AoE preview disc under the feet** (`TryAoeTarget`), which is the one thing that would otherwise mark the aim point for a spell that erupts on the player.)
 - **heals** (Holy/utility spells: instant/self-heal, or an ally-heal aura when on a zone; only `IHealable` targets — the player — are ever healed, enemies still take damage)
 - **knockback** (impulse applied to enemies; the Wind school signature)
 - **summonFallingRock** (sky spells: a rock formation drops from the sky onto the target and the
@@ -2231,7 +2231,9 @@ a school read distinctly instead of feeling like copies:
   victim→victim — so the arc reads as one continuous jagged stroke; there is no aim preview (like
   Instant). Only Chain Lightning uses it.
 
-**Ground placement is unbounded.** The four ground deliveries (Zone / Vortex / Summon / Storm) aim
+**Ground placement is unbounded.** The ground deliveries (Zone / Vortex / Summon / Storm, and — 1l116 —
+NovaWave, which is in the branch only because it shares the ground-delivery classification; it ignores
+the aim and centres on the caster) aim
 where the camera actually points — out to a practical `SpellCaster.GroundAimMax` (1200 units) cap,
 not the spell's own `Range` — so AoE magic can be cast anywhere in the open world (e.g. dropping a
 zone on a distant ridge or a summoned turret near a far road). The landing preview
@@ -2261,7 +2263,7 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   **The cast origin's own forward is not used**: the origin is the magic hand on the weapon rig, and the
   body's rotation is yaw-only (`HandleMouseLook` writes `Euler(0, _yaw, 0)`, pitch lives on the camera
   pivot), so `origin.forward` is a flat horizontal shot that cannot aim up or down.
-  Instant / beam / the four ground deliveries deliberately keep the point-aim — instant and beam carry
+  Instant / beam / the ground deliveries deliberately keep the point-aim — instant and beam carry
   the identical skew and are **reported, not changed**, because the request was scoped to projectiles.
   Every `SpellCaster` in the tree is the player's (`WeaponRigBuilder` adds it to `playerRoot`; everything
   else is `GetComponent<SpellCaster>()` on the player or the QA bench), so aiming from `Camera.main` is
@@ -2283,6 +2285,23 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   shape wins; the deterministic families never pick it), while the sweep behaviour lives entirely in
   `SpellDelivery.Wave`. The two are independent — moving a spell to `ProjectileShape.Wave` without the
   delivery would draw the floor without a sweep, and vice versa.
+  **1l116: the radial sibling (`SpellDelivery.NovaWave`).** Static Nova (formerly a lingering
+  caster-centred Zone) is the same sweep worn around a circle: `SpellCaster.ResolveNova` spawns the same
+  `SpellWave` component in its **radial mode**, centred on the ground under the caster (the shared
+  `GroundUnder` probe, the same centre a `centerOnCaster` zone used), and the front grows from zero to
+  the spell's `Range` at `ProjectileSpeed` — `SpellWave.MaxRadius` is that extent, and the root is scaled
+  to `front / MaxRadius` each frame so the drawn `NovaRing` body travels with the front. The hit test is
+  the **annulus** `front ± Radius` around the fixed centre (XZ-only, since the ring hugs the ground), and
+  the same `_hit` set still gives each foe exactly one hit as the front passes. `Range` = how far the
+  sweep reaches, `Radius` = the band's half-width (charge-scaled), `ProjectileSpeed` = how fast the front
+  travels — the numbers keep their forward-wave meaning. The `duration` Static Nova carried as a Zone is
+  gone: a sweep's lifetime *is* `Range / ProjectileSpeed`, so a leftover `Duration` would be dead data
+  (rule 14). One component owns both modes (rule 8/13 — a duplicate sweep class would be a second
+  spelling of the band-and-once-hit machinery). The armed AoE preview keeps its under-feet disc
+  (`centerOnCaster`), now stating the ring's **spread** (`TryAoeTarget` reads `Range` for a NovaWave), and
+  `SpellLook.CastAnchor` resolves **Feet** — the ring is cast on yourself. The `SpellZone`'s
+  `ZoneBody.NovaRing` branch and the `BuildNovaRing` builder both survive (the builder is what
+  `ResolveNova` mounts); only that branch's live Zone consumer moved.
   **The body (1l85) is a flat floor of small voxel cubes** spanning the band — no longer the old
   diagonal ramp of five cubes, which was a wave *shape*, not a wave. The crest is drawn by a traveling
   sine: a `WaveRipple` component holds the floor's cells and offsets each along local Y in order as
@@ -2659,7 +2678,8 @@ colours, `Trail`, `Scale`, `Tempo`.
 - **Cast families** (`SpellCastStyle`, 1if) drive which parts the `CastingCircle` halo builds and
   shows: Circle, Rune, HexRing, Cross, Arc, Wave, Halo.
 - **Cast anchors** (`SpellCastAnchor`, 1jt) drive **where** the halo is drawn, not what it looks like:
-  `Summon` deliveries draw at the player's feet (something appears where you stand) and everything else
+  `Summon` deliveries draw at the player's feet (something appears where you stand), and — 1l116 —
+  so does `NovaWave` (the ring erupts under the caster); everything else
   draws `CastFrontOffset` ahead (you are aiming at something out there). Unlike `SkyRockStyle` this
   axis **is** derived from a property of the spell rather than picked, so it has no family array and no
   `Inherit` state once resolved. The two **Meteors** are the exception that proves the axis is worth
@@ -2968,7 +2988,9 @@ body at all:
   vertical so the edge crackles) and a short inner ring of brighter Core blocks, so the nova reads as
   radiating outward. Power 22, FP 26, cd 11, radius 3.4. **A `duration` Zone skips `ResolveZoneImpact`'s
   instant overlap burst** — all its damage is the 0.4x tick — so the longer cd/FP pay for the lingering
-  field, not a double hit.
+  field, not a double hit. **(1l116 supersedes the delivery:** Static Nova is now a **`NovaWave`** — the
+  `duration` is gone and no `SpellZone` spawns; the `NovaRing` body survives, mounted by `ResolveNova` at
+  the sweep's final radius and scaled outward. See §3.8.1 "Ground waves" and the delivery list in §3.8.)
 - **Devastation** (`magic_lightning_fury_devastation`) is authored **`StormBody.Maelstrom`** (value 7):
   `BuildMaelstrom(parent, radius, height, cloud, core)` — a larger, angrier cumulonimbus than the
   Thunderhead (FOUR bands vs three, wider span, eight down-teeth under a `MaelstromSeat`) at its own

@@ -338,9 +338,12 @@ public partial class PlayerController
         // 1l6s: no disc for a caster-anchored summon either — it stations a familiar behind the
         // caster and sprays from there, so there is no aim point for a footprint to mark. Same
         // class of report and the same fix shape as 1ga (no preview over inventing new geometry).
+        // 1l116: a NovaWave keeps its disc — it erupts under the caster, so the marker sits at the
+        // feet and honestly states the ring's spread (TryAoeTarget reads Range for it).
         if (spell != null && spell.TerrainShape != TerrainShape.Wall && !spell.CasterAnchored
             && (spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex
-            || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm))
+            || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm
+            || spell.Delivery == SpellDelivery.NovaWave))
         {
             if (TryAoeTarget(spell, charge, out var center, out var radius, out var color))
                 AoePreview().Show(center, radius, color);
@@ -767,7 +770,8 @@ public partial class PlayerController
     /// <summary>
     /// Project the ground target for an AoE spell — mirrors <see cref="SpellCaster"/> zone/vortex
     /// placement (ray along the camera forward to the spell range, then dropped to the ground).
-    /// The radius grows with the charge level using the caster's charge-size bonus.
+    /// The radius grows with the charge level using the caster's charge-size bonus — except for a
+    /// NovaWave, whose disc states the ring's SPREAD (see below).
     /// </summary>
     private bool TryAoeTarget(SpellData spell, float charge, out Vector3 center, out float radius, out Color color)
     {
@@ -790,9 +794,12 @@ public partial class PlayerController
         if (Physics.Raycast(at + Vector3.up * 0.1f, Vector3.down, out RaycastHit groundHit, 30f))
             center = groundHit.point;
 
-        // 1l79: a CenterOnCaster zone (Static Nova) previews the blast UNDER the player, not where the
+        // 1l79: a CenterOnCaster spell (Static Nova) previews the blast UNDER the player, not where the
         // camera points — mirror ResolveZone's ground-under-the-caster centre rather than the aim
-        // point, so the marker sits at the caster's feet however the view is turned.
+        // point, so the marker sits at the caster's feet however the view is turned. 1l116: Static Nova
+        // is now a NovaWave (which centres on the caster by definition), and this flag is the ONE thing
+        // that keeps its disc under the feet, so it stays set — it is the preview-placement statement,
+        // never the delivery.
         if (spell.CenterOnCaster)
         {
             center = transform.position;
@@ -802,7 +809,15 @@ public partial class PlayerController
 
         var caster = SpellCasterRef;
         float sizeBonus = caster != null ? caster.ChargeSizeBonus : 0.8f;
-        radius = spell.Radius * (1f + charge * sizeBonus);
+        // 1l116: a NovaWave's meaningful footprint is how far the ring SPREADS — its Range — not the
+        // 3.4 m band it starts with, so the disc under the feet states the sweep's full extent and
+        // matches where the live body is authored (SpellCaster.ResolveNova builds the ring at
+        // SpellWave.MaxRadius, which is Range). The spread is NOT charge-scaled (only the band is,
+        // inside SpellWave), so this is a fixed disc at every charge — the same reason the projectile
+        // path preview reads Range without a charge term above.
+        radius = spell.Delivery == SpellDelivery.NovaWave
+            ? spell.Range
+            : spell.Radius * (1f + charge * sizeBonus);
         color = SpellLook.Resolve(spell).Core;
         return true;
     }

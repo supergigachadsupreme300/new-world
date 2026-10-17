@@ -2099,13 +2099,17 @@ private static string Describe(in SpellLook look)
                 SpellZoneModelBuilder.BuildFrozenField(modelRoot.transform, spell.Radius,
                     fl.Core, fl.Edge);
             }
-            // 1l112: Static Nova's NovaRing zone body — the SAME builder the runtime SpellZone runs,
-            // for the same rule-13 reason as the branches above: a visual that exists only inside a
-            // live cast has no acceptance readout.
+            // 1l112: Static Nova's NovaRing zone body — the SAME builder the runtime runs, for the same
+            // rule-13 reason as the branches above: a visual that exists only inside a live cast has no
+            // acceptance readout. 1l116: the live body is built at the front's FINAL radius
+            // (SpellWave.MaxRadius, which reads the spell's Range) and scaled up to it while the ring
+            // travels, so the pedestal mounts that same final extent rather than the 3.4 m band the
+            // sweep starts with.
             else if (SpellLook.Resolve(spell).ZoneModel == ZoneBody.NovaRing)
             {
                 var nl = SpellLook.Resolve(spell);
-                SpellZoneModelBuilder.BuildNovaRing(modelRoot.transform, spell.Radius,
+                float novaExtent = spell.Delivery == SpellDelivery.NovaWave ? spell.Range : spell.Radius;
+                SpellZoneModelBuilder.BuildNovaRing(modelRoot.transform, novaExtent,
                     nl.Core, nl.Edge);
             }
             // 1l112: Thunder Vortex's LightningCyclone zone body — the SAME builder the runtime

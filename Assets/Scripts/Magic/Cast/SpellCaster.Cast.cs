@@ -119,13 +119,16 @@ public partial class SpellCaster
         }
         else if (cam != null)
         {
-            // Ground deliveries (Zone/Vortex/Summon/Storm) land where the camera actually points —
-            // out to the practical GroundAimMax cap, not the spell's short Range — so AoE magic can
-            // be placed anywhere in the open world (§3.8). Instant/beam casts keep their spell range so
-            // their aim stays conventional; 1jm left both on the point-based aim deliberately and
-            // reported the identical skew in them rather than changing aim the user did not ask about.
+            // Ground deliveries (Zone/Vortex/Summon/Storm, and 1l116 NovaWave) land where the camera
+            // actually points — out to the practical GroundAimMax cap, not the spell's short Range — so
+            // AoE magic can be placed anywhere in the open world (§3.8). Instant/beam casts keep their
+            // spell range so their aim stays conventional; 1jm left both on the point-based aim
+            // deliberately and reported the identical skew in them rather than changing aim the user did
+            // not ask about. (A NovaWave ignores `fwd` entirely — ResolveNova centres on the caster —
+            // but it stays in this branch so its aim is the same class as the other ground deliveries.)
             bool groundDelivery = spell.Delivery == SpellDelivery.Zone || spell.Delivery == SpellDelivery.Vortex
-                || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm;
+                || spell.Delivery == SpellDelivery.Summon || spell.Delivery == SpellDelivery.Storm
+                || spell.Delivery == SpellDelivery.NovaWave;
             float aimDist = groundDelivery ? GroundAimMax : Mathf.Max(spell.Range, 5f);
             Vector3 aim = cam.transform.position + cam.transform.forward * aimDist;
             Vector3 dir = aim - pos;
@@ -153,6 +156,8 @@ public partial class SpellCaster
                 return ResolveStorm(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax);
             case SpellDelivery.Wave:
                 return ResolveWave(totalPower, spell, pos, fwd, charge, SizeScale(charge) * mods.RadiusMult);
+            case SpellDelivery.NovaWave:
+                return ResolveNova(totalPower, spell, SizeScale(charge) * mods.RadiusMult);
             default:
                 return new DamageResult();
         }
@@ -633,6 +638,37 @@ public partial class SpellCaster
         return new DamageResult();
     }
 
+    /// <summary>
+    /// 1l116: spawn a RADIAL wave (<see cref="SpellDelivery.NovaWave"/> — Static Nova). Same sweep
+    /// contract as <see cref="ResolveWave"/> — one hit per foe as the band passes, no detonation, no
+    /// homing, deliberately NOT routed through the projectile pipeline — but the band is a circle that
+    /// grows from the CASTER outward instead of a line that travels the aim. The centre is
+    /// ground-snapped under the caster's feet with the shared probe, exactly as a
+    /// <c>centerOnCaster</c> zone snaps in <see cref="ResolveZone"/> (and the same point the armed AoE
+    /// preview already draws under the feet), so the nova sits on the floor the player stands on
+    /// regardless of where the camera points; there is no travel direction to pass. The front then
+    /// grows to the spell's Range at ProjectileSpeed inside <see cref="SpellWave"/>, and the drawn
+    /// body is the authored NovaRing built at the front's FINAL radius — read back from
+    /// <see cref="SpellWave.MaxRadius"/> so the spread has one spelling (rule 8) — then scaled by the
+    /// component every frame so the ring grows with the sweep.
+    /// </summary>
+    private DamageResult ResolveNova(float power, SpellData spell, float sizeScale)
+    {
+        Vector3 center = GroundUnder(transform.root.position, transform.root, _groundProbeBuffer);
+
+        var go = new GameObject("SpellNova");
+        go.transform.position = center;
+
+        var wave = go.AddComponent<SpellWave>();
+        wave.InitializeNova(spell, power, this, sizeScale);
+
+        // Body from the same builder the (now-unreachable) Zone path used for a NovaRing — rule 13:
+        // the drawn ring has one builder, and the QA pedestal mounts the same one.
+        var look = SpellLook.Resolve(spell);
+        SpellZoneModelBuilder.BuildNovaRing(go.transform, wave.MaxRadius, look.Core, look.Edge);
+        return new DamageResult();
+    }
+
     private DamageResult ResolveZone(float power, SpellData spell, Vector3 pos, Vector3 fwd, float charge, float sizeScale, float range)
     {
         float radius = spell.Radius * sizeScale;
@@ -641,10 +677,13 @@ public partial class SpellCaster
         // this spell itself reared) so a repeat cast targets the intended ground, not the wall face.
         Vector3 center = TerrainDeformer.ResolveGroundTarget(pos, fwd, Mathf.Max(range, 0.1f));
 
-        // 1l79: a CenterOnCaster zone (Static Nova) bursts from the CASTER, not the aim point — it is
-        // a ring of static that erupts around the player. Snap the center onto the ground under the
-        // caster with the shared probe (skipping the player's own colliders), so the nova sits on the
-        // floor they stand on regardless of where the camera points.
+        // 1l79: a CenterOnCaster zone bursts from the CASTER, not the aim point — it is a ground effect
+        // that erupts around the player. Snap the center onto the ground under the caster with the shared
+        // probe (skipping the player's own colliders), so it sits on the floor they stand on regardless
+        // of where the camera points. 1l116: Static Nova left the Zone family (it is a NovaWave now), so
+        // while the flag is still authored on it (the armed AoE preview reads it), no Zone delivery
+        // reaches this branch with the flag set — the branch stays because the flag is the placement
+        // decision, not a Static Nova feature (rule 14: don't delete live data with its last user).
         if (spell != null && spell.CenterOnCaster)
             center = GroundUnder(transform.root.position, transform.root, _groundProbeBuffer);
 

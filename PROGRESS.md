@@ -1,3 +1,71 @@
+## 1l116. Static Nova reworked from a lingering Zone to a caster-centred radial wave (`SpellDelivery.NovaWave`)
+
+The user asked for Static Nova (`magic_lightning_fury_beam`) to behave like a Wave delivery but as a
+CIRCLE spreading radially outward from the caster, instead of its previous lingering caster-centred Zone.
+The old spell was a `Zone` + `duration: 2.5f` that sat under the player dealing one resolve; the new one
+erupts a band that rolls outward, hitting each foe once as the front passes.
+
+**Design (not a new class — rule 8/13: one spelling of the band-and-once-hit machinery).** A new
+delivery enum value `SpellDelivery.NovaWave = 9` dispatches to `SpellCaster.ResolveNova`, which mounts
+the **same `SpellWave` component** in a new radial mode (`InitializeNova`, `_radial`/`_front`/`_maxRadius`
+fields): there is no travel direction — the front grows to the spell's `Range` at `ProjectileSpeed`, the
+root scales to `front / MaxRadius` per frame so the drawn `NovaRing` rides the front, and the hit test is
+the annulus `front ± Radius` (XZ-only) around the fixed ground centre, with the existing `_hit` set still
+giving each foe exactly one hit. The centre is ground-snapped with the same `GroundUnder` probe
+`ResolveZone` uses (and the armed AoE preview already drew under). Lifetime is `Range / ProjectileSpeed`
+with **no 4 s cap** (a nova's whole life IS its spread — capping would strand the ring short of its reach).
+`MaxRadius` is the ONE spelling of the spread: `ResolveNova` builds the body at that size and the QA
+pedestal reads the same field, so nothing re-derives `Range` for the drawn extent.
+
+**Numbers (play-test items, not claims):** Static Nova had no authored `deliveryRange`, so `Range` =
+default 10 m (spread 0.625 s at speed 16); radius 3.4 (band half-width, charge-scaled inside
+`SpellWave`) kept; power 22 / FP 26 / cd 11 kept; `duration: 2.5f` **dropped** (dead data, rule 14);
+new description "Erupt a ring of static that rolls outward from you…". `centerOnCaster: true` stays
+but its meaning is now only the armed AoE preview disc under the feet (`TryAoeTarget`) — the delivery
+is caster-centred by definition, so the flag would be a second spelling of the placement (rule 20's
+drawn-vs-gameplay split). `TryAoeTarget`'s radius for NovaWave is `Range` (the sweep's extent), not the
+charge-scaled `Radius` — spread is not charge-scaled; only the band is, inside `SpellWave`.
+
+**QA-counter prediction (rule 20, stated before landing):** F4's `byAnchor` shifts **Feet +1 /
+Front −1** (Static Nova moves Front→Feet); Static Nova's LookKey changes delivery, which can only
+**split** groups, never merge (distinct count does not drop); the NovaRing **zone-body** count is
+unchanged (1) — the body builder is shared and the enum value is untouched. The 1l112 F4 prediction at
+`game-design.md:3028` is historical and was NOT amended.
+
+**What did NOT move:** `SpellZone`'s NovaRing branch (data-driven fallback, comment updated — rule 14:
+don't delete live data with its last user), `SpellZoneModelBuilder.BuildNovaRing` (same builder; doc
+updated to name `ResolveNova` as the caller), the `Wave` delivery (Frozen Touch / Fire Wave / Storm Lash
+untouched), `UpdatePathPreview` (NovaWave is none of Projectile/Wave/Beam → path preview hidden, no
+edit), and the QA pedestal chain (keyed on `ZoneModel`, not delivery — only its extent now reads
+`Range` for NovaWave).
+
+**Found while sweeping (pre-existing, NOT fixed — recorded):** `game-design.md:2296` still says "the
+`duration` Static Nova carried as a Zone is…" in the Ground-waves paragraph — correct, and intentionally
+kept as the sentence that records the removal; no other doc still calls Static Nova a Zone.
+
+### 1l116-status
+- Files touched (8 C# + 3 md): `Assets/Scripts/Magic/Cast/SpellData.cs` (enum `NovaWave = 9` +
+  `ProjectileShape.Wave` cross-ref + `CenterOnCaster` tooltip), `Assets/Scripts/Magic/Cast/SpellWave.cs`
+  (radial mode: fields, `InitializeNova`, `MaxRadius`, radial `Update`, annulus `Sweep`),
+  `Assets/Scripts/Magic/Cast/SpellCaster.Cast.cs` (`ResolveNova` + dispatch case + groundDelivery list +
+  `ResolveZone` comment), `Assets/Scripts/Player/PlayerController.Combat.cs` (`UpdateAoePreview` gate,
+  `TryAoeTarget` radius, CenterOnCaster comments), `Assets/Scripts/Magic/Look/SpellLook.cs` (castAnchor
+  → Feet + `ZoneBody.NovaRing` doc), `Assets/Scripts/Combat/Skills/SkillCatalog.Magic.cs` (Static Nova
+  entry), `Assets/Scripts/Opt/NewWorldTestGround.cs` (pedestal extent), `Assets/Scripts/Magic/Cast/SpellZone.cs`
+  + `Assets/Scripts/Models/Magic/SpellZoneModelBuilder.cs` (comments only), `game-design.md` (delivery
+  list, centerOnCaster bullet, Ground-waves radial sibling paragraph, 1l112 supersession note, ground
+  delivery counts, cast-anchors bullet), `magic-skills.md` (NovaWave row + Wave cross-ref + fields line
+  + Static Nova row).
+- Verification: grep + reread only (no build, rule 3); every enum-dispatch site swept — no exhaustive
+  `switch` on `SpellDelivery` exists, so adding `NovaWave = 9` is compile-safe; brace/paren balance and
+  declaration order reread in `SpellWave.cs`; `tools/StaticChecks.ps1` run (see below).
+- Pending play-test: (1) cast Static Nova — a ring of lightning erupts under the player and rolls
+  outward ~10 m in ~0.6 s, stagger + one hit per foe, closing burst at the ring's full extent; (2) the
+  armed AoE preview disc sits under the feet at the spread's extent (not charge-scaled); (3) F4 readout
+  confirms `byAnchor` Feet +1 / Front −1; (4) Frozen Touch / Fire Wave / Storm Lash unchanged; (5) F4
+  `authored profiles` count — Fire Meteor gained an authored profile in 1jt (+1, historical); Static
+  Nova's profile predates this task, so no delta expected there.
+
 ## 1l115. QA lane keys sat on unpressable keys (ragdoll demo could never fire) - F13/F14/Numpad1/Numpad8 re-homed
 
 The user reported "the ragdoll demo can be activated by F4" and it did nothing. **Root cause:** the lane

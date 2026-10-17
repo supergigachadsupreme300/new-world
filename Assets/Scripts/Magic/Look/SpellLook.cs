@@ -145,10 +145,12 @@ public enum ZoneBody
     FrozenField = 3,
 
     /// <summary>1l112 Static Nova's body: a flat ground disc ringed by a bright annulus of short
-    /// jagged lightning arcs (Edge colour) with an inner Core ring, drawn where a self-centred Zone
-    /// lands — so Static Nova reads as a lingering ring of static rather than the generic ground
-    /// discs. Mounted through <see cref="SpellZoneModelBuilder.BuildNovaRing"/>. Does not spin
-    /// (Static Nova is a Zone, PullSpeed 0).</summary>
+    /// jagged lightning arcs (Edge colour) with an inner Core ring — so Static Nova reads as a ring of
+    /// static rather than the generic ground discs. 1l116: Static Nova's delivery is now a NovaWave, so
+    /// <c>SpellCaster.ResolveNova</c> mounts this body through <see cref="SpellZoneModelBuilder.BuildNovaRing"/>
+    /// at the sweep's final radius and scales it per frame with the front; the <c>SpellZone</c> NovaRing
+    /// branch remains only as a data-driven fallback for any spell that still keeps this body on a Zone
+    /// (drawn unscaled there, as in 1l112). Does not spin.</summary>
     NovaRing = 4,
 
     /// <summary>1l112 Thunder Vortex's body: a lightning cyclone — stacked rings of jagged vertical
@@ -312,8 +314,9 @@ public sealed class SpellLookProfile
 /// <para><b>Precedence, and it is exactly three steps.</b> Authored <see cref="SpellLookProfile"/>
 /// → deterministic derivation from <c>spell.id</c> → school default. Nothing else.
 /// <para><b>1jt: with one documented exception to the middle step.</b> <see cref="CastAnchor"/> is
-/// not id-hashed and has no school family — it is derived from <c>spell.Delivery</c> (Summon →
-/// feet, else in front) and then overridden by the profile. So the honest statement is: three steps
+/// not id-hashed and has no school family — it is derived from <c>spell.Delivery</c> (Summon → feet,
+/// else in front; 1l116 adds NovaWave → feet, since the ring erupts under the caster) and then
+/// overridden by the profile. So the honest statement is: three steps
 /// for every axis that jitters, and two steps for the one that does not. See
 /// <see cref="SpellCastAnchor"/>.</para>
 ///
@@ -549,7 +552,11 @@ public readonly struct SpellLook
         // Meteors get `Feet` while staying `SpellDelivery.Zone` — see SpellCastAnchor's remarks for
         // why moving them to `Summon` instead would delete their falling rock and zone damage.
         // (1ka: resolved and packed for the F4 audit key only — the armed halo no longer reads it.)
+        // 1l116: a NovaWave is cast on YOURSELF too — the ring erupts under the caster — so it joins
+        // Summon in resolving Feet; everything else stays Front. This moves Static Nova's byAnchor
+        // tally on the F4 audit (Feet +1 / Front -1) and can only split its LookKey group, never merge.
         SpellCastAnchor castAnchor = spell.Delivery == SpellDelivery.Summon
+            || spell.Delivery == SpellDelivery.NovaWave
             ? SpellCastAnchor.Feet
             : SpellCastAnchor.Front;
 

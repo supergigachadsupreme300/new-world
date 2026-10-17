@@ -28,7 +28,20 @@ public enum SpellDelivery
     /// homing, no held-body charge preview and no spin. Before 1l87 the sweep rode a hidden flag on
     /// <c>ProjectileShape.Wave</c> inside the projectile pipeline, which is why it read everywhere as a
     /// projectile; the shape value now carries only its drawn floor body.</summary>
-    Wave = 8
+    Wave = 8,
+
+    /// <summary>1l116: the RADIAL sibling of <see cref="Wave"/> (Static Nova) — the same sweep contract
+    /// (one hit per foe as the band passes, no detonation, no homing, its own component) but the band is
+    /// a CIRCLE growing from the caster outward instead of a line that travels the aim: the body sits on
+    /// the ground under the caster, the front grows to the authored <see cref="SpellData.Range"/> at
+    /// <see cref="SpellData.ProjectileSpeed"/>, and the per-frame hit test is the annulus
+    /// <c>front ± Radius</c> around that fixed centre. Spawned by <c>SpellCaster.ResolveNova</c>,
+    /// implemented as <see cref="SpellWave"/>'s radial mode (one component, rule 8/13 — a duplicate
+    /// sweep class would be a second spelling of the band-and-once-hit machinery). Caster-centered BY
+    /// DEFINITION: there is no aim point, so a <see cref="CenterOnCaster"/> flag would be a second
+    /// spelling of the placement — the flag stays on Static Nova only to keep its armed AoE preview
+    /// disc under the feet (PlayerController.TryAoeTarget).</summary>
+    NovaWave = 9
 }
 
 /// <summary>
@@ -114,7 +127,9 @@ public enum ProjectileShape
     /// cubes (see <c>MagicProjectileModelBuilder.Wave</c>), with the crest painted by a traveling
     /// sine (<see cref="WaveRipple"/>) while the wave moves. <b>Display-only since 1l87:</b> the sweep
     /// BEHAVIOUR this value used to also mean now lives in <see cref="SpellDelivery.Wave"/>, so a spell
-    /// wears this shape purely for its body and nothing rides on it at the delivery layer. Like
+    /// wears this shape purely for its body and nothing rides on it at the delivery layer. (Its radial
+    /// sibling <see cref="SpellDelivery.NovaWave"/>, 1l116, does not use this shape at all — a NovaWave
+    /// wears the authored <c>ZoneBody.NovaRing</c> ground body instead.) Like
     /// <see cref="Soul"/> and <see cref="Hand"/> it must never appear in a <c>Shape_*</c> family — only
     /// an authored <c>spell.Shape</c> may grant it. Fire Wave and Frozen Touch are the two users.</summary>
     Wave = 12,
@@ -246,7 +261,7 @@ public class SpellData : ScriptableObject
     public bool CasterAnchored;
     [Tooltip("1is: this summon SPRAYS FORWARD along the caster's aim every tick, with no target test at all — it is a stream, not a turret. Separate from CasterAnchored on purpose: sharing one flag would silently hand any future caster-anchored turret 'fires regardless of targets' for free, which is a balance change nobody would be looking for. Consequence worth knowing: with no target gate, Radius stops bounding the spell and only sizes the drawn circle; the bolts' own flight envelope decides how far it reaches.")]
     public bool SummonFiresForward;
-    [Tooltip("1l73: a Zone delivery resolves AT THE CASTER instead of the ground aim point — the impact center snaps to the ground beneath the player and the aim preview draws its disc around the player too. One flag for one placement decision; nothing else reads it (Static Nova is the only Zone spell that must NOT reach the aim point).")]
+    [Tooltip("1l73: a Zone delivery resolves AT THE CASTER instead of the ground aim point — the impact center snaps to the ground beneath the player and the aim preview draws its disc around the player too. One flag for one placement decision. 1l116: Static Nova is no longer a Zone (it is a NovaWave, which centres by definition), so the flag now only carries the armed AoE preview disc under the player — ResolveZone no longer has a self-centred Zone user. Keep it for Zone spells that need the placement; never add it to a NovaWave (a second spelling of the same decision).")]
     public bool CenterOnCaster;
     [Tooltip("1l73: an Instant delivery TELEPORTS the caster forward along the aim instead of raycasting a victim — Range is the leap distance, Radius the landing-burst radius. The leap leaves a jagged bolt connecting the old and new positions (Leap Bolt is the only user).")]
     public bool SelfTeleport;

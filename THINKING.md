@@ -1,3 +1,45 @@
+## 1l116. Static Nova: lingering Zone -> caster-centred radial wave (SHIPPED; play-test pending)
+
+**Report/request:** Static Nova should behave like a Wave delivery but as a circle spreading radially
+outward from the caster, not a lingering Zone under the player.
+
+**H1 - "switch the spell to `Wave`" is enough. REJECTED.** `SpellDelivery.Wave` (`ResolveWave`,
+`SpellWave`) travels the aim in a straight line (`_dir` flattened to horizontal, `transform.position +=
+_dir * speed`); it has no concept of a growing radius from a fixed centre, and its `Sweep` is a
+proximity band around the moving centre. Reusing it as-is would give a forward rolling band, not a
+radial one. But its `_hit`/band/once-hit machinery is exactly what a nova needs, so the honest answer
+was the SAME component in a second mode, not a new class (rule 8/13).
+
+**H2 - a new sweep class (`SpellNova`) is cleaner. REJECTED.** A second class would be a second spelling
+of the band, the tick cadence, the `_hit` once-only contract, the collider-chunk request and the death
+burst — all identical to `SpellWave`. Rule 8: one component, an explicit mode flag (`_radial`).
+
+**H3 - the delivery enum needs a value distinct from `Wave`. CONFIRMED.** The drawn body differs
+(NovaRing vs the builder's wave floor), the mode must be selected at dispatch, and consumers branch on
+`Delivery` (castAnchor, AoE preview radius, F4 identity). A flag on `Wave` would be a second spelling of
+"which kind of wave" (rule 8/20). New value `SpellDelivery.NovaWave = 9`; swept every `SpellDelivery`
+dispatch — no exhaustive `switch` exists, so the addition is compile-safe.
+
+**H4 - `centerOnCaster` can carry the placement. REJECTED (repurposed).** It is a Zone-only flag and a
+NovaWave centres *by definition* (no aim point), so setting it to place the nova would be a second
+spelling of the placement (rule 20's drawn-vs-gameplay split). It stays on the catalog entry for its ONE
+remaining job: the armed AoE preview disc under the feet (`TryAoeTarget`). Its tooltip and the
+`ResolveZone` branch comment were rewritten (rule 14: a comment naming a departed user is a stale
+promise).
+
+**H5 - the drawn ring should grow, not the front. CONFIRMED.** The body is authored by
+`SpellZoneModelBuilder.BuildNovaRing` at the sweep's FINAL radius (`SpellWave.MaxRadius`, one spelling of
+the spread), then the root is scaled to `front / MaxRadius` each frame so the visible ring rides the
+damage front. Lifetime is `Range / ProjectileSpeed` with no 4 s cap — the forward cap exists only to bound
+a slow long wave, and capping a nova would strand the ring short of its authored reach while the closing
+burst was sized to a radius never drawn.
+
+**Verdict (shipped):** `SpellDelivery.NovaWave = 9`; `SpellWave` gains a radial mode (`InitializeNova`,
+`_radial`/`_front`/`_maxRadius`, annulus `Sweep`, scaled root); `SpellCaster.ResolveNova` centres via
+`GroundUnder` and mounts the NovaRing at `MaxRadius`; catalog entry reworked (range 10 = default,
+radius 3.4, speed 16, duration dropped, new description); `TryAoeTarget` radius = `Range` for NovaWave;
+castAnchor → Feet. F4 prediction: `byAnchor` Feet +1 / Front −1 (see PROGRESS 1l116-status).
+
 ## 1l115. QA lane keys on unpressable keys (SHIPPED; play-test pending)
 
 **Report:** "the ragdoll demo can be activated by F4" and pressing it did nothing.
