@@ -273,18 +273,25 @@ public class SpellEffect : MonoBehaviour
         // Spin already applied at start of Update
     }
 
-    /// <summary>1l113: every <see cref="SpellData.TickInterval"/> while in flight, damage each enemy
+    /// <summary>1l113: every <see cref="SpellData.TickInterval"/> while in flight, damage each victim
     /// inside the charge-scaled <see cref="SpellData.Radius"/> for <see cref="ZapPowerFraction"/> of
     /// the cast's power and draw a jagged Lightning arc from the sphere to it. This is an ADDITIONAL
     /// in-flight effect, not a replacement for the normal contact detonation — the bolt still bursts
     /// on enemies/walls/ground and at expiry exactly as any projectile does, which is why the scan
     /// radius is <c>Radius</c> while the burst stays <see cref="SpellData.BoltSplashRadius"/> (the
     /// 1ir field designed for exactly this "bolt detonates smaller than the area it scans" split).
-    /// <para>Distinct by enemy ROOT, not by collider: a foe with several child colliders is one
-    /// victim, so it takes one zap and one arc per tick. The victim passed to
-    /// <see cref="SpellCaster.ResolveHitAt"/> is the root's GameObject, which is where
-    /// <see cref="IDamageable"/> lives — the same "the root is the combatant" predicate the other
-    /// delivery paths use. The arc's colour is the already-resolved <see cref="_look"/>, so no second
+    /// <para><b>1l114: victims are enemies/bosses AND livestock animals</b> (the 1df
+    /// <see cref="IDamageable"/> cattle), resolved per collider by <see cref="ZapVictimOf"/>.
+    /// The aura's gate used to be <see cref="IsEnemyRoot"/> only, so an animal survived a pass
+    /// that killed the enemy beside it. The widening is NOT applied to
+    /// <see cref="IsEnemyRoot"/> itself, because the missile homing scans read that name too and
+    /// a missile must not start hunting a cow.</para>
+    /// <para>Distinct by VICTIM TRANSFORM, not by collider: a foe with several child colliders is
+    /// one victim, so it takes one zap and one arc per tick. For an enemy the victim is its scene
+    /// root; for an animal it is the GameObject carrying <see cref="Livestock"/> (which may sit
+    /// under the legacy <c>WorldRoot</c> container, see <see cref="ZapVictimOf"/>). The object
+    /// passed to <see cref="SpellCaster.ResolveHitAt"/> is that victim's GameObject, which is where
+    /// <see cref="IDamageable"/> lives. The arc's colour is the already-resolved <see cref="_look"/>, so no second
     /// colour lookup (rule 13).</para></summary>
     private void UpdateZapAura()
     {
@@ -298,20 +305,21 @@ public class SpellEffect : MonoBehaviour
         int count = Physics.OverlapSphereNonAlloc(transform.position, radius, _zapBuffer, HitLayers);
         if (_zapDebugLogs < 12)
         {
-            int enemyRoots = 0;
+            int zapVictims = 0;
             var sb = new System.Text.StringBuilder();
             for (int i = 0; i < count; i++)
             {
                 Collider c = _zapBuffer[i];
                 if (c == null) { sb.Append($"[{i}] null; "); continue; }
                 Transform r = c.transform.root;
-                bool isEnemy = IsEnemyRoot(r);
-                if (isEnemy) enemyRoots++;
+                bool isZap = ZapVictimOf(c) != null;
+                if (isZap) zapVictims++;
                 bool ec = r.GetComponent<EnemyController>() != null;
                 bool bc = r.GetComponent<BossController>() != null;
-                sb.Append($"[{i}] col='{c.name}' root='{r.name}' tag={r.tag} layer={c.gameObject.layer} trigger={c.isTrigger} EC={ec} BC={bc} isEnemy={isEnemy}; ");
+                bool ls = c.GetComponentInParent<Livestock>() != null;
+                sb.Append($"[{i}] col='{c.name}' root='{r.name}' tag={r.tag} layer={c.gameObject.layer} trigger={c.isTrigger} EC={ec} BC={bc} LS={ls} isZap={isZap}; ");
             }
-            string line = $"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} queriesHitTriggers={Physics.queriesHitTriggers} :: {sb}";
+            string line = $"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} zapVictims={zapVictims} queriesHitTriggers={Physics.queriesHitTriggers} :: {sb}";
             Debug.LogWarning(line);
             try
             {
@@ -330,14 +338,13 @@ public class SpellEffect : MonoBehaviour
         {
             Collider col = _zapBuffer[i];
             if (col == null) continue;
-            Transform root = col.transform.root;
-            if (root == null || root == _casterRoot) continue;
-            if (!IsEnemyRoot(root)) continue;
-            if (!_zapRoots.Add(root)) continue;
+            Transform victim = ZapVictimOf(col);
+            if (victim == null) continue;
+            if (!_zapRoots.Add(victim)) continue;
 
-            Vector3 point = root.position + Vector3.up * 0.8f;
+            Vector3 point = victim.position + Vector3.up * 0.8f;
             SpellBoltModelBuilder.BuildBolt(null, transform.position, point, mat, ZapBoltLife);
-            _caster?.ResolveHitAt(root.gameObject, _spell, _power * ZapPowerFraction);
+            _caster?.ResolveHitAt(victim.gameObject, _spell, _power * ZapPowerFraction);
         }
     }
 
@@ -445,6 +452,40 @@ public class SpellEffect : MonoBehaviour
         if (root == null) return false;
         if (root.CompareTag("Player") || root.CompareTag("Companion")) return false;
         return root.TryGetComponent<EnemyController>(out _) || root.TryGetComponent<BossController>(out _);
+    }
+
+    /// <summary>1l114: which combatant (if any) a zap-aura overlap collider belongs to, or null.
+    /// Enemies and bosses answer with their scene root, exactly as before 1l114 (multi-collider
+    /// foes stay one victim). Livestock animals are addressed by their <see cref="Livestock"/>
+    /// COMPONENT instead of the scene root, and this is not a style choice: the crane-drop path
+    /// (<c>FlyingCrane</c>) and the cage-throw path (<c>WorldBuilder.ThrowCage</c>) both
+    /// <c>SetParent</c> the animal under <c>WorldBuilder.WorldRoot</c>, so its scene root is the
+    /// whole world container. Root-based addressing there would collapse every animal in the
+    /// village into ONE "victim" (the WorldRoot transform), aim the arc at the container, and
+    /// pass <c>WorldRoot.gameObject</c> to <c>ResolveHitAt</c>, whose IDamageable gate then fails
+    /// and deals nothing. <c>GetComponentInParent&lt;Livestock&gt;</c> is the addressing the club
+    /// (<c>ToolManager</c>) and the cage already agree on, so the collider stays correct whether
+    /// the component sits on the collider's own GameObject (today: yes, the SphereCollider is
+    /// added on the same GameObject as the component) or on an ancestor.
+    /// <para>Why not a wider <see cref="IsEnemyRoot"/> instead: that name is also read by the
+    /// missile homing scans (<see cref="FirstEnemyOnTrajectory"/>, <see cref="NearestEnemyInCone"/>),
+    /// and a missile must not start hunting a cow. So the widening lives here, at the one call
+    /// site that wants it.</para>
+    /// <para>NOT an "any IDamageable" lookup on purpose: a <c>SummonedAlly</c> is also IDamageable
+    /// and is deliberately not a zap victim (a player's own familiar standing in the arc would
+    /// otherwise eat the player's spell; true before 1l114 and still true). The player is excluded
+    /// twice over: the loop above skips <c>_casterRoot</c>, and <see cref="PlayerController"/> is
+    /// not IDamageable, so <c>ResolveHitAt</c> would no-op anyway.</para>
+    /// <para>A knocked-out animal (isKnockedOut) is still a victim here: the arc draws, and
+    /// <c>Livestock.TakeDamage</c> early-returns, exactly like an enemy in iframe.</para></summary>
+    private Transform ZapVictimOf(Collider col)
+    {
+        if (col == null) return null;
+        Transform root = col.transform.root;
+        if (root == null || root == _casterRoot) return null;
+        if (IsEnemyRoot(root)) return root;
+        Livestock animal = col.GetComponentInParent<Livestock>();
+        return animal != null ? animal.transform : null;
     }
 
     private void OnDestroy()

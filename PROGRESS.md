@@ -1,3 +1,64 @@
+## 1l114. Arc Volley zaps livestock animals too (and addresses them by component, not scene root)
+
+Follow-up to 1l113. The user's report: animals were supposed to be on the in-flight zap list but still
+survive a pass. Confirmed by the 1l113 diagnostic dump (`zap_aura_debug.txt`): a test cow's collider
+overlapped the scan (`col=... root='Cow' ... EC=False BC=False isEnemy=False`) and was dropped by the
+gate. **Root cause:** `SpellEffect.IsEnemyRoot` (the aura's only victim filter) returns true solely for
+`EnemyController`/`BossController`, so the 1df `IDamageable` livestock (`Livestock`: cow/pig/sheep/goat/
+chicken/duck/turkey, 2-5 HP) never qualified.
+
+**Fix — a new resolver, not a wider predicate.** `SpellEffect.ZapVictimOf(Collider)` answers which
+combatant a scan collider belongs to (or null): enemies/bosses with their scene root exactly as before,
+livestock with the GameObject carrying `Livestock`. Two reasons it is not simply `IsEnemyRoot`
+widened: that name is also read by the missile homing scans (`FirstEnemyOnTrajectory`,
+`NearestEnemyInCone`) and a missile must not start hunting a cow; and the loop now needs the
+**victim's** GameObject, not the scene root, for the arc target and the `ResolveHitAt` call.
+
+**The seam that made root addressing wrong (rule 8).** The crane-drop path (`FlyingCrane`) and the
+cage-throw path (`WorldBuilder.ThrowCage`) both `SetParent` the animal under `WorldBuilder.WorldRoot`,
+so in the legacy world a cow's `transform.root` is the whole world container. Root-based addressing
+would have collapsed every animal in the village into ONE victim (the WorldRoot transform), aimed the
+arc at the container, and passed `WorldRoot.gameObject` to `ResolveHitAt`, whose `IDamageable` gate
+then fails and deals nothing. `GetComponentInParent<Livestock>` is the addressing the club
+(`ToolManager`) and the cage already agree on; the SphereCollider is added on the same GameObject as
+the component (`Livestock` line 52), so the collider-side lookup is correct either way. (The
+test-platform animals are parentless, which is why the diagnostic showed `root='Cow'` and why the
+original 1l113 code worked there: the gate, not the addressing, was the only blocker on that surface.)
+
+**Deliberate non-changes.** Homing stays enemy-only (stated above). A knocked-out animal is still a
+victim: the arc draws, `Livestock.TakeDamage` early-returns (same shape as an enemy in iframe).
+Summoned familiars stay excluded — not an "any IDamageable" lookup; a player's familiar standing in
+the arc must not eat the player's spell, true before and after. The player is excluded twice
+(`_casterRoot` skip + `PlayerController` is not IDamageable). The 1l113 temporary `[ZapAura]`
+diagnostic kept, with its readout made truthful for the new mechanism (`LS=` per collider via
+`GetComponentInParent`, `isZap=`/`zapVictims=` from `ZapVictimOf`, so the next dump names the same
+mechanism the code runs).
+
+**Verification (no build — rule 3).** Grep + reread: `ZapVictimOf` declared once and called from the
+debug block and the victim loop; brace/paren balance 0/0; no `IsZapVictim` leftovers; `Livestock` is a
+global-namespace MonoBehaviour (`TryGetComponent`/`GetComponentInParent` fine); byte check for
+encoding corruption (0 replacement chars, CRLF preserved, the 2 pre-existing bare-LF lines untouched).
+`tools\StaticChecks.ps1` not required (only mandated for `WorldBuilder*.cs` / `NewWorldTestGround.cs`,
+neither changed).
+
+### 1l114-status
+- Files touched (3 C# + 2 md): `Assets/Scripts/Magic/Cast/SpellEffect.cs` (new `ZapVictimOf`, victim
+  loop + debug readout switched to it, `UpdateZapAura` doc), `Assets/Scripts/Magic/Cast/SpellData.cs`
+  (`ZapsInFlight` tooltip: animals count, familiars never), `game-design.md` (§3.8 `zapsInFlight`
+  wording: animal victims + victim-transform de-dupe), this file + `THINKING.md`.
+- Verification: grep + reread only (no build).
+- Pending play-test: (1) on the TEST platform, spawn livestock (F-key livestock lane) and cast Arc
+  Volley past them — the sphere should arc to each animal and kill most in one tick (2-5 HP vs a
+  40%-power zap); the `[ZapAura]` dump should now print `LS=True isZap=True` for the cow.
+  (2) In the LEGACY world (village), confirm a bolt arcing into a herd zaps each animal SEPARATELY
+  (not one arc at the WorldRoot position) — that is the addressing fix.
+  (3) Confirm a missile (`ProjectileShape.Missile`) still ignores animals entirely.
+  (4) Confirm a summoned familiar standing in the aura is not zapped.
+- skills: `scenario-unity-gameplay` loaded (rule 15) — informative only: this project runs no Unity
+  build/CLI (rule 3), so its gates cannot be executed here; its projectile/query guidance confirmed the
+  existing `OverlapSphereNonAlloc` + loop-on-count pattern already in 1l113 is the right shape and
+  changed nothing about the approach.
+
 ## 1l113. Arc Volley — a slow ball-lightning sphere that zaps nearby foes in flight
 
 Arc Volley (`magic_lightning_volt_arc`) was a plain fast bolt that read identically to its neighbours.

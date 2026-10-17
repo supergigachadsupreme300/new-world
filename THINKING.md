@@ -1,3 +1,40 @@
+## 1l114. Arc Volley zaps animals: gate vs addressing (SHIPPED; play-test pending)
+
+**Report:** animals were promised a place on Arc Volley's in-flight zap list (1l113) but still survive a
+pass.
+
+**H1 - the aura gate is enemy-only. CONFIRMED.** UpdateZapAura filtered every scan collider through
+IsEnemyRoot, which asks only for EnemyController/BossController. The 1l113 diagnostic dump already
+carried the evidence: a test cow printed EC=False BC=False isEnemy=False while overlapping the scan, so
+the collider was seen and the gate dropped it. Not a HitLayers/queriesHitTriggers problem (the cow's
+collider was in the buffer).
+
+**H2 - livestock are IDamageable, so nothing else blocks the damage. CONFIRMED (on the test platform).**
+Livestock implements IDamageable; ApplyHit gates on IDamageable at target or scene root and then
+calls TakeDamage on the target. ApplyStatus Stagger is guarded by an EnemyController lookup, so it
+no-ops on animals. Arc Volley has no knockback, so there is no transform-teleport risk.
+
+**H3 - fixing the gate alone is enough. REJECTED for the real game, ACCEPTED only for the test platform.**
+Reading the spawn paths before editing (rule 8's habit of checking the WRITE side) found that both the
+crane-drop (FlyingCrane) and the cage-throw (WorldBuilder.ThrowCage) SetParent the animal under
+WorldBuilder.WorldRoot. So in the legacy world col.transform.root for a cow is the WORLD CONTAINER:
+a root-addressed zap would dedupe every animal in the village into one victim, aim the arc at the
+container, and pass WorldRoot.gameObject to ResolveHitAt, whose IDamageable gate fails (WorldRoot has
+no component) and deals nothing. The test platform's animals are parentless, which is why the diagnostic
+showed 
+oot='Cow' and why a root-based fix would have LOOKED verified there and still failed in the
+game. Two surfaces, two answers - the same trap as 1ia's 'verify only after restart' split.
+
+**Fix shape.** ZapVictimOf(Collider) resolves the victim TRANSFORM per collider (enemy: scene root as
+before; animal: the Livestock component's transform via GetComponentInParent, the addressing the
+club and cage already use). The victim loop and the temporary diagnostic readout both call it, so the
+readout names the mechanism the code runs. IsEnemyRoot is deliberately left enemy-only because the
+missile homing scans read it and a missile must not hunt a cow. Familiars stay excluded (not an 'any
+IDamageable' rule: a player's own summon must not eat the player's spell).
+
+**Status:** OPEN until the play-test items in PROGRESS.md 1l114-status (test-platform herd kill, legacy
+village per-animal arcs, missile still ignores animals, familiar not zapped) are checked.
+
 ## 1l113. Arc Volley — slow ball-lightning sphere that zaps in flight (SHIPPED; play-test pending)
 
 Task id: `PROGRESS.md`'s top `^## 1..` heading was `1l112`, so `1l113` (enumerate first — rule 8). User

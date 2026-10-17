@@ -1880,11 +1880,15 @@ A spell is a data asset carrying:
   burst resolves on landing — which formation is the spell's own resolved `SkyRock` axis, §3.8.4;
   see §3.8.1 Delivery Behaviors "Sky spells")
 - **zapsInFlight** (1l113: a Projectile ADDITIONALLY zaps nearby foes every `TickInterval` while it
-  flies — each enemy within the charge-scaled `Radius` takes a fraction (40%) of the cast's power and
+  flies — each enemy **or livestock animal** within the charge-scaled `Radius` takes a fraction (40%) of
+  the cast's power and
   has a jagged Lightning arc drawn from the bolt to it. Because it is additional and not a replacement,
   the bolt still detonates on contact/ground/expiry as any projectile does — which is why `Radius` is
-  the scan reach here while the impact burst stays `BoltSplashRadius`. Victims are de-duped by enemy
-  root, and the arc's colour is the bolt's own resolved `SpellLook.Core`. **Arc Volley**
+  the scan reach here while the impact burst stays `BoltSplashRadius`. Victims are de-duped by victim
+  transform: an enemy by its scene root, an animal by the GameObject carrying `Livestock` (the crane-drop
+  and cage-throw paths parent animals under `WorldRoot`, so scene-root addressing would merge the whole
+  herd into one victim at the container). Summoned familiars are deliberately never zapped (1l114), and
+  the arc's colour is the bolt's own resolved `SpellLook.Core`. **Arc Volley**
   (`magic_lightning_volt_arc`) is the only user: a slow sphere of ball lightning — speed 7, radius 5,
   tick 0.35 s, `BoltSplashRadius` 2.)
 - **projectile shape** (`ProjectileShape`, §3.8.1): the *visual* built for a Projectile-delivery
