@@ -299,13 +299,19 @@ public class SpellEffect : MonoBehaviour
         if (_zapDebugLogs < 12)
         {
             int enemyRoots = 0;
+            var sb = new System.Text.StringBuilder();
             for (int i = 0; i < count; i++)
             {
                 Collider c = _zapBuffer[i];
-                if (c == null) continue;
-                if (IsEnemyRoot(c.transform.root)) enemyRoots++;
+                if (c == null) { sb.Append($"[{i}] null; "); continue; }
+                Transform r = c.transform.root;
+                bool isEnemy = IsEnemyRoot(r);
+                if (isEnemy) enemyRoots++;
+                bool ec = r.GetComponent<EnemyController>() != null;
+                bool bc = r.GetComponent<BossController>() != null;
+                sb.Append($"[{i}] col='{c.name}' root='{r.name}' tag={r.tag} layer={c.gameObject.layer} trigger={c.isTrigger} EC={ec} BC={bc} isEnemy={isEnemy}; ");
             }
-            Debug.LogWarning($"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} casterRoot={(_casterRoot != null ? _casterRoot.name : "null")}");
+            Debug.LogWarning($"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} queriesHitTriggers={Physics.queriesHitTriggers} :: {sb}");
             _zapDebugLogs++;
         }
         if (count == 0) return;
