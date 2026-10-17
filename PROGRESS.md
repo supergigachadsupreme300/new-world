@@ -1,3 +1,54 @@
+## 1l118. Deployed reach ring: a stationary summon now draws its reach on the ground (charge is visible)
+
+The user reported that a charged Static Coil's reach "didn't increase". The code says otherwise: the
+charge ladder is correct end-to-end on the magic-wheel path (LMB hold -> `_chargeAccum` -> RMB release ->
+`SpellChargeLevel` -> `ReleaseArmedCast(charge)` -> `ExecuteCharged` -> `BeginCast`), and
+`SpellSummon.Radius = spell.Radius * sizeScale` really does grow 5.5 -> ~12.1 m (`SizeScale(charge) =
+1 + charge * ChargeSizeBonus`, `ChargeSizeBonus = 1.2`). The problem was that the growth is
+**invisible**: `FireAtNearest` always targets the nearest foe (so bolt length never changes when foes
+are already close), and the deployed coil drew no reach indicator at all. Only the aim-preview disc
+showed the larger radius, and only while aiming.
+
+**Fix: draw the reach on the deployed construct.** New
+`SummonModelBuilder.BuildReachRing(Transform, float radius, Color)` — a crisp `LineRenderer` ground ring
+loop (48 segments, 0.08 width, 0.04 raise, tinted the summon's `Core` colour), on its OWN child
+GameObject so the summon root stays renderer-free. `SpellSummon.BuildVisual` calls it after the body,
+gated on `_spell != null && !_sprayForward`.
+
+**One predicate, not a spell list (rule 20).** `Radius` IS the reach for a damage turret
+(`NearestEnemy` scans within it) and a heal shrine (`AuraHeal` scans within it); it is display-only ONLY
+for a forward-spraying familiar (`summonFiresForward`), so `!_sprayForward` is a total rule over the
+summon family that names the sole exception rather than enumerating the coil. It therefore draws on the
+eleven stationary summons (Coil; Gust Totem; Stone Effigy/Sentinel/Guardian/Colossus; Healing Shrine;
+Arcane Rune; Ember Effigy; Frost Obelisk; Shadow Totem) and on neither spray-familiar (Continuous
+Fireball, Snow Drift). Ring only — a persistent ~12 m translucent disc would wash the ground — and it
+matches the AoE aim preview's outline so the deployed shape and the aiming disc read as one circle.
+
+### 1l118-status
+- Files touched: `Assets/Scripts/Models/Magic/SummonModelBuilder.cs` (new `BuildReachRing` + four
+  constants + class doc), `Assets/Scripts/Magic/Cast/SpellSummon.cs` (`BuildVisual` call + doc),
+  `game-design.md` (§3.8.6), `magic-skills.md` (Static Coil row), plus this `PROGRESS.md` and
+  `THINKING.md`.
+- Verification: grep + reread only (no build, rule 3). Confirmed the summon root carries no other
+  renderer (a `LineRenderer` on its own child is safe), that a non-follow summon is spawned at
+  `identity` rotation (`ResolveSummon` sets only `position`), so the ring is world-horizontal, and that
+  the LineRenderer/material idiom is copied from `AoeAimPreviewModelBuilder` (the proven local pattern,
+  rule 3). `tools/StaticChecks.ps1` -> **0 candidates** (`SummonModelBuilder.cs` braces 22/22; the file
+  is in the script's `$files` list). The QA bench was NOT touched: its pedestals are 3 m apart, so a
+  5.5-6 m ring would overlap neighbours — the readout is the live deploy plus the already-scaling
+  aim-preview disc.
+- Pending play-test: (1) deploy Static Coil and hold LMB to charge — the ground ring is visibly larger
+  at full charge and matches the aim-preview disc; (2) the same ring appears on the other stationary
+  summons (e.g. Ember Effigy, Healing Shrine) and does NOT appear on the spray-familiars (Continuous
+  Fireball, Snow Drift); (3) the ring sits flat on the ground on a slope, not tilted or floating.
+- Note: a stale `Debug.LogWarning($"[Cast] id={id} charge={charge} ...")` at `SkillProfile.cs:319`
+  (shipped 1l113-diagnostic2) is left in place on purpose — it is a useful readout for the next
+  charge test round; remove it once the charge path is confirmed.
+- Skills (rule 15): `skills: none applied` — the artifact is a Unity C# edit drawn with the codebase's
+  own `LineRenderer` idiom (copied from `AoeAimPreviewModelBuilder`), not a DCC asset and not an
+  editor-driving task; the nearest installed skill (`scenario-unity-vfx`) governs Particle/VFX-Graph
+  effects and drives a running editor over MCP, which rule 3 bars here, so it could not verify anything.
+
 ## 1l117. After a ragdoll the equipped weapon disappeared (model rebuild deleted the held rigs)
 
 The user reported "after ragdoll the weapon disapear". The ragdoll recovery calls
@@ -6656,13 +6707,18 @@ verify anything here (rule 3 bars their MCP/CLI path). Stated deliberately rathe
 
 # PROGRESS / Session Handoff Notes
 
-Last updated: 2026-10-17 (1l113). Read this first in a new session; then continue with the
+Last updated: 2026-10-17 (1l118). Read this first in a new session; then continue with the
 newest `## 1xx` entry at the top (they are ordered newest-first) and its
 `### 1xx-status` play-test list. **The old game's code is READ-ONLY** - it is quarantined in
 `Assets/Scripts/Legacy/` (AGENTS.md rule 18); live code may call into it, nothing may edit it.
 **1f5 is superseded by 1f6** - the LOD bands and the
 `NeedsLodDetail` gate it added were both deleted; read 1f6 for the current design and 1f5 only
-for the reasoning it recorded. **Open play-test items (newest first):** **1l112** - cast the five
+for the reasoning it recorded. **Open play-test items (newest first):** **1l118** - deploy Static Coil
+and hold LMB to charge: the ground reach ring should be visibly larger at full charge and match the
+aim-preview disc; confirm the ring also appears on the other stationary summons (e.g. Ember Effigy,
+Healing Shrine) and NOT on the spray-familiars (Continuous Fireball, Snow Drift), and sits flat on the
+ground on a slope. **1l117** - after a ragdoll (press **N**) the equipped weapon must survive recovery
+in both casual and combat mode, and survive a race change. **1l112** - cast the five
 Fury-bank spells and confirm each silhouette (Fury Bolt a forked lance, Static Nova a lingering
 caster-centred static ring, Devastation a maelstrom cumulonimbus, Thunder Vortex a spinning
 lightning cyclone that pulls), then press F4 (`MagicTestMatrix`) and check `authored` rose by 3,

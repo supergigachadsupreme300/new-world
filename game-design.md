@@ -3076,6 +3076,22 @@ profile (`Look(shape: SparkSwarm)`), so `authored` carries a **predicted** delta
 lane confirms it; the 1jt ratchet (an axis can only split a group, never merge one) holds by
 construction, not by a lane run. The skill id is unchanged, so the tree and every save key hold.
 
+**1l118: the deployed reach ring.** A stationary summon now draws a ground ring at its live,
+charge-scaled `Radius` (`SummonModelBuilder.BuildReachRing`, called from `SpellSummon.BuildVisual`), so
+the charge ladder that widens Static Coil's turret reach (radius 5.5 -> ~12.1 m at full charge) is
+visible **on the deployed construct**, not only in the aim-preview disc that grows while aiming. One
+predicate decides it — `_spell != null && !_sprayForward` — a total rule over the summon family rather
+than a per-spell list: `Radius` IS the reach for a damage turret (`NearestEnemy`) and a heal shrine
+(`AuraHeal`), and is display-only ONLY for a forward-spraying familiar (`summonFiresForward`), the one
+exclusion. It therefore appears on the eleven stationary summons (Coil; Gust Totem; Stone
+Effigy/Sentinel/Guardian/Colossus; Healing Shrine; Arcane Rune; Ember Effigy; Frost Obelisk; Shadow
+Totem) and on neither spray-familiar (Continuous Fireball, Snow Drift). Ring only, no footprint disc (a
+persistent ~12 m translucent disc would wash the ground it covers); styled to match the AoE aim
+preview's outline (48 segments, 0.08 width, 0.04 ground raise). The **QA bench is deliberately
+unchanged** — its spell pedestals are 3 m apart, so a 5.5-6 m ring would overlap its neighbours, and the
+readout is the live deploy plus the already-scaling aim-preview disc. **No F4 delta:** no axis and no
+authored profile changed, so every key is byte-identical.
+
 #### Spell Sources
 
 - **Equipped weapon** — a staff/wand/book in a hand slot (its magic-mods apply).

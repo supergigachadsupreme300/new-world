@@ -3,8 +3,9 @@ using UnityEngine;
 
 /// <summary>
 /// The summon family's bodies: the totem, the following familiar's ring (1l6p: a vertical halo of
-/// launch orbs, previously a flat ground circle), and (since 1je) the <see cref="SummonedAlly"/>
-/// combat construct.
+/// launch orbs, previously a flat ground circle), the stationary coil spire (1l110) and, since
+/// <b>1l118</b>, the deployed reach ring drawn under a stationary summon, plus (since 1je) the
+/// <see cref="SummonedAlly"/> combat construct.
 /// <para>The totem and the circle were extracted verbatim from <c>Magic/Cast/SpellSummon.cs</c> in
 /// <b>1jd</b>. Before that the geometry lived inside the gameplay component, so "summon model"
 /// matched nothing under <c>Models/</c> while the model itself had been shipping the whole time -
@@ -59,6 +60,22 @@ public static class SummonModelBuilder
     /// ground or the orbs behind it; the shader pick below prefers <c>Sprites/Default</c>, which
     /// alpha-blends, so a sub-1 alpha actually renders see-through.</summary>
     private const float FamiliarDiscAlpha = 0.35f;
+
+    /// <summary>1l118: the deployed reach ring's segment count — the AoE aim preview's value, so the
+    /// deployed marker and the aiming disc read as the same circle.</summary>
+    private const int ReachRingSegments = 48;
+
+    /// <summary>1l118: the reach ring's line width, in metres — the AoE aim preview's ring width, for
+    /// the same match-the-preview reason.</summary>
+    private const float ReachRingWidth = 0.08f;
+
+    /// <summary>1l118: how far the reach ring floats above the summon's ground anchor — the preview's
+    /// ground raise, so the ring sits ON the ground instead of z-fighting it.</summary>
+    private const float ReachRingRaise = 0.04f;
+
+    /// <summary>1l118: the reach ring's alpha. Bright enough to read against grass and dirt,
+    /// translucent enough not to hide the ground under it (the shader pick below alpha-blends).</summary>
+    private const float ReachRingAlpha = 0.85f;
 
     /// <summary>1ir/1l6p: the following-familiar read — a translucent vertical ring (facing the
     /// caster's forward) carrying <see cref="FamiliarCoreCount"/> launch orbs around its rim, from
@@ -212,6 +229,45 @@ public static class SummonModelBuilder
         SetMaterial(emitter, shader, Color.Lerp(color, Color.white, 0.4f));
 
         return new Body { CoreBaseScale = emitter.localScale, Cores = new[] { emitter } };
+    }
+
+    /// <summary>1l118: a stationary summon's REACH, drawn as a crisp ground ring under it at the same
+    /// radius the AoE aim preview draws its footprint disc — so a charge that widens a deployed
+    /// turret's reach is finally visible on the deployed turret, not only while aiming.
+    /// <para><b>What the ring means.</b> <c>Radius</c> is the reach for every summon this is called
+    /// on: <c>SpellSummon.NearestEnemy</c> scans within it for a damage turret, and <c>AuraHeal</c>
+    /// scans within it for a heal shrine. The caller decides with ONE predicate
+    /// (<c>_spell != null &amp;&amp; !_sprayForward</c>), so this is a total rule over the summon family
+    /// rather than a hand-listed set (rule 20) — a forward-spraying familiar is the only exclusion,
+    /// because its <c>Radius</c> is display-only (see <see cref="BuildFamiliarCircle"/>).</para>
+    /// <para><b>Ring only, not the preview's disc.</b> A persistent translucent disc at a charged
+    /// radius (up to ~12 m) would wash the ground it covers; a thin outline marks the boundary and
+    /// nothing else. The width is fixed like the preview's — the radius is the message.</para>
+    /// <para>Built on its OWN child GameObject (one Renderer per GameObject), so the summon root stays
+    /// renderer-free and the ring can be dropped independently of the body.</para></summary>
+    public static void BuildReachRing(Transform parent, float radius, Color color)
+    {
+        Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        if (shader == null) return;
+
+        var ringGo = new GameObject("ReachRing");
+        ringGo.transform.SetParent(parent, false);
+        ringGo.transform.localPosition = new Vector3(0f, ReachRingRaise, 0f);
+
+        var line = ringGo.AddComponent<LineRenderer>();
+        line.useWorldSpace = false;
+        line.loop = true;
+        line.positionCount = ReachRingSegments;
+        line.startWidth = ReachRingWidth;
+        line.endWidth = ReachRingWidth;
+        line.numCapVertices = 2;
+        line.material = new Material(shader) { color = new Color(color.r, color.g, color.b, ReachRingAlpha) };
+
+        for (int i = 0; i < ReachRingSegments; i++)
+        {
+            float ang = i * (2f * Mathf.PI / ReachRingSegments);
+            line.SetPosition(i, new Vector3(Mathf.Cos(ang) * radius, 0f, Mathf.Sin(ang) * radius));
+        }
     }
 
     /// <summary>What <see cref="BuildAlly"/> hands back: every renderer it created, so the component

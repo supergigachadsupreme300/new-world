@@ -341,7 +341,13 @@ public class SpellSummon : MonoBehaviour
     /// <c>Models/Magic/</c>), so "summon model" is findable by name and by folder. The shapes, the
     /// names and the pulse are unchanged; the builder returns the pulsing orbs and the scale they
     /// pulse around as ONE record, so the two cannot drift apart at this boundary (1l6p: an array —
-    /// the familiar fires each bolt from a random rim orb).</para></summary>
+    /// the familiar fires each bolt from a random rim orb).</para>
+    /// <para><b>1l118 adds the reach ring.</b> After the body, a stationary summon also draws a ground
+    /// ring at its live <c>Radius</c> (see <see cref="SummonModelBuilder.BuildReachRing"/>), so the
+    /// charge that scales that Radius is visible on the deployed construct. One predicate
+    /// (<c>_spell != null &amp;&amp; !_sprayForward</c>) decides it for the whole family — not a
+    /// per-spell list — because <c>Radius</c> is a reach for every summon EXCEPT the forward-spraying
+    /// familiar, whose Radius is display-only.</para></summary>
     private void BuildVisual()
     {
         SummonModelBuilder.Body body = _look.SummonBodyModel == SummonBody.TeslaCoil
@@ -351,5 +357,15 @@ public class SpellSummon : MonoBehaviour
                 : SummonModelBuilder.BuildTotem(transform, _color);
         _cores = body.Cores;
         _coreBaseScale = body.CoreBaseScale;
+
+        // 1l118: draw the summon's REACH as a ground ring at the live (charge-scaled) Radius. For a
+        // damage turret that is the NearestEnemy scan radius and for a heal shrine the AuraHeal radius,
+        // so the ring is honest for every summon this is true of; the ONE exclusion is a
+        // forward-spraying familiar, whose Radius is display-only (see BuildFamiliarCircle) — hence the
+        // single `!_sprayForward` predicate rather than a list of spells (rule 20). The ring is why a
+        // charged Static Coil finally reads as a wider turret: before this, its larger Radius was real
+        // but invisible, so the charge looked like it did nothing.
+        if (_spell != null && !_sprayForward)
+            SummonModelBuilder.BuildReachRing(transform, Radius, _color);
     }
 }

@@ -1,3 +1,45 @@
+## 1l118. Charged Static Coil "didn't increase" — the reach was real but invisible (SHIPPED; play-test pending)
+
+**Report:** charging Static Coil (`magic_lightning_volt_charge`) does not appear to increase its reach.
+
+**H1 - the charge never reaches the cast (a plumbing bug: the charge arrives as 0). REJECTED.**
+Traced the whole magic-wheel path. LMB hold sets `_aiming`; RMB hold builds `_chargeAccum`; release
+computes `charge = SpellChargeLevel(_chargeAccum)` (`PlayerController.Interactions.cs:337`) and calls
+`MagicWheelUI.ReleaseArmedCast(charge, prepaid)` (:349) -> `profile.ExecuteCharged(id, charge, prepaid)`
+(`MagicWheelUI.cs:169`) -> `BeginCast(..., charge, ...)`. `SpellChargeLevel` is `(hold-0.15)/(1.2-0.15)`
+clamped at 0. The only place a real charge could be dropped to 0 is the mixed-dual-loadout path
+(`PlayerController.Combat.cs:254-261`) or the skill hotbar (`SkillBindings.cs:129`,
+`profile.Execute` -> charge 0) — but the user casts from a single magic weapon, so neither applies.
+Plumbing is correct.
+
+**H2 - `Radius` is not actually charge-scaled. REJECTED.** `ResolveSummon(totalPower, spell, pos, fwd,
+charge, SizeScale(charge) * mods.RadiusMult, GroundAimMax)` (`SpellCaster.Cast.cs:154` ->
+`SizeScale(charge) = 1f + charge * ChargeSizeBonus`, `ChargeSizeBonus = 1.2`, :178), and
+`SpellSummon.Initialize` sets `Radius = Mathf.Max(spell.Radius * radiusMult, 1f)` (:93). So Radius goes
+5.5 -> ~12.1 m at full charge. The ladder is real. (Side finding: `range = GroundAimMax = 1200f` for
+every Summon — the catalog's `range 8` is unused for a Summon and is NOT charge-scaled; and
+`DurationScale` is applied only to `_follow` summons, so the coil's 6 s is unaffected.)
+
+**H3 - the growth is real but INVISIBLE on the deployed coil. CONFIRMED (the real cause).** Two facts
+compose: (a) `SpellSummon.FireAtNearest` always picks the NEAREST foe, so the bolt's length never
+changes while enemies are already inside the (old) radius — the only visible consequence of a bigger
+radius is that more/distant foes get zapped, which is easy to miss; and (b) the deployed coil draws no
+reach indicator of any kind (only a one-shot `RingFlash(Radius * 0.8f, 0.45f)` at birth). The aim
+preview disc DOES grow (`PlayerController.Combat.cs:820`), but it is only on screen while aiming. So the
+player's mental model — "the turret didn't get bigger" — is correct about everything they can see, even
+though the reach grew exactly as designed. This is rule 7's territory: the value was never wrong, the
+READOUT was missing.
+
+**Verdict (shipped):** draw the reach on the deployed construct rather than change any behaviour.
+`SummonModelBuilder.BuildReachRing(parent, radius, colour)` is a crisp `LineRenderer` ground ring (its
+own child GameObject; 48 segments / 0.08 width / 0.04 raise matching `AoeAimPreviewModelBuilder`), and
+`SpellSummon.BuildVisual` calls it gated on `_spell != null && !_sprayForward`. The predicate is a total
+rule over the summon family, not a coil-only list (rule 20): `Radius` is a live reach for every summon
+EXCEPT a forward-spraying familiar (`summonFiresForward`), whose Radius is display-only since 1l6p. Ring
+only, no disc — a persistent ~12 m translucent disc would wash the ground. Verified the summon root is
+spawned at `identity` rotation (`ResolveSummon` sets only `position`) so the ring lies flat. QA bench
+deliberately untouched (3 m pedestal spacing vs a 5.5-6 m ring; the live deploy is the readout).
+
 ## 1l117. After a ragdoll, the equipped weapon disappeared (SHIPPED; play-test pending)
 
 **Report:** "after ragdoll the weapon disapear".
