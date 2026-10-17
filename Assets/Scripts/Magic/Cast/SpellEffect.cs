@@ -151,7 +151,7 @@ public class SpellEffect : MonoBehaviour
         if (_spell != null && _spell.ZapsInFlight)
         {
             _zapTimer = _spell.TickInterval > 0f ? _spell.TickInterval : 0.5f;
-            Debug.Log($"[ZapAura] Launch id={_spell.id} radius={_spell.Radius * _radiusMult} tick={_spell.TickInterval} speed={speed}");
+            Debug.LogWarning($"[ZapAura] Launch id={_spell.id} radius={_spell.Radius * _radiusMult} tick={_spell.TickInterval} speed={speed}");
         }
     }
 
@@ -305,7 +305,7 @@ public class SpellEffect : MonoBehaviour
                 if (c == null) continue;
                 if (IsEnemyRoot(c.transform.root)) enemyRoots++;
             }
-            Debug.Log($"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} casterRoot={(_casterRoot != null ? _casterRoot.name : "null")}");
+            Debug.LogWarning($"[ZapAura] tick pos={transform.position} radius={radius} overlaps={count} enemyRoots={enemyRoots} casterRoot={(_casterRoot != null ? _casterRoot.name : "null")}");
             _zapDebugLogs++;
         }
         if (count == 0) return;

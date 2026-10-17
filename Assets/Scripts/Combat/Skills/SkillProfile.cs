@@ -316,6 +316,7 @@ public sealed class SkillProfile : MonoBehaviour
     public bool ExecuteCharged(string id, float charge, float prepaidFocus = 0f)
     {
         var skill = SkillCatalog.Find(id);
+        Debug.LogWarning($"[Cast] id={id} charge={charge} found={(skill != null)}");
         if (skill == null)
         {
             // Class-skill fallback (§3.2.1): hotkeyed ids of the form "cls.{class}.{node}" route

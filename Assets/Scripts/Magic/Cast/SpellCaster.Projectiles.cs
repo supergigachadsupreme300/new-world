@@ -28,6 +28,7 @@ public partial class SpellCaster
         // the caster's own collider; the SpellEffect's caster-root skip and ground probe handle
         // self/terrain contacts from there.
         pos += fwd * CastMuzzleOffset;
+        Debug.LogWarning($"[FireProj] id={spell.id} delivery={spell.Delivery} zaps={spell.ZapsInFlight} speed={spell.ProjectileSpeed} shape={spell.Shape}");
         GameObject go;
         if (spell.CastEffectPrefab != null)
         {
