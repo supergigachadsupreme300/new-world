@@ -2299,9 +2299,19 @@ keep their spell `Range` cap, so only ground placement is unbounded.
   (rule 14). One component owns both modes (rule 8/13 — a duplicate sweep class would be a second
   spelling of the band-and-once-hit machinery). The armed AoE preview keeps its under-feet disc
   (`centerOnCaster`), now stating the ring's **spread** (`TryAoeTarget` reads `Range` for a NovaWave), and
-  `SpellLook.CastAnchor` resolves **Feet** — the ring is cast on yourself. The `SpellZone`'s
+  `SpellLook.CastAnchor` resolves **Feet** — the ring is cast on yourself. The   `SpellZone`'s
   `ZoneBody.NovaRing` branch and the `BuildNovaRing` builder both survive (the builder is what
   `ResolveNova` mounts); only that branch's live Zone consumer moved.
+  **1l116 also reshaped that body (follow-up pass).** The first NovaWave cut mounted the 1l112 flat
+  disc (`BuildNovaRing`'s rim arcs + inner glow), but the user asked for "wave like firewave but in a
+  circle": the body is now the Fire-Wave voxel **floor bent into an annulus** — a band of small cubes
+  from `radius − band` out to `radius`, lifting into a crest at the leading (outer) edge, tinted per
+  cell (Core darkened for the trough, Edge brightened for the crest — the two-tone Fire Wave uses).
+  `WaveRipple` gained a **radial** phase mode (`√(x²+z²)` instead of `z`) so the crest rolls OUTWARD
+  through the ring as the root scales up; `SpellWave` finds the ripple on the first frame (the body is
+  built after `InitializeNova`, which owns `MaxRadius`) and drives it, so the QA pedestal draws it
+  motionless (rule 19). `BuildNovaRing`'s signature is unchanged — `ResolveNova`, the `SpellZone`
+  fallback branch and the bench all still mount it (rule 13: one builder).
   **The body (1l85) is a flat floor of small voxel cubes** spanning the band — no longer the old
   diagonal ramp of five cubes, which was a wave *shape*, not a wave. The crest is drawn by a traveling
   sine: a `WaveRipple` component holds the floor's cells and offsets each along local Y in order as
@@ -2990,7 +3000,11 @@ body at all:
   instant overlap burst** — all its damage is the 0.4x tick — so the longer cd/FP pay for the lingering
   field, not a double hit. **(1l116 supersedes the delivery:** Static Nova is now a **`NovaWave`** — the
   `duration` is gone and no `SpellZone` spawns; the `NovaRing` body survives, mounted by `ResolveNova` at
-  the sweep's final radius and scaled outward. See §3.8.1 "Ground waves" and the delivery list in §3.8.)
+  the sweep's final radius and scaled outward. **A later 1l116 pass also reshaped the body itself** —
+  at the user's request ("wave like firewave but in a circle") `BuildNovaRing` is no longer a flat disc
+  with rim arcs but the Fire-Wave voxel FLOOR bent into a ring (a band of small cubes lifting into a
+  crest at the leading edge, rolled outward by a radial `WaveRipple`), so the nova reads as a rolling
+  wave rather than a static ring. See §3.8.1 "Ground waves" and the delivery list in §3.8.)
 - **Devastation** (`magic_lightning_fury_devastation`) is authored **`StormBody.Maelstrom`** (value 7):
   `BuildMaelstrom(parent, radius, height, cloud, core)` — a larger, angrier cumulonimbus than the
   Thunderhead (FOUR bands vs three, wider span, eight down-teeth under a `MaelstromSeat`) at its own

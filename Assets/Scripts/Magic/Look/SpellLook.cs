@@ -144,13 +144,15 @@ public enum ZoneBody
     /// which read as nothing in particular). 1l6z.</summary>
     FrozenField = 3,
 
-    /// <summary>1l112 Static Nova's body: a flat ground disc ringed by a bright annulus of short
-    /// jagged lightning arcs (Edge colour) with an inner Core ring — so Static Nova reads as a ring of
-    /// static rather than the generic ground discs. 1l116: Static Nova's delivery is now a NovaWave, so
-    /// <c>SpellCaster.ResolveNova</c> mounts this body through <see cref="SpellZoneModelBuilder.BuildNovaRing"/>
-    /// at the sweep's final radius and scales it per frame with the front; the <c>SpellZone</c> NovaRing
-    /// branch remains only as a data-driven fallback for any spell that still keeps this body on a Zone
-    /// (drawn unscaled there, as in 1l112). Does not spin.</summary>
+    /// <summary>1l112/1l116 Static Nova's body: a ring of small voxel cells sitting on the ground,
+    /// lifting into a crest at its leading edge — the Fire-Wave flood floor bent into a circle
+    /// (1l116: the user asked for "wave like firewave but in a circle"). A <c>WaveRipple</c> in radial
+    /// mode rolls a height+brightness crest outward through it (down the body's Edge colour, up past a
+    /// darkened Core), so the ring reads as a rolling wave, not a flat disc.
+    /// <c>SpellCaster.ResolveNova</c> mounts this body through
+    /// <see cref="SpellZoneModelBuilder.BuildNovaRing"/> at the sweep's final radius and scales it per
+    /// frame with the front; the <c>SpellZone</c> NovaRing branch remains only as a data-driven fallback
+    /// for any spell that still keeps this body on a Zone (drawn unscaled there). Does not spin.</summary>
     NovaRing = 4,
 
     /// <summary>1l112 Thunder Vortex's body: a lightning cyclone — stacked rings of jagged vertical

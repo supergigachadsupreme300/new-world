@@ -62,6 +62,13 @@ public class SpellWave : MonoBehaviour
     /// for a body built without one; every use null-checks it.</summary>
     private WaveRipple _ripple;
 
+    /// <summary>1l116: a radial nova's body is attached by <c>SpellCaster.ResolveNova</c> AFTER
+    /// <see cref="InitializeNova"/> (it needs <c>MaxRadius</c>, which InitializeNova computes), so the
+    /// ripple cannot be found in InitializeNova. This latch lets <see cref="Update"/> find it once on
+    /// the first frame — the body exists by then — without a per-frame <c>GetComponentInChildren</c> on
+    /// a body that genuinely has none (a forward wave sets it in <see cref="Initialize"/> instead).</summary>
+    private bool _rippleSearched;
+
     /// <summary>1jy: roots this wave has already hit, so each foe takes ONE resolved hit + one
     /// knockback as the band passes over it — never a per-frame re-resolve.</summary>
     private readonly HashSet<Transform> _hit = new HashSet<Transform>();
@@ -226,6 +233,13 @@ public class SpellWave : MonoBehaviour
 
         // 1l85: roll the crest across the floor. Driven here (not in the body component) so only a
         // MOVING wave ripples; the same floor on the QA pedestal stays flat (rule 19).
+        // 1l116: a radial nova's body (and its ripple) is attached after InitializeNova, so fetch it
+        // once here on the first frame; the latch keeps it from re-searching every frame.
+        if (_ripple == null && !_rippleSearched)
+        {
+            _ripple = GetComponentInChildren<WaveRipple>();
+            _rippleSearched = true;
+        }
         if (_ripple != null) _ripple.Apply(Time.time);
 
         if (_radial)

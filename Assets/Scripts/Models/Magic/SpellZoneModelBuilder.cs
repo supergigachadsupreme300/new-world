@@ -324,51 +324,91 @@ public static class SpellZoneModelBuilder
             new Vector3(0.52f, 0.14f, 0.52f), coreMat);
     }
 
-    /// <summary>1l112: Static Nova's body (<see cref="ZoneBody.NovaRing"/>) — a flat ground disc ringed
-    /// by a bright annulus of short jagged lightning arcs (the spell's Edge) with a hotter Core ring
-    /// inside, so a self-centred spell reads as a radiating ring of static rather than the generic
-    /// ground discs. Body-only and motion-free like the other ground bodies here. <b>1l116:</b> its one
-    /// runtime user, Static Nova, is now a <c>SpellDelivery.NovaWave</c> — <c>SpellCaster.ResolveNova</c>
-    /// mounts this body at the front's final radius and scales the root outward each frame, so the ring
-    /// appears to grow from the caster (the builder's own local layout is unchanged: build it at the
-    /// authoring extent, let the caller scale). Still mounted by the QA pedestal.</summary>
+    /// <summary>1l112/1l116: Static Nova's body (<see cref="ZoneBody.NovaRing"/>) — the ground wave
+    /// FLOOR (the Fire Wave family, <c>MagicProjectileModelBuilder.Wave</c>) bent into a RING, so the
+    /// spell reads as a rolling wave travelling outward in a circle rather than a flat spreading disc
+    /// (1l116: the user asked for exactly that — "wave like firewave but in a circle"). A band of small
+    /// voxel cubes sits on the ground from <c>radius − band</c> out to <c>radius</c>, lifting into a
+    /// crest at the leading (outer) edge, and a <see cref="WaveRipple"/> in RADIAL mode rolls a
+    /// brightness+height crest outward through it (driven by <c>SpellWave</c>'s update loop — rule 19;
+    /// the QA pedestal draws it motionless).
+    /// <para><b>1l116 the caller SCALES this body.</b> <c>SpellCaster.ResolveNova</c> authors the ring at
+    /// the sweep's final radius (<c>SpellWave.MaxRadius</c>) and <c>SpellWave</c> scales the root from
+    /// ~0 to 1 as the front grows, so the drawn leading edge rides the damage front. The builder's own
+    /// local layout is static — build it at the authoring extent, let the moving component scale it
+    /// (rule 19). The band width and the ring/station counts are LOOK constants (not the spell's damage
+    /// <c>Radius</c>), held here so the body has one spelling.</para>
+    /// <para><b>Per-cell materials, deliberately.</b> The crest only reads if each cell is tinted up
+    /// toward the spell's Edge on the crest (a pure height offset is invisible on flat-topped cubes whose
+    /// normals never change — the same reason <c>Wave</c> tints). That needs a per-cell material, which
+    /// is the one place this builder departs from the shared-material convention the rest of the file
+    /// follows (1ie); the tint is why. Cell count is held to <c>rings × stations = 288</c>, the same
+    /// budget Fire Wave's base floor uses.</para></summary>
     public static void BuildNovaRing(Transform parent, float radius, Color core, Color edge)
     {
-        Material coreMat = SkillFx.SharedSpriteMaterial(core);
-        Material edgeMat = SkillFx.SharedSpriteMaterial(edge);
+        // LOOK constants — the drawn ring, not the spell's damage Radius.
+        const int rings = 4;
+        const int stations = 72;
+        const float thickness = 0.14f;
+        const float crestLift = 0.34f;
+        const float amplitude = 0.16f;
+        const float rippleSpeed = 7f;
 
-        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        disc.name = "SpellNovaDisc";
-        DestroyCollider(disc);
-        disc.transform.SetParent(parent, false);
-        disc.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
-        ApplyShared(disc, coreMat);
+        float outerR = Mathf.Max(0.3f, radius);
+        float band = Mathf.Clamp(outerR * 0.30f, 1.0f, 4.2f);
+        float innerR = Mathf.Max(0.15f, outerR - band);
+        float dr = (outerR - innerR) / rings;
 
-        // The rim: a ring of short jagged arcs, each tilted a little off vertical, so the edge of the
-        // nova crackles instead of reading as a smooth hoop.
-        int stations = 18;
-        for (int i = 0; i < stations; i++)
+        // `radius` may arrive at the degenerate minimum (0.3): the clamps above keep `innerR <= outerR`
+        // and the tangential pitch positive for every input, so no ring/station produces a negative or
+        // NaN size (rule: a helper must report 0 for degenerate input, never a mirrored cube).
+        Material proto = SkillFx.SharedSpriteMaterial(core);
+        Shader shader = proto != null ? proto.shader : null;
+        Color trough = Color.Lerp(core, Color.black, 0.55f);
+        Color crestColor = edge;
+
+        int count = rings * stations;
+        var cells = new Transform[count];
+        var restY = new float[count];
+        var mats = new Material[count];
+        int n = 0;
+        for (int ir = 0; ir < rings; ir++)
         {
-            float ang = (i / (float)stations) * Mathf.PI * 2f;
-            float rr = radius * Random.Range(0.88f, 0.98f);
-            float h = Random.Range(0.35f, 0.7f);
-            var arc = Cube(parent, "NovaArc_" + i,
-                new Vector3(Mathf.Cos(ang) * rr, h * 0.5f, Mathf.Sin(ang) * rr),
-                new Vector3(Random.Range(0.07f, 0.12f), h, Random.Range(0.07f, 0.12f)), edgeMat);
-            arc.localRotation = Quaternion.Euler(
-                Random.Range(-16f, 16f), ang * Mathf.Rad2Deg, Random.Range(-16f, 16f));
+            float r = innerR + (ir + 0.5f) * dr;
+            // Crest profile across the band: 0 at the trailing (inner) edge, crestLift at the leading
+            // (outer) edge — so the wave lip is the leading edge of the ring.
+            float rf = band > 0.0001f ? (r - innerR) / band : 1f;
+            float rest = crestLift * rf;
+            float tangential = 2f * Mathf.PI * r / stations;
+            float size = Mathf.Max(0.05f, Mathf.Min(dr, tangential) * 1.06f);
+            for (int s = 0; s < stations; s++)
+            {
+                float ang = (s / (float)stations) * Mathf.PI * 2f;
+                var cube = Cube(parent, "NovaCell_" + n,
+                    new Vector3(Mathf.Cos(ang) * r, rest, Mathf.Sin(ang) * r),
+                    new Vector3(size, thickness, size), proto);
+
+                // Per-cell material so the ripple can tint each cell (see the class remarks). A null
+                // shader means the project's FX shader is missing entirely; fall back to shared material
+                // and skip the tint rather than construct a Material(null).
+                Material m = null;
+                var renderer = cube.GetComponent<MeshRenderer>();
+                if (shader != null && renderer != null)
+                {
+                    m = new Material(shader) { color = trough };
+                    renderer.material = m;
+                }
+                mats[n] = m;
+                cells[n] = cube;
+                restY[n] = rest;
+                n++;
+            }
         }
 
-        // The heart: a short inner ring of brighter blocks, so the nova reads as radiating outward.
-        int inner = 8;
-        for (int i = 0; i < inner; i++)
-        {
-            float ang = (i / (float)inner) * Mathf.PI * 2f + 0.3f;
-            float rr = radius * 0.5f;
-            Cube(parent, "NovaGlow_" + i,
-                new Vector3(Mathf.Cos(ang) * rr, 0.12f, Mathf.Sin(ang) * rr),
-                Vector3.one * Random.Range(0.14f, 0.22f), coreMat);
-        }
+        // One ripple, radial: the crest rolls OUTWARD from the centre as the ring expands (1l116).
+        parent.gameObject.AddComponent<WaveRipple>().Configure(
+            cells, restY, mats, trough, crestColor, amplitude, rippleSpeed, Mathf.Max(1f, band),
+            radial: true);
     }
 
     /// <summary>1l112: Thunder Vortex's body (<see cref="ZoneBody.LightningCyclone"/>) — a bright core

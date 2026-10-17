@@ -7,6 +7,11 @@ using UnityEngine;
 /// that advances with time — so a crest travels along local +Z while the wave flies, reading as a wave
 /// rolling across the ground instead of a frozen silhouette. The same sine brightens the crest, because
 /// a vertical offset alone is nearly invisible on flat-topped cubes whose normals never change.
+/// <para><b>1l116 adds the RADIAL axis.</b> Static Nova's body is that same crest bent into a ring, so
+/// the crest must travel OUTWARD from the centre rather than along +Z. With <c>radial</c> the phase
+/// reads each cell's local radius <c>√(x²+z²)</c> instead of its <c>z</c>, so the crest rolls out
+/// through the ring; the offset/tint machinery is otherwise identical (one component, one spelling).
+/// </para>
 /// <para><b>No <c>Update</c> of its own, on purpose.</b> The per-frame write is driven from
 /// <c>SpellWave</c>'s <c>Update</c> — the loop that runs while the thing MOVES
 /// (rule 19: a per-frame effect belongs there, never in the shape factory). The factory also draws
@@ -28,12 +33,14 @@ public sealed class WaveRipple : MonoBehaviour
     private float _amplitude;
     private float _speed;
     private float _waveNumber;
+    private bool _radial;
 
     /// <summary>Hand the component its cells, their authored rest heights, the per-cell materials and
     /// the two colours the ripple lerps between. Called once by the builder right after the floor is
-    /// laid, so the cells are already parented and their rest positions set.</summary>
+    /// laid, so the cells are already parented and their rest positions set. <paramref name="radial"/>
+    /// (1l116) switches the phase coordinate from <c>z</c> to the local radius for a ring body.</summary>
     public void Configure(Transform[] cells, float[] restY, Material[] mats,
-        Color trough, Color crest, float amplitude, float speed, float wavelength)
+        Color trough, Color crest, float amplitude, float speed, float wavelength, bool radial = false)
     {
         _cells = cells;
         _restY = restY;
@@ -42,6 +49,7 @@ public sealed class WaveRipple : MonoBehaviour
         _crest = crest;
         _amplitude = amplitude;
         _speed = speed;
+        _radial = radial;
         // Guard the divisor: a zero wavelength would make the phase NaN and blank the floor.
         _waveNumber = 2f * Mathf.PI / Mathf.Max(0.01f, wavelength);
     }
@@ -58,7 +66,8 @@ public sealed class WaveRipple : MonoBehaviour
             Transform c = _cells[i];
             if (c == null) continue;
             Vector3 p = c.localPosition;
-            float s = Mathf.Sin(time * _speed - p.z * _waveNumber);
+            float coord = _radial ? Mathf.Sqrt(p.x * p.x + p.z * p.z) : p.z;
+            float s = Mathf.Sin(time * _speed - coord * _waveNumber);
             c.localPosition = new Vector3(p.x, _restY[i] + s * _amplitude, p.z);
             if (_mats != null && i < _mats.Length && _mats[i] != null)
             {

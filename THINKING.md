@@ -40,6 +40,44 @@ burst was sized to a radius never drawn.
 radius 3.4, speed 16, duration dropped, new description); `TryAoeTarget` radius = `Range` for NovaWave;
 castAnchor → Feet. F4 prediction: `byAnchor` Feet +1 / Front −1 (see PROGRESS 1l116-status).
 
+**Follow-up (body), still OPEN — play-test pending.** After the delivery shipped the user said "instead of
+a spreading circle, i want it to have wave like function like firewave but in a circle": the *behaviour*
+was right, the *look* was wrong. The first cut mounted the 1l112 flat disc.
+
+**H6 — which "wave like firewave"? asked rather than guessed. CONFIRMED (user picked the ring).** Two
+readings: (a) keep the flat disc but give it a rolling crest (Fire Wave's floor, still a disc), or (b)
+the Fire-Wave voxel floor bent into a ring that expands. The user chose **(b), "Fire-Wave cube crest, in a
+ring."** Rule 20: a request about where something is DRAWN is about the look, so I did not touch the
+delivery — only `BuildNovaRing`.
+
+**H7 — host the new body in `MagicProjectileModelBuilder.Wave`'s family (per-cell materials + WaveRipple
+already there). REJECTED, kept in `SpellZoneModelBuilder`.** Moving it would orphan the documented
+`BuildNovaRing` public API and its three call sites (`ResolveNova`, the `SpellZone` fallback, the bench)
+for no gain: `SpellZoneModelBuilder` can hold per-cell materials too (rule 13 — one builder; the *cell
+count and tint* are look constants, not a second spelling of anything). Fire Wave still OWNS the forward
+floor; this reuses its *idiom* (voxel band + `WaveRipple` crest + two-tone trough/crest) without a second
+factory.
+
+**H8 — the crest can be the static profile only; the `WaveRipple` is unnecessary. REJECTED.** A static
+crest on an expanding ring *would* read as motion (the ring itself moves), but the user asked specifically
+for the firewave *function*, and Fire Wave's sell is the traveling crest. So `WaveRipple` gains a RADIAL
+phase (`√(x²+z²)` instead of `z`), default false — Fire Wave / Frozen Touch / Storm Lash are byte-
+identical (they pass no `radial`). The phase coordinate is read from the cell's x/z, which the ripple never
+rewrites (it writes Y only), so the radial coordinate is stable across frames.
+
+**H9 — the ripple can be found in `InitializeNova`. REJECTED.** `ResolveNova` must build the body AFTER
+`InitializeNova` (the body needs `MaxRadius`, which `InitializeNova` computes — one spelling, rule 8), so
+at `InitializeNova` time there is no `WaveRipple` to find. `SpellWave.Update` fetches it once via a
+`_rippleSearched` latch on the first frame (the body exists by then) — a per-frame `GetComponentInChildren`
+on a body that legitimately has none would be waste. Fire Wave's forward path is unchanged (it finds the
+ripple in `Initialize`, `_ripple != null`).
+
+**Body verdict:** `BuildNovaRing` = 4 rings × 72 stations of small cubes on an annulus `[radius−band,
+radius]`, crest lifting at the leading edge, per-cell tint (trough = `Lerp(Core, black, 0.55)`, crest =
+`Edge` — `EdgeFor` keeps Core's alpha, so the crest is opaque); `WaveRipple.Configure(..., radial: true)`
+rolls the crest outward; `SpellWave` drives it. Signature unchanged. Play-test: the ring reads as a
+rolling wave; Fire Wave / Frozen Touch / Storm Lash unchanged.
+
 ## 1l115. QA lane keys on unpressable keys (SHIPPED; play-test pending)
 
 **Report:** "the ragdoll demo can be activated by F4" and pressing it did nothing.

@@ -43,8 +43,36 @@ edit), and the QA pedestal chain (keyed on `ZoneModel`, not delivery — only it
 `duration` Static Nova carried as a Zone is…" in the Ground-waves paragraph — correct, and intentionally
 kept as the sentence that records the removal; no other doc still calls Static Nova a Zone.
 
+**Follow-up pass (same task id, later commit): the body became a rolling wave.** After the delivery
+shipped, the user said "instead of a spreading circle, i want it to have wave like function like firewave
+but in a circle" — i.e. the *look* was wrong, not the behaviour. The first cut mounted the 1l112 flat-disc
+NovaRing; I asked which reading they meant and they chose **"Fire-Wave cube crest, in a ring."** So
+`SpellZoneModelBuilder.BuildNovaRing` is reimplemented as the Fire-Wave voxel floor bent into an annulus:
+a band of small cubes from `radius − band` out to `radius` (288 cells, 4 rings × 72 stations — the same
+budget Fire Wave's base floor uses), lifting into a crest at the leading edge, tinted **per cell** (Core
+darkened to 0.55 for the trough, Edge brightened for the crest — the two-tone Fire Wave uses, and the
+reason the crest reads at all: a bare height offset is invisible on flat-topped cubes whose normals never
+change). `WaveRipple` gains a **radial** phase mode (`√(x²+z²)` instead of `z`, default false so Fire
+Wave / Frozen Touch / Storm Lash are untouched), so the crest rolls OUTWARD through the ring as the root
+scales up. Signature unchanged — `ResolveNova`, the `SpellZone` fallback branch and the bench still mount
+it (rule 13). The flat disc and its 18 rim arcs + inner glow are gone.
+
+**The ripple is driven from the moving loop, and a radial nova's body is attached late.** `ResolveNova`
+calls `InitializeNova` FIRST (it needs `MaxRadius` to size the ring), THEN `BuildNovaRing` attaches the
+`WaveRipple` — so the forward-mode `_ripple = GetComponentInChildren<WaveRipple>()` in `Initialize` finds
+nothing in radial mode. `SpellWave` now fetches it once on the first `Update` (a `_rippleSearched` latch
+keeps it from re-searching every frame), and drives it, so the moving ring ripples while the QA pedestal's
+copy stays motionless (rule 19, exactly as for the forward floor).
+
 ### 1l116-status
-- Files touched (8 C# + 3 md): `Assets/Scripts/Magic/Cast/SpellData.cs` (enum `NovaWave = 9` +
+- **Delivery commit** `d6dc045` — 8 C# + 3 md (files listed below).
+- **Body follow-up commit** (separate commit, rule 1) — 4 C# + 4 md: `Assets/Scripts/Models/Magic/SpellZoneModelBuilder.cs`
+  (`BuildNovaRing` reimplemented as the voxel crest ring + rewritten doc), `Assets/Scripts/Magic/Fx/WaveRipple.cs`
+  (radial phase mode + `Configure` param + doc), `Assets/Scripts/Magic/Cast/SpellWave.cs` (`_rippleSearched`
+  latch + lazy fetch comment), `Assets/Scripts/Magic/Look/SpellLook.cs` (`ZoneBody.NovaRing` doc only),
+  `game-design.md` (Ground-waves radial-sibling paragraph + 1l112 supersession note), `magic-skills.md`
+  (NovaWave row), plus this `PROGRESS.md` and `THINKING.md`.
+- Files touched (delivery pass): `Assets/Scripts/Magic/Cast/SpellData.cs` (enum `NovaWave = 9` +
   `ProjectileShape.Wave` cross-ref + `CenterOnCaster` tooltip), `Assets/Scripts/Magic/Cast/SpellWave.cs`
   (radial mode: fields, `InitializeNova`, `MaxRadius`, radial `Update`, annulus `Sweep`),
   `Assets/Scripts/Magic/Cast/SpellCaster.Cast.cs` (`ResolveNova` + dispatch case + groundDelivery list +
@@ -64,7 +92,11 @@ kept as the sentence that records the removal; no other doc still calls Static N
   armed AoE preview disc sits under the feet at the spread's extent (not charge-scaled); (3) F4 readout
   confirms `byAnchor` Feet +1 / Front −1; (4) Frozen Touch / Fire Wave / Storm Lash unchanged; (5) F4
   `authored profiles` count — Fire Meteor gained an authored profile in 1jt (+1, historical); Static
-  Nova's profile predates this task, so no delta expected there.
+  Nova's profile predates this task, so no delta expected there; (6) **body (follow-up):** the nova now
+  reads as a rolling voxel crest ring, not a flat disc — the band is visible from the start (tiny at the
+  feet) and the crest rolls outward; **and check (4) really means (4):** `WaveRipple`'s new `radial` flag
+  defaults false, so Fire Wave / Frozen Touch / Storm Lash must look byte-identical (the crest still rolls
+  forward along `z`) — a regression there is the one thing this change could have broken.
 
 ## 1l115. QA lane keys sat on unpressable keys (ragdoll demo could never fire) - F13/F14/Numpad1/Numpad8 re-homed
 
