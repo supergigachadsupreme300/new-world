@@ -427,7 +427,7 @@ disagree, AGENTS.md wins. Read a section on demand.*
       fill sweep instead of a recurring cost. State each counter's window in its own label, and reset
       per-window peaks on the same cadence as the counters beside them.
    - **An audit must ask the question the PROPOSAL is about, or the fix ships with no acceptance
-     readout.** Sections A-D of the F13 crater lane measure depth, radial profile, resolution and
+     readout.** Sections A-D of the crater lane (key B since 1l115; F13 before that) measure depth, radial profile, resolution and
      expressibility; every one of them can read clean on a perfectly **smooth** cone, which is exactly
      the current shape, so a proposal whose entire point is "now make it *stepped*" had no section
      that could see it. 1hy already stated the general form ("drawn" and "flush" are separate
@@ -505,6 +505,22 @@ disagree, AGENTS.md wins. Read a section on demand.*
      answer is a data-model change (per-tile tops, the voxel path) or a **separate draw owner** (1f4's
      cube-sphere facet shell) - not a smaller epsilon. Shared corners are also why the lattice yields
      a *ramp* and never a *wall*, which is rule 12's "no vertical strip pass" seen from the data side.
+
+- **A lane key that is "free" can still be unpressable, and the check that proves it free cannot
+  see that (1l115).** The crater lane shipped on `F13` (1io) and the ragdoll demo on `F14` (1l97),
+  and 1io's "positive control" for its no-double-binding search was `F13` itself. Both are
+  unpressable: `F13`-`F24` have no physical key on a standard PC keyboard, and the summon-model /
+  trail lanes sat on `Numpad1` / `Numpad8` after the user had already said he owns no numpad (1ky,
+  when the boom lane moved `Numpad2`->`P`). So a whole generation of QA lanes could be read,
+  grep-verified, documented as "verified free across all three spellings", and never once fired by a
+  human - and the gap is *unfindable by grep*, because reachability is a property of the keyboard,
+  not the code. 1l115 re-homed all four (`F13`->`B`, `F14`->`N`, `Numpad1`->`M`, `Numpad8`->`U`) and
+  added `StaticChecks.ps1` check 9, which fails a lane default on `F13`-`F24` or `Numpad*` - the
+  mechanical half of "record who takes each key", paired with the human question "can it be pressed
+  at all". The tell is that the constraint had ALREADY been written down once and still changed
+  nothing: 1f2 sized a gate while noting "the user has no F13 key, so F13 section E cannot be
+  pressed", and the lane sat on F13 for many tasks after that sentence was published. A fact in
+  prose propagates only when a reader happens to meet it - reachability had to become a CHECK.
 
 ---
 

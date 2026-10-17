@@ -69,7 +69,7 @@ public sealed class CameraModeSwitch : MonoBehaviour
 
     /// <summary>1ks (QA, read-only): the NAME of the collider the LAST boom cast hit, or null when
     /// that cast missed. Published from the same <c>SphereCast</c> that sets <c>_cachedFinalDist</c>, so
-    /// the Numpad2 boom lane can name the object that shortens the boom instead of only reporting that
+    /// the boom lane (key P since 1ky; Numpad2 before that) can name the object that shortens the boom instead of only reporting that
     /// a clamp happened. The clamp's mechanism has been the open question since 1ko - four fixes were
     /// chosen without ever seeing which collider fires - so the AUDIT must name it. Updated only on a
     /// re-cast (~10 Hz / 8 deg turn), i.e. it describes the cast the current <c>_cachedFinalDist</c>

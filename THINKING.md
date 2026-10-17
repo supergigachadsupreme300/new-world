@@ -1,3 +1,34 @@
+## 1l115. QA lane keys on unpressable keys (SHIPPED; play-test pending)
+
+**Report:** "the ragdoll demo can be activated by F4" and pressing it did nothing.
+
+**H1 - the lane is gated off. REJECTED.** Read `NewWorldTestGround.Update()` end to end: the ragdoll poll
+sits above the build/ready early returns and only checks `if (EnableRagdollDemo)`, whose field initializer is
+`true`, and `GameBootstrap` adds the component at runtime so the initializer is authoritative (rule 12).
+Nothing else reads the key; the lane is polled every frame. `TriggerRagdollDemo()` is sound (public path,
+logs, `pc.Ragdoll.Enter(...)`).
+
+**H2 - the key is not on the user's keyboard (and F4 is a different lane). CONFIRMED.** `RagdollDemoKey` was
+`Key.F14`, shipped in 1l97; `Key.F4` is `LookAuditKey` (the look/aim audit), so the user's F4 press ran the
+look audit and nothing else - the report's "F4" is a misremembering of the F14 the 1l97 entry documents.
+F13-F24 have no physical key on a standard PC keyboard, so the lane could never be pressed.
+
+**H3 - the defect is a class, not one key. CONFIRMED.** Enumerated every `public Key <x>Key = ...` in
+NewWorldTestGround.cs (9 of them): crater `F13`, ragdoll `F14`, summon-model `Numpad1`, trail `Numpad8` are
+all unreachable on this hardware (no F13+ key; the user owns no numpad - 1ky, when the boom lane moved
+`Numpad2`->`P` but the sweep stopped there). Cross-checks: no `.inputactions` asset exists anywhere in
+`Assets`; movement uses WASD/arrows + Space/LeftCtrl/LeftShift/C; the still-free letters are B I J M N U Y.
+
+**H4 - 1io's "positive control" proved the search, not pressability. CONFIRMED.** 1io cited `F13` as the
+positive control showing its no-double-binding grep pattern worked - but F13 is itself unpressable, so the
+control was as dead as the lane. Check 8 answers "does this key have a second owner"; it structurally cannot
+answer "does this key exist on the keyboard". Grep can never answer the second: reachability is a property
+of the keyboard, not the code.
+
+**Verdict (shipped):** re-homed all four to free AND pressable keys - `F13`->`B`, `F14`->`N`, `Numpad1`->`M`,
+`Numpad8`->`U`; the look audit stays `F4` (user's decision to keep it, since F4 is named in 21 game-design.md
+lines + 8 tooltips). Added `StaticChecks.ps1` check 9, proven to fail on a mutated F13/Numpad1 lane (rule 7).
+
 ## 1l114. Arc Volley zaps animals: gate vs addressing (SHIPPED; play-test pending)
 
 **Report:** animals were promised a place on Arc Volley's in-flight zap list (1l113) but still survive a

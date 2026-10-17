@@ -149,7 +149,7 @@ the corner, which is why section C reads `Mesh.vertices` and not the lattice. A 
 expect to *rebuild* one of these measurements rather than to read cause A off an existing validator.
 
 **The crater lane (1in/1io) — dents, and whether a missing rim is a resolution problem or an
-unauthored shape.** `WorldStreamer.CraterAudit()` (bench key **F13**, `WorldStreamer.CraterAudit.cs`)
+unauthored shape.** `WorldStreamer.CraterAudit()` (bench key **B**, `WorldStreamer.CraterAudit.cs`)
 answers a
 question the F3 lane cannot: a carve *is* in the data and *is* drawn, so every seam-cause reading is
 clean while the shape is still wrong. Read-only, like F3 — no rebuild, no re-stamp, no poll — so the
@@ -200,7 +200,7 @@ two things E can tell stepped from continuous, and E is now the acceptance reado
 - the signed `offset` is **snapped to a terrace ladder** of `clamp(reach · 0.25, 0.30, 0.80)` m before
   it is written — a fraction of reach so one ratio reads as terracing at every size.
 
-Acceptance on F13: section E's ladder verdict turns from `CONTINUOUS (no terrace exists)` to
+Acceptance on B: section E's ladder verdict turns from `CONTINUOUS (no terrace exists)` to
 `UNIFORM LADDER (quantised carve)`, with `riserEdges > 0` and a net rim terrace of `+0.475 m` at
 `t ≈ 0.80`. Numbers are derived, not measured — the readout has to confirm them on the resident set.
 
@@ -274,11 +274,21 @@ finding no references, and documenting the key as free. It was bound — the **c
 binds it as `Keyboard.current.f1Key` (`Player\PlayerController.Interactions.cs:521`), the
 *property-name* spelling, which neither grep pattern matches. Pressing F1 therefore ran the audit
 **and** toggled fighting mode, so any readout taken that way was measured with weapons drawing and
-`ToolManager` resetting selection underneath it. F13 is free in both spellings; **F1 is the combat
+`ToolManager` resetting selection underneath it. F13 was free in both spellings (1l115: free is not the same as *pressable* — F13 has no physical key, see below); **F1 is the combat
 toggle, not a skill hotkey** — that claim sat in four tooltips and two older task entries and was
 never true. `tools\StaticChecks.ps1` check 8 now derives the QA lane keys from their declarations
 and fails on any second binding in `Assets\Scripts` across all three Input System spellings, so
 this class of collision cannot ship silently again.
+
+**Every lane key on this user's keyboard is pressable (1l115).** 1io's check was a search for
+*bindings*, and F13 had none — but F13–F24 have no physical key on a standard PC keyboard, so the
+lane could never be pressed, and the "positive control" cited for the search (F13) was unpressable
+for the same reason: it proved the pattern, nothing about reachability. 1l115 re-homed every lane
+key that was unreachable on this user's keyboard — **F13→B** (this crater audit), **F14→N**
+(ragdoll demo), **Numpad1→M** (summon-model), **Numpad8→U** (trail) — the same reasoning 1ky used
+to move the boom lane off Numpad2 (the user owns no numpad), extended to the F13–F24 range.
+`tools\StaticChecks.ps1` gained **check 9**, which fails any lane key default that lands on
+F13–F24 or a `Numpad*`, so the class cannot return silently.
 
 ### 2.3 Perlin Noise Layers (5 octaves)
 
@@ -690,8 +700,9 @@ output). Nothing was deleted; the change is three values plus their two test-pla
 | `WorldStreamer.FarSectorStep()` | `6` | **`3`** | far-shell sampling step (never gated — see below) |
 | `NewWorldTestGround.EnableLowPolyTerrain` | `true` | **`false`** | test-platform mirror; re-enabled the look every session |
 | `NewWorldTestGround.LowPolyStep` | `6` | **`3`** | test-platform mirror |
-| `NewWorldTestGround.EnableCraterAudit` | n/a | **`true`** | **F13** read-only crater/deform audit (`CraterAuditKey` = `Key.F13`; moved off F1 in 1io — F1 is the combat-mode toggle) |
+| `NewWorldTestGround.EnableCraterAudit` | n/a | **`true`** | **B** read-only crater/deform audit (`CraterAuditKey` = `Key.B`; F1→F13 in 1io, then F13→B in 1l115 (F13 has no physical key) — F1 is the combat-mode toggle) |
 | `NewWorldTestGround.EnableWallFaceAudit` | n/a | **`true`** | **H** read-only raised-terrain face audit (`WallFaceAuditKey` = `Key.H`; a letter, not a Numpad, since the user owns no numpad — see 1l94) |
+| `NewWorldTestGround.EnableRagdollDemo` | n/a | **`true`** | **N** ragdoll demo (`RagdollDemoKey` = `Key.N`; 1l97 shipped it on `Key.F14` — no physical key — re-homed to N in 1l115; press to ragdoll the player via `PlayerRagdoll`) |
 
 What the terrain renders now, with the flag off:
 
@@ -1965,7 +1976,7 @@ and **Crater** excavates a **terraced spherical cap** ringed by a raised, idempo
   but the two edge maximums agree within `0.001f`, so **neither** side passes `EdgeIsRaised` and no
   wall is emitted at all. Both are edge-local and intra-chunk, which is exactly what **F3 cannot see** —
   its corner pass samples chunk corners (30 m nodes) only. `H` is the same measurement-first shape as
-  the F13 crater lane: no rebuild, no re-stamp, no forced poll, and the VERDICT names the world XZ to
+  the B crater lane (F13→B, 1l115): no rebuild, no re-stamp, no forced poll, and the VERDICT names the world XZ to
   walk to.
   ***Crater rears the terrain's strata as a signature**: unlike the capped raises, an excavation
   is **WIDTH-bounded** (1cv). The crater's **width** is always the spell's small
@@ -2430,7 +2441,7 @@ Colour is `SpellLook.Edge`, the two-tone member documented for "rim, trails, sha
 resolved once on the projectile by `SpellEffect.Initialize`, so the trail adds no second colour lookup
 and derives nothing. It travels in the **mesh's vertex colours**, not in a material, which is why a
 single shared material serves every strip of every school: the strips differ per cast, the material
-does not. Strip colliders are absent **by design** — the Numpad8 lane counts them as its known-zero
+does not. Strip colliders are absent **by design** — the U lane counts them as its known-zero
 control, precisely because a trail that acquired a collider would cost physics it never needs.
 
 Two placement rules, which are why the trail is **not** in the model builder, and which 1jq kept
@@ -2442,7 +2453,7 @@ emission lives in the flight loop, which only runs while a projectile is genuine
 resolves and destroys itself in `Launch` *before* `_launched` is set, so it never trails, and neither
 the bench nor a turret bolt ever reaches `Update`.
 
-**Acceptance readout (1jq) — bench key Numpad8.** The proposal behind this rewrite was entirely about
+**Acceptance readout (1jq) — bench key U.** The proposal behind this rewrite was entirely about
 cost, so the lane that can judge it counts **components and geometry**, not milliseconds:
 `NewWorldTestGround.EnableTrailAudit` + `SnapshotTrailAudit` reports live strips, how many were
 actually **rendered** (`Renderer.isVisible`, which is the difference between "exists" and "drawn"),
@@ -2459,7 +2470,7 @@ Two deliberate details:
 It is read-only (rule 7): it counts what is in the scene on the frame the key was pressed, and spawns
 and changes nothing. What it **cannot** report is whether the strip sits flush with the ground or how
 the taper reads on screen — "drawn" and "flush" are separate properties, so the look is a play-test
-item and the numbers are not a substitute for it. Numpad8 was verified free across all three Input
+item and the numbers are not a substitute for it. U was verified free across all three Input (as Numpad8 it was unreachable — the user owns no numpad; re-homed in 1l115)
 System spellings before use, and `tools\StaticChecks.ps1` check 8 enforces the no-double-binding half
 mechanically; 1jq also corrected the crater lane's stale "Numpad0-9 are free" tooltip, which had
 stopped being true when 1je took Numpad1.
@@ -3855,7 +3866,7 @@ Three measured findings drive it, and one of them contradicts the obvious readin
   and nothing replaced it, so the ally has never been targetable, and adding hitboxes would change combat.
   The class-level `[RequireComponent(typeof(SphereCollider))]` is added by `AddComponent` and never
   removed — a pre-existing contradiction, left alone. Reading it needed an acceptance lane, so
-  `NewWorldTestGround` grew `EnableSummonModels` + `SpawnSummonModels` (key **Numpad1**, three pedestals
+  `NewWorldTestGround` grew `EnableSummonModels` + `SpawnSummonModels` (key **M**, three pedestals
   at `z = PlatformCenter.z + 11f`): the other two summon bodies ride along, because until now none of the
   three had a readout. See `PROGRESS.md` §1je.
 - **The game opens in third person (1jf).** `CameraModeSwitch` is the camera owner, and it is the class to

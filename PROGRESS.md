@@ -1,3 +1,59 @@
+## 1l115. QA lane keys sat on unpressable keys (ragdoll demo could never fire) - F13/F14/Numpad1/Numpad8 re-homed
+
+The user reported "the ragdoll demo can be activated by F4" and it did nothing. **Root cause:** the lane
+is `NewWorldTestGround.RagdollDemoKey`, declared `= Key.F14` since 1l97, and **F13-F24 have no physical key
+on a standard PC keyboard** - so the lane could never be pressed at all. F4 is a *different* lane
+(`LookAuditKey = Key.F4`, the look/aim audit), which is the only thing the user's F4 press ran. There was no
+gating bug: `Update()` polls the lane unconditionally modulo `EnableRagdollDemo` (default true), above its
+early returns, and `TriggerRagdollDemo()` is sound.
+
+The report named a CLASS, not a key: reachability cannot be checked by grep, and the existing
+`StaticChecks.ps1` check 8 only proves a lane key has **no second OWNER** - a key nothing binds passes clean,
+so an F13/Numpad lane reads "verified free across all three spellings" for a whole task generation while
+being unpressable (1io's own "positive control" for check 8 was `F13`). Four lanes were affected: crater
+audit `F13`, ragdoll demo `F14`, summon-model `Numpad1`, trail `Numpad8` (the user owns no numpad - 1ky,
+when the boom lane moved Numpad2->P, but the sweep was never extended to the other Numpad lanes).
+
+**Fix (user-approved sweep of all four).** Re-homed to keys that are free *and* pressable:
+
+- `CraterAuditKey` `F13` -> **B**
+- `RagdollDemoKey` `F14` -> **N**
+- `SummonModelKey` `Numpad1` -> **M**
+- `TrailAuditKey` `Numpad8` -> **U**
+
+(`LookAuditKey` stays **F4**: the user's second decision was to KEEP the look audit where it is rather than
+move it, because F4 is named in 21 `game-design.md` lines and 8 tooltips while the ragdoll key appears in no
+doc.) All four tooltips were rewritten, the repeated key map in the wall-face/boom tooltips updated, and
+every doc that named the old keys swept (`game-design.md` bench key, acceptance line, status-table crater row
++ a new ragdoll row, crater-lane reference, trail/summon references; stale key comments in `TrailStrip.cs`
+and `CameraModeSwitch.cs`). New `StaticChecks.ps1` **check 9** fails a lane-key default on `F13-F24` or
+`Numpad*`, proven to fire by mutating two lanes back to F13 / Numpad1 and watching it name them (rule 7).
+
+**Found while sweeping (pre-existing, NOT fixed - recorded):** `game-design.md` still documents
+`ResidentDropKey` (F4) and `WorldStreamer.DropResidentTerrainKeepSaves()` as live, but the method and its
+bench key were removed in 1hx (0 grep hits in `Assets/Scripts`); the drop paragraph and the "(F4 lane)"
+drop-counter note are stale. Out of scope for a key re-home (a removed-feature lore rewrite) - flagged so it
+is not silently ignored.
+
+### 1l115-status
+- Files touched (3 C# + 1 script + 4 md): `Assets/Scripts/Opt/NewWorldTestGround.cs` (4 lane-key
+  declarations + tooltips, repeated key map, boom comment), `Assets/Scripts/Magic/Fx/TrailStrip.cs` (3 key
+  comments), `Assets/Scripts/Player/CameraModeSwitch.cs` (1 key comment), `tools/StaticChecks.ps1` (new
+  check 9 + header note), `game-design.md`, `AGENTS.md` (rule 7 bullet), `LESSONS.md` (section 7 case
+  study), this file + `THINKING.md`.
+- Verification: grep + reread only (no build, rule 3); `tools/StaticChecks.ps1` -> 0 candidates, and check 9
+  demonstrated to FAIL (rule 7) on F13/Numpad1 before the revert.
+- Pending play-test: (1) press **N** -> the player ragdolls (N is the ragdoll demo, NOT F4). (2) press **B**
+  -> the crater/deform audit HUD appears. (3) press **M** -> the three summon-model pedestals spawn.
+  (4) press **U** -> the trail lane readout appears (during a cast). (5) confirm **F4** still runs the LOOK
+  audit (unchanged) and that none of B/M/U/N collides with a skill bind the user has set.
+- NOTE for older entries: pending play-test checkboxes written before 1l115 still say "press
+  F13 / Numpad1 / Numpad8" (and F14 for the ragdoll). They mean **B / M / U / N** now - the entry
+  text is left as history (rule 1: never amend), so re-read this line rather than those keys.
+- skills: none applicable (rule 15) - a 12-line key-default + tooltip + PowerShell-script edit with no
+  DCC/render artifact; the Unity skills target driving a running editor, which rule 3 forbids here, so
+  loading one would be a near-miss burn (rule 15: match the skill to the artifact).
+
 ## 1l114. Arc Volley zaps livestock animals too (and addresses them by component, not scene root)
 
 Follow-up to 1l113. The user's report: animals were supposed to be on the in-flight zap list but still

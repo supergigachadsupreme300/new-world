@@ -95,12 +95,12 @@ public sealed class TrailStrip : MonoBehaviour
 
     private static Material _sharedMaterial;
 
-    /// <summary>Live quads. Reported by the 1jq Numpad8 lane.</summary>
+    /// <summary>Live quads. Reported by the 1jq trail lane (key U since 1l115).</summary>
     public int SegmentCount { get { return _count > 1 ? _count - 1 : 0; } }
 
     /// <summary>Vertices the strip's geometry actually REFERENCES, which is not the array length:
     /// <c>Rebuild</c> uploads the whole preallocated buffer and lets the unused tail go unreferenced
-    /// (and, for indices, zeroed). Reported by the 1jq Numpad8 lane, so it has to be the number the
+    /// (and, for indices, zeroed). Reported by the 1jq trail lane (key U since 1l115), so it has to be the number the
     /// strip really draws.
     /// <para>
     /// ZERO when there are no segments, not <c>_count * 2</c>: a one-point strip never reaches
@@ -127,7 +127,7 @@ public sealed class TrailStrip : MonoBehaviour
     /// first Update". That guarantee was never needed and the comment claiming it was false:
     /// <c>Update</c> only destroys on <c>_count == 0</c>, so a one-point strip survives its first frames
     /// on the <c>_count &lt; 2</c> return. The duplicate point instead drew a zero-area quad and made
-    /// the Numpad8 lane report 1 segment / 2 triangles for a strip with no geometry — a positive-looking
+    /// the trail lane (key U since 1l115) report 1 segment / 2 triangles for a strip with no geometry — a positive-looking
     /// number about nothing, which is the failure rule 7 exists to stop.
     /// </para>
     /// </summary>

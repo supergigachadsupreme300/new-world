@@ -135,6 +135,14 @@
      `Keyboard.current[Key.F1]`, or a wrapper field), and record *who* takes each key when you
      document one as free, or the claim outlives the task that made it. (Check 8 mechanises this for
      QA lane keys.)
+   - **A key that nothing binds is not a key that can be PRESSED: reachability is a property of the
+     KEYBOARD, not of the code, so no grep can see it.** 1io proved the crater lane's `F13` had no
+     second binding and cited `F13` as the "positive control" - but `F13`-`F24` have no physical key on
+     a standard PC keyboard, so the lane and its control were both unpressable for a whole task
+     generation, and 1l97 repeated it on `F14`. The first question about a lane key is not "is it
+     free" but "is it on the user's keyboard": `F13`-`F24` and `Numpad*` are not (the user owns no
+     numpad, 1ky). Check 9 mechanises the pressability half check 8 structurally cannot see, and every
+     move of a lane key sweeps the tooltips AND the docs that name it.
    - **"Not used" is a claim about a CALL GRAPH:** grep the surprising callers (a folder describes
      where a class was written, not who depends on it), separate "unused by the game" from "unused by
      the legacy layer", ask *which member* is unused rather than whether the class is, and confirm

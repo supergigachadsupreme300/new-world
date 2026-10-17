@@ -89,6 +89,9 @@ $propstage   = 'Assets\Scripts\World\Streaming\WorldStreamer.Props.cs'
 # `out` parameter set (check 4's CS0165 surface), a four-case switch on the edge index
 # (check 5's cross-case surface) and a private TryGet-style helper (check 2). It also owns a
 # new lane key (WallFaceAuditKey) in NewWorldTestGround, so check 8 must see it here.
+# 1l115 added check 9: a lane key default must be a key the user can PRESS. Check 8 proves a
+# key has no second owner; it cannot see that F13-F24 have no physical key and the user has no
+# numpad (1ky), which is why four lane keys sat unreachable until 1l115 re-homed them.
 $files = @($blueprints, $persistence, $npcs, $world, $testground, $corneraudit,
            $chunkbuild, $farshell, $deform, $crateraudit, $wallfaceaudit,
            $streamer, $meshstage, $propstage,
@@ -427,7 +430,8 @@ Section '8. a QA lane key must not already be bound elsewhere (one key, two owne
 #
 # Verified both ways (AGENTS.md rule 7 - a check nobody has seen fail is not a check):
 # reverting CraterAuditKey to Key.F1 fires this check naming Interactions.cs:521, and
-# restoring Key.F13 goes quiet.
+# restoring Key.F13 goes quiet for THIS check (1l115: it trips check 9 instead - which is exactly
+# the split between "no second owner" and "can be pressed" that check 9 was added for).
 # Collect the lane keys as DECLARED, from comment/string-stripped code so a key
 # merely NAMED in a tooltip does not become a lane.
 $laneRe = 'public\s+Key\s+(\w+Key)\s*=\s*Key\.(\w+)\s*;'
@@ -475,6 +479,31 @@ foreach ($f in (Get-ChildItem -Path 'Assets\Scripts' -Recurse -Filter '*.cs' -Fi
 }
 if ($collide -eq 0) {
     Ok "$($laneKeys.Count) lane keys ($((@($laneKeys.Keys)) -join ', ')) - no second binding anywhere in Assets\Scripts"
+}
+
+Section '9. a QA lane key must be a key the user can actually PRESS'
+# 1l115. Check 8 asks whether a lane key has a SECOND owner. It does not ask whether the key
+# EXISTS on the user's keyboard, and that gap was invisible for as long as it mattered, because
+# a key nothing binds looks free both ways:
+#     F13-F24   no physical key on a standard PC keyboard. 1io shipped the crater audit on F13
+#               and 1l97 the ragdoll demo on F14, and 1l97 cited F13 as the 'positive control'
+#               proving the grep pattern worked - it proved the SEARCH, nothing about pressability.
+#     Numpad*   the user has NO numpad (1ky, recorded when the boom lane moved Numpad2 -> P, but
+#               not swept to the other lanes still sitting on Numpad1 and Numpad8).
+# The lesson is that reachability is not a property of the CODE - it is a property of the
+# KEYBOARD - so no grep can derive it and it has to be stated as a rule. 1l115 re-homed all four
+# unreachable defaults (F13 -> B, F14 -> N, Numpad1 -> M, Numpad8 -> U) and added this check so
+# the class cannot come back silently.
+# Verified both ways (AGENTS.md rule 7 - a check nobody has seen fail is not a check): restoring
+# Key.F13 (or Key.Numpad1) for any lane key fires this and names it; the 1l115 defaults go quiet.
+$unreach = @()
+foreach ($k in $laneKeys.Keys) {
+    if ($k -match '^F(1[3-9]|2[0-4])$') { $unreach += "$k ($($laneKeys[$k]))" }
+    elseif ($k -match '^Numpad') { $unreach += "$k ($($laneKeys[$k]))" }
+}
+foreach ($u in $unreach) { Bad "lane key default is not a key the user can press: $u" }
+if ($unreach.Count -eq 0) {
+    Ok "$($laneKeys.Count) lane keys - none on F13-F24 or a Numpad; every default is pressable"
 }
 
 Section 'summary'
